@@ -57,8 +57,8 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
   const currentGroups = getGroupsByParent(currentPath);
   const currentGroupsList =
     newGroup &&
-    !currentGroups.some((g) => g.id === newGroup.id) &&
-    !currentGroups.some((g) => newGroup.name.startsWith(g.name))
+      !currentGroups.some((g) => g.id === newGroup.id) &&
+      !currentGroups.some((g) => newGroup.name.startsWith(g.name))
       ? [newGroup, ...currentGroups]
       : currentGroups;
 
@@ -145,11 +145,29 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
         // Update the group name for all books in this group and nested groups
         libraryBooks.forEach((book) => {
           if (book.groupName === oldGroupName) {
-            book.groupName = groupName;
+            const newGroupName = groupName;
+
+            // 在本地存储模式下，移动文件以匹配新的分组名
+            if (book.relativePath && appService?.reclassifyBook) {
+              appService.reclassifyBook(book, newGroupName, oldGroupName).catch((error) => {
+                console.error('Failed to reclassify book files during rename:', error);
+              });
+            }
+
+            book.groupName = newGroupName;
             book.groupId = getGroupId(book.groupName);
             book.updatedAt = Date.now();
           } else if (book.groupName?.startsWith(oldGroupName + '/')) {
-            book.groupName = book.groupName.replace(oldGroupName, groupName);
+            const newGroupName = book.groupName.replace(oldGroupName, groupName);
+
+            // 在本地存储模式下，移动文件以匹配新的分组
+            if (book.relativePath && appService?.reclassifyBook) {
+              appService.reclassifyBook(book, newGroupName, book.groupName).catch((error) => {
+                console.error('Failed to reclassify book files during rename:', error);
+              });
+            }
+
+            book.groupName = newGroupName;
             book.groupId = getGroupId(book.groupName);
             book.updatedAt = Date.now();
           }
@@ -197,13 +215,22 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
     setCurrentPath(path);
   };
 
-  const handleConfirmGrouping = () => {
+  const handleConfirmGrouping = async () => {
     selectedBooks.forEach((id) => {
       for (const book of libraryBooks.filter((book) => book.hash === id || book.groupId === id)) {
         if (book && selectedGroup) {
+          const oldGroupName = book.groupName;
           book.groupId = selectedGroup.id;
           book.groupName = selectedGroup.name;
           book.updatedAt = Date.now();
+
+          // 在本地存储模式下，移动文件以匹配新的分组
+          if (book.relativePath && appService?.reclassifyBook) {
+            appService.reclassifyBook(book, selectedGroup.name, oldGroupName).catch((error) => {
+              console.error('Failed to reclassify book files:', error);
+              // 不中断流程，继续保存元数据
+            });
+          }
         }
       }
     });

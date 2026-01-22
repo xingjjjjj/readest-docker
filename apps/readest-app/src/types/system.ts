@@ -124,6 +124,8 @@ export interface AppService {
     overwrite?: boolean,
     transient?: boolean,
   ): Promise<Book | null>;
+  importBookFromPath?(filePath: string, relativePath: string, books: Book[]): Promise<Book | null>;
+  reclassifyBook?(book: Book, newGroupName: string, oldGroupName?: string): Promise<void>;
   deleteBook(book: Book, deleteAction: DeleteAction): Promise<void>;
   uploadBook(book: Book, onProgress?: ProgressHandler): Promise<void>;
   downloadBook(

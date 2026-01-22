@@ -17,6 +17,14 @@ import { useEinkMode } from '@/hooks/useEinkMode';
 import { getLocale } from '@/utils/misc';
 import { getDirFromUILanguage } from '@/utils/rtl';
 
+// Set storage mode globally before any other code runs
+if (typeof window !== 'undefined' && !((window as any).__STORAGE_MODE_SET__)) {
+  const storageMode = process.env.NEXT_PUBLIC_STORAGE_MODE || 'remote';
+  (window as any).__STORAGE_MODE__ = storageMode;
+  (window as any).__STORAGE_MODE_SET__ = true;
+  console.log('[Providers] Global: Set window.__STORAGE_MODE__ to:', storageMode);
+}
+
 const Providers = ({ children }: { children: React.ReactNode }) => {
   const { envConfig, appService } = useEnv();
   const { applyUILanguage } = useSettingsStore();
@@ -26,6 +34,13 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
   useSafeAreaInsets(); // Initialize safe area insets
 
   useEffect(() => {
+    // Verify storage mode is set (redundant safety check)
+    const storageMode = process.env.NEXT_PUBLIC_STORAGE_MODE || 'remote';
+    if (!((window as any).__STORAGE_MODE__)) {
+      (window as any).__STORAGE_MODE__ = storageMode;
+    }
+    console.log('[Providers] useEffect: window.__STORAGE_MODE__ =', (window as any).__STORAGE_MODE__);
+
     const handlerLanguageChanged = (lng: string) => {
       document.documentElement.lang = lng;
       // Set RTL class on document for targeted styling without affecting layout

@@ -44,7 +44,6 @@ import {
   SYSTEM_SETTINGS_VERSION,
   DEFAULT_BOOK_SEARCH_CONFIG,
   DEFAULT_TTS_CONFIG,
-  CLOUD_BOOKS_SUBDIR,
   DEFAULT_MOBILE_VIEW_SETTINGS,
   DEFAULT_SYSTEM_SETTINGS,
   DEFAULT_CJK_VIEW_SETTINGS,
@@ -112,7 +111,7 @@ export abstract class BaseAppService implements AppService {
   canReadExternalDir = false;
   distChannel = 'readest' as DistChannel;
 
-  protected CURRENT_MIGRATION_VERSION = 20251124;
+  protected CURRENT_MIGRATION_VERSION = 20260121;
 
   protected abstract fs: FileSystem;
   protected abstract resolvePath(fp: string, base: BaseDir): ResolvedPath;
@@ -134,6 +133,14 @@ export abstract class BaseAppService implements AppService {
         await this.migrate20251124();
       } catch (error) {
         console.error('Error migrating to version 20251124:', error);
+      }
+    }
+
+    if (lastMigrationVersion < 20260121) {
+      try {
+        await this.migrate20260121();
+      } catch (error) {
+        console.error('Error migrating to version 20260121:', error);
       }
     }
   }
@@ -188,11 +195,23 @@ export abstract class BaseAppService implements AppService {
   }
 
   getCoverImageUrl = (book: Book): string => {
-    return this.fs.getURL(`${this.localBooksDir}/${getCoverFilename(book)}`);
+    // Use the resolved path from 'Books' base instead of manually prefixing with localBooksDir
+    // This correctly handles both flat (relativePath) and legacy (hash-based) paths
+    const coverPath = getCoverFilename(book);
+    const resolvedPath = this.fs.resolvePath(coverPath, 'Books');
+    return this.fs.getURL(resolvedPath.fp) || `${this.localBooksDir}/${coverPath}`;
   };
 
   getCoverImageBlobUrl = async (book: Book): Promise<string> => {
-    return this.fs.getBlobURL(`${this.localBooksDir}/${getCoverFilename(book)}`, 'None');
+    // Use the resolved path from 'Books' base instead of manually prefixing with localBooksDir
+    // This correctly handles both flat (relativePath) and legacy (hash-based) paths
+    const coverPath = getCoverFilename(book);
+    try {
+      return await this.fs.getBlobURL(coverPath, 'Books');
+    } catch {
+      // Fallback to old path if the new path doesn't exist
+      return `${this.localBooksDir}/${coverPath}`;
+    }
   };
 
   async getCachedImageUrl(pathOrUrl: string): Promise<string> {
@@ -343,6 +362,12 @@ export abstract class BaseAppService implements AppService {
     saveCover: boolean = true,
     overwrite: boolean = false,
     transient: boolean = false,
+    options?: {
+      /** Desired relative path (e.g. "技术/书名.epub"), only used in local mode */
+      targetRelativePath?: string;
+      /** Desired group name, used to derive path when targetRelativePath is not provided */
+      targetGroupName?: string;
+    },
   ): Promise<Book | null> {
     try {
       let loadedBook: BookDoc;
@@ -415,9 +440,40 @@ export abstract class BaseAppService implements AppService {
         existingBook.downloadedAt = Date.now();
       }
 
-      if (!(await this.fs.exists(getDir(book), 'Books'))) {
-        await this.fs.createDir(getDir(book), 'Books');
+      // Decide whether to use new flat local storage path
+      // Check runtime window.__STORAGE_MODE__ first (set by Providers), then fallback to compile-time env var
+      const isLocalStorageMode =
+        (typeof window !== 'undefined' && (window as any).__STORAGE_MODE__ === 'local') ||
+        process.env.NEXT_PUBLIC_STORAGE_MODE === 'local';
+      const shouldUseLocalFlatStorage = this.appPlatform === 'web' && isLocalStorageMode;
+
+      console.log('[ImportBook] appPlatform:', this.appPlatform, 'STORAGE_MODE (runtime):', (typeof window !== 'undefined' && (window as any).__STORAGE_MODE__), 'STORAGE_MODE (env):', process.env.NEXT_PUBLIC_STORAGE_MODE, 'shouldUseLocalFlatStorage:', shouldUseLocalFlatStorage);
+
+      const fileExt = EXTS[format] || format.toLowerCase?.() || 'book';
+      const safeBaseName = makeSafeFilename(book.sourceTitle || book.title);
+      const targetGroupName = options?.targetGroupName?.trim();
+
+      // Compute target relative path for local mode
+      if (shouldUseLocalFlatStorage) {
+        const derivedRelativePath = options?.targetRelativePath
+          ? options.targetRelativePath
+          : `${targetGroupName ? `${targetGroupName}/` : ''}${safeBaseName}.${fileExt}`;
+        book.relativePath = derivedRelativePath;
+        console.log('[ImportBook] Setting relativePath to:', derivedRelativePath);
+        if (existingBook) {
+          existingBook.relativePath = derivedRelativePath;
+        }
+        if (targetGroupName && !book.groupName) {
+          book.groupName = targetGroupName;
+          if (existingBook && !existingBook.groupName) {
+            existingBook.groupName = targetGroupName;
+          }
+        }
       }
+
+      // Ensure destination directories exist (new flat structure or legacy hash-based)
+      await this.ensureLocalBookDirs(book);
+
       const bookFilename = getLocalBookFilename(book);
       if (saveBook && !transient && (!(await this.fs.exists(bookFilename, 'Books')) || overwrite)) {
         if (/\.txt$/i.test(filename)) {
@@ -443,7 +499,7 @@ export abstract class BaseAppService implements AppService {
           try {
             console.log('Converting SVG cover to PNG...');
             cover = await svg2png(cover);
-          } catch {}
+          } catch { }
         }
         if (cover) {
           await this.fs.writeFile(getCoverFilename(book), 'Books', await cover.arrayBuffer());
@@ -479,6 +535,110 @@ export abstract class BaseAppService implements AppService {
     }
   }
 
+  async importBookFromPath(
+    filePath: string,
+    relativePath: string,
+    books: Book[],
+  ): Promise<Book | null> {
+    try {
+      // Extract directory structure for grouping
+      const directory = relativePath.split('/').slice(0, -1).join('/');
+      const groupName = directory || '';
+
+      // Import the book as transient (don't copy, just reference)
+      const book = await this.importBook(
+        filePath,
+        books,
+        false, // saveBook = false
+        true,  // saveCover = true
+        false, // overwrite = false
+        true,  // transient = true
+        {
+          targetRelativePath: relativePath,
+          targetGroupName: groupName,
+        },
+      );
+
+      return book;
+    } catch (error) {
+      console.error('Error importing book from path:', filePath, error);
+      return null;
+    }
+  }
+
+  /**
+   * 重新分类书籍 - 在本地存储模式下移动文件
+   * 在前端修改书籍分组时，需要同步文件系统中的文件位置
+   */
+  async reclassifyBook(book: Book, newGroupName: string, oldGroupName?: string): Promise<void> {
+    // 仅在本地存储模式下执行文件移动
+    if (this.appPlatform !== 'web' || process.env.NEXT_PUBLIC_STORAGE_MODE !== 'local') {
+      console.log('[Reclassify] 非本地存储模式，跳过文件移动');
+      return;
+    }
+
+    // 如果没有 relativePath，说明是旧的 hash-based 存储，不执行文件移动
+    if (!book.relativePath) {
+      console.log('[Reclassify] 书籍未使用新存储结构，跳过文件移动:', book.title);
+      return;
+    }
+
+    try {
+      // 计算旧路径：从当前 relativePath 中移除旧分组名称
+      let oldRelativePath = book.relativePath;
+      if (oldGroupName) {
+        // 如果提供了旧分组，尝试从 relativePath 中移除它
+        if (book.relativePath.startsWith(`${oldGroupName}/`)) {
+          oldRelativePath = book.relativePath.substring(oldGroupName.length + 1);
+        }
+      } else {
+        // 如果没有提供旧分组，假设书籍在根目录
+        // oldRelativePath 已经正确设置
+      }
+
+      // 计算新路径：添加新分组名称
+      const newRelativePath = newGroupName
+        ? `${newGroupName}/${oldRelativePath}`
+        : oldRelativePath;
+
+      // 如果新旧路径相同，无需移动
+      if (oldRelativePath === newRelativePath) {
+        console.log('[Reclassify] 书籍分组未改变，无需移动文件');
+        return;
+      }
+
+      console.log('[Reclassify] 准备移动书籍文件');
+      console.log('  旧路径:', oldRelativePath);
+      console.log('  新路径:', newRelativePath);
+
+      // 调用 API 移动文件
+      const response = await fetch('/api/storage/reclassify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          oldPath: oldRelativePath,
+          newPath: newRelativePath,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error('[Reclassify] 文件移动失败:', error);
+        throw new Error(`Failed to move book files: ${error}`);
+      }
+
+      // 更新 book.relativePath 和 book.groupName
+      book.relativePath = newRelativePath;
+      book.groupName = newGroupName || undefined;
+
+      const result = await response.json();
+      console.log('[Reclassify] 文件移动成功:', result);
+    } catch (error) {
+      console.error('[Reclassify] 重新分类书籍时出错:', error);
+      throw error;
+    }
+  }
+
   async deleteBook(book: Book, deleteAction: DeleteAction): Promise<void> {
     console.log('Deleting book with action:', deleteAction, book.title);
     if (deleteAction === 'local' || deleteAction === 'both') {
@@ -487,9 +647,8 @@ export abstract class BaseAppService implements AppService {
           ? [getLocalBookFilename(book)]
           : [getLocalBookFilename(book), getCoverFilename(book)];
       for (const fp of localDeleteFps) {
-        if (await this.fs.exists(fp, 'Books')) {
-          await this.fs.removeFile(fp, 'Books');
-        }
+        console.log('Deleting local file:', fp);
+        await this.fs.removeFile(fp, 'Books');
       }
       if (deleteAction === 'local') {
         book.downloadedAt = null;
@@ -503,9 +662,8 @@ export abstract class BaseAppService implements AppService {
       const fps = [getRemoteBookFilename(book), getCoverFilename(book)];
       for (const fp of fps) {
         console.log('Deleting uploaded file:', fp);
-        const cfp = `${CLOUD_BOOKS_SUBDIR}/${fp}`;
         try {
-          deleteFile(cfp);
+          deleteFile(fp);
         } catch (error) {
           console.log('Failed to delete uploaded file:', error);
         }
@@ -525,7 +683,7 @@ export abstract class BaseAppService implements AppService {
     console.log('Uploading file:', lfp, 'to', cfp);
     const file = await this.fs.openFile(lfp, base, cfp);
     const localFullpath = await this.resolveFilePath(lfp, base);
-    const downloadUrl = await uploadFile(file, localFullpath, handleProgress, hash, temp);
+    const downloadUrl = await uploadFile(file, localFullpath, handleProgress, hash, temp, cfp);
     const f = file as ClosableFile;
     if (f && f.close) {
       await f.close();
@@ -556,16 +714,14 @@ export abstract class BaseAppService implements AppService {
 
     if (coverExist) {
       const lfp = getCoverFilename(book);
-      const cfp = `${CLOUD_BOOKS_SUBDIR}/${getCoverFilename(book)}`;
-      await this.uploadFileToCloud(lfp, cfp, 'Books', handleProgress, book.hash);
+      await this.uploadFileToCloud(lfp, lfp, 'Books', handleProgress, book.hash);
       uploaded = true;
       completedFiles.count++;
     }
 
     if (bookFileExist) {
       const lfp = getLocalBookFilename(book);
-      const cfp = `${CLOUD_BOOKS_SUBDIR}/${getRemoteBookFilename(book)}`;
-      await this.uploadFileToCloud(lfp, cfp, 'Books', handleProgress, book.hash);
+      await this.uploadFileToCloud(lfp, lfp, 'Books', handleProgress, book.hash);
       uploaded = true;
       completedFiles.count++;
     }
@@ -594,10 +750,13 @@ export abstract class BaseAppService implements AppService {
         return [lfp, book];
       }),
     );
-    const filePaths = books.map((book) => ({
-      lfp: getCoverFilename(book),
-      cfp: `${CLOUD_BOOKS_SUBDIR}/${getCoverFilename(book)}`,
-    }));
+    const filePaths = books.map((book) => {
+      const lfp = getCoverFilename(book);
+      return {
+        lfp,
+        cfp: lfp,
+      };
+    });
     const downloadUrls = await batchGetDownloadUrls(filePaths);
     await Promise.all(
       books.map(async (book) => {
@@ -652,8 +811,7 @@ export abstract class BaseAppService implements AppService {
     try {
       if (needDownCover) {
         const lfp = getCoverFilename(book);
-        const cfp = `${CLOUD_BOOKS_SUBDIR}/${lfp}`;
-        await this.downloadCloudFile(lfp, cfp, handleProgress);
+        await this.downloadCloudFile(lfp, lfp, handleProgress);
         bookCoverDownloaded = true;
       }
     } catch (error) {
@@ -667,8 +825,7 @@ export abstract class BaseAppService implements AppService {
 
     if (needDownBook) {
       const lfp = getLocalBookFilename(book);
-      const cfp = `${CLOUD_BOOKS_SUBDIR}/${getRemoteBookFilename(book)}`;
-      await this.downloadCloudFile(lfp, cfp, handleProgress);
+      await this.downloadCloudFile(lfp, lfp, handleProgress);
       const localFullpath = `${this.localBooksDir}/${lfp}`;
       bookDownloaded = await this.fs.exists(localFullpath, 'None');
       completedFiles.count++;
@@ -943,6 +1100,26 @@ export abstract class BaseAppService implements AppService {
     }
   }
 
+  /** Ensure necessary directories exist for a book (both legacy hash-based and new flat local paths). */
+  private async ensureLocalBookDirs(book: Book): Promise<void> {
+    if (book.relativePath) {
+      const segments = book.relativePath.split('/');
+      const fileDir = segments.slice(0, -1).join('/');
+      const metadataDir = book.relativePath.replace(/\.[^.]+$/, '');
+
+      if (fileDir) {
+        await this.fs.createDir(fileDir, 'Books', true);
+      }
+      await this.fs.createDir(metadataDir, 'Books', true);
+      return;
+    }
+
+    // Legacy hash-based storage
+    if (!(await this.fs.exists(getDir(book), 'Books'))) {
+      await this.fs.createDir(getDir(book), 'Books');
+    }
+  }
+
   private async migrate20251124(): Promise<void> {
     console.log('Running migration for version 20251124 to rename the backup library file...');
     const oldBackupFilename = getLibraryBackupFilename();
@@ -956,6 +1133,79 @@ export abstract class BaseAppService implements AppService {
       } catch (error) {
         console.error('Error during migration to rename backup library file:', error);
       }
+    }
+  }
+
+  /**
+   * Migration 20260121: move legacy hash-based local books to flat relativePath layout in local mode.
+   * - Applies only when appPlatform === 'web' and STORAGE_MODE is local
+   * - For any book without relativePath, derive a flat path and move files + metadata
+   */
+  private async migrate20260121(): Promise<void> {
+    const isLocalMode = (process.env.NEXT_PUBLIC_STORAGE_MODE || 'remote') === 'local';
+    if (this.appPlatform !== 'web' || !isLocalMode) {
+      console.log('[Migration 20260121] Skip (not web/local mode)');
+      return;
+    }
+
+    console.log('[Migration 20260121] Start migrating legacy hash-based books to flat layout');
+
+    const books = await this.loadLibraryBooks();
+    let migrated = 0;
+
+    for (const book of books) {
+      if (book.relativePath) continue;
+
+      const ext = EXTS[book.format] || book.format?.toLowerCase?.() || 'book';
+      const safeBaseName = makeSafeFilename(book.sourceTitle || book.title || book.hash);
+      const newRelativePath = `${book.groupName ? `${book.groupName}/` : ''}${safeBaseName}.${ext}`;
+
+      // Legacy paths
+      const legacyBookPath = `${book.hash}/${safeBaseName}.${ext}`;
+      const legacyCoverPath = `${book.hash}/cover.png`;
+      const legacyConfigPath = `${book.hash}/config.json`;
+
+      // New paths
+      const newBookPath = newRelativePath;
+      const newCoverPath = newRelativePath.replace(/\.[^.]+$/, '') + '/cover.png';
+      const newConfigPath = newRelativePath.replace(/\.[^.]+$/, '') + '/config.json';
+
+      try {
+        // Move book file if present
+        if (await this.fs.exists(legacyBookPath, 'Books')) {
+          await this.ensureLocalBookDirs({ ...book, relativePath: newRelativePath } as Book);
+          const file = await this.fs.openFile(legacyBookPath, 'Books');
+          await this.fs.writeFile(newBookPath, 'Books', file);
+          await this.fs.removeFile(legacyBookPath, 'Books');
+        }
+
+        // Move cover
+        if (await this.fs.exists(legacyCoverPath, 'Books')) {
+          const coverFile = await this.fs.openFile(legacyCoverPath, 'Books');
+          await this.fs.writeFile(newCoverPath, 'Books', coverFile);
+          await this.fs.removeFile(legacyCoverPath, 'Books');
+        }
+
+        // Move config
+        if (await this.fs.exists(legacyConfigPath, 'Books')) {
+          const configContent = await this.fs.readFile(legacyConfigPath, 'Books', 'text');
+          await this.fs.writeFile(newConfigPath, 'Books', configContent);
+          await this.fs.removeFile(legacyConfigPath, 'Books');
+        }
+
+        // Update in-memory book
+        book.relativePath = newRelativePath;
+        migrated++;
+      } catch (error) {
+        console.error('[Migration 20260121] Failed to migrate book:', book.title, error);
+      }
+    }
+
+    if (migrated > 0) {
+      await this.saveLibraryBooks(books);
+      console.log(`[Migration 20260121] Migrated ${migrated} book(s) to flat layout`);
+    } else {
+      console.log('[Migration 20260121] No legacy books to migrate');
     }
   }
 }

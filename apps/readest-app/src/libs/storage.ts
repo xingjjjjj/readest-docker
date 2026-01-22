@@ -11,6 +11,9 @@ import {
   ProgressPayload,
 } from '@/utils/transfer';
 
+const STORAGE_MODE = process.env['NEXT_PUBLIC_STORAGE_MODE'] || 'remote';
+const isLocalStorageMode = STORAGE_MODE === 'local';
+
 const API_ENDPOINTS = {
   upload: getAPIBaseUrl() + '/storage/upload',
   download: getAPIBaseUrl() + '/storage/download',
@@ -18,6 +21,8 @@ const API_ENDPOINTS = {
   stats: getAPIBaseUrl() + '/storage/stats',
   list: getAPIBaseUrl() + '/storage/list',
   purge: getAPIBaseUrl() + '/storage/purge',
+  scan: getAPIBaseUrl() + '/storage/scan',
+  import: getAPIBaseUrl() + '/storage/import',
 };
 
 export const createProgressHandler = (
@@ -39,15 +44,42 @@ export const createProgressHandler = (
   };
 };
 
+const request = async (url: string, options: RequestInit) => {
+  if (!isLocalStorageMode) {
+    return fetchWithAuth(url, options);
+  }
+
+  const res = await fetch(url, options);
+  if (!res.ok) {
+    let message = res.statusText;
+    try {
+      const data = await res.json();
+      message = data.error || message;
+    } catch { }
+    throw new Error(message || 'Request failed');
+  }
+  return res;
+};
+
+const buildFileKey = async (cfp: string) => {
+  if (isLocalStorageMode) return cfp;
+  const userId = await getUserID();
+  if (!userId) {
+    throw new Error('Not authenticated');
+  }
+  return `${userId}/${cfp}`;
+};
+
 export const uploadFile = async (
   file: File,
   fileFullPath: string,
   onProgress?: ProgressHandler,
   bookHash?: string,
   temp = false,
+  cloudFilePath?: string,
 ) => {
   try {
-    const response = await fetchWithAuth(API_ENDPOINTS.upload, {
+    const response = await request(API_ENDPOINTS.upload, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -57,6 +89,7 @@ export const uploadFile = async (
         fileSize: file.size,
         bookHash,
         temp,
+        cloudPath: cloudFilePath,
       }),
     });
 
@@ -79,13 +112,13 @@ export const uploadFile = async (
 
 export const batchGetDownloadUrls = async (files: { lfp: string; cfp: string }[]) => {
   try {
-    const userId = await getUserID();
-    if (!userId) {
+    const userId = isLocalStorageMode ? null : await getUserID();
+    if (!isLocalStorageMode && !userId) {
       throw new Error('Not authenticated');
     }
     const filePaths = files.map((file) => file.cfp);
-    const fileKeys = filePaths.map((path) => `${userId}/${path}`);
-    const response = await fetchWithAuth(`${API_ENDPOINTS.download}`, {
+    const fileKeys = filePaths.map((path) => (isLocalStorageMode ? path : `${userId}/${path}`));
+    const response = await request(`${API_ENDPOINTS.download}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -95,7 +128,7 @@ export const batchGetDownloadUrls = async (files: { lfp: string; cfp: string }[]
 
     const { downloadUrls } = await response.json();
     return files.map((file) => {
-      const fileKey = `${userId}/${file.cfp}`;
+      const fileKey = isLocalStorageMode ? file.cfp : `${userId}/${file.cfp}`;
       return {
         lfp: file.lfp,
         cfp: file.cfp,
@@ -132,12 +165,8 @@ export const downloadFile = async ({
   try {
     let downloadUrl = url;
     if (!downloadUrl) {
-      const userId = await getUserID();
-      if (!userId) {
-        throw new Error('Not authenticated');
-      }
-      const fileKey = `${userId}/${cfp}`;
-      const response = await fetchWithAuth(
+      const fileKey = await buildFileKey(cfp);
+      const response = await request(
         `${API_ENDPOINTS.download}?fileKey=${encodeURIComponent(fileKey)}`,
         {
           method: 'GET',
@@ -179,13 +208,8 @@ export const downloadFile = async ({
 
 export const deleteFile = async (filePath: string) => {
   try {
-    const userId = await getUserID();
-    if (!userId) {
-      throw new Error('Not authenticated');
-    }
-
-    const fileKey = `${userId}/${filePath}`;
-    await fetchWithAuth(`${API_ENDPOINTS.delete}?fileKey=${encodeURIComponent(fileKey)}`, {
+    const fileKey = await buildFileKey(filePath);
+    await request(`${API_ENDPOINTS.delete}?fileKey=${encodeURIComponent(fileKey)}`, {
       method: 'DELETE',
     });
   } catch (error) {
@@ -209,7 +233,7 @@ export interface StorageStats {
 
 export const getStorageStats = async (): Promise<StorageStats> => {
   try {
-    const response = await fetchWithAuth(API_ENDPOINTS.stats, {
+    const response = await request(API_ENDPOINTS.stats, {
       method: 'GET',
     });
 
@@ -260,7 +284,7 @@ export const listFiles = async (params?: ListFilesParams): Promise<ListFilesResp
       ? `${API_ENDPOINTS.list}?${queryParams.toString()}`
       : API_ENDPOINTS.list;
 
-    const response = await fetchWithAuth(url, {
+    const response = await request(url, {
       method: 'GET',
     });
 
@@ -288,14 +312,10 @@ export const purgeFiles = async (
     if (isFileKeys) {
       fileKeys = filePathsOrKeys;
     } else {
-      const userId = await getUserID();
-      if (!userId) {
-        throw new Error('Not authenticated');
-      }
-      fileKeys = filePathsOrKeys.map((path) => `${userId}/${path}`);
+      fileKeys = await Promise.all(filePathsOrKeys.map((path) => buildFileKey(path)));
     }
 
-    const response = await fetchWithAuth(API_ENDPOINTS.purge, {
+    const response = await request(API_ENDPOINTS.purge, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -307,5 +327,47 @@ export const purgeFiles = async (
   } catch (error) {
     console.error('Purge files failed:', error);
     throw new Error('Purge files failed');
+  }
+};
+
+export interface ScannedBook {
+  filePath: string;
+  relativePath: string;
+  fileName: string;
+  directory: string;
+  size: number;
+  mtime: number;
+  ext: string;
+}
+
+export const scanBooks = async (): Promise<{ count: number; books: ScannedBook[] }> => {
+  try {
+    const response = await request(API_ENDPOINTS.scan, {
+      method: 'POST',
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Scan books failed:', error);
+    throw new Error('Scan books failed');
+  }
+};
+
+export const importScannedBook = async (
+  relativePath: string,
+  hash: string,
+  createLinks = true,
+): Promise<any> => {
+  try {
+    const response = await request(API_ENDPOINTS.import, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ relativePath, hash, createLinks }),
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Import scanned book failed:', error);
+    throw new Error('Import scanned book failed');
   }
 };

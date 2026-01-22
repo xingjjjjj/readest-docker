@@ -8,6 +8,11 @@ import { code6392to6391, isValidLang, normalizedLangCode } from './lang';
 import { md5 } from './md5';
 
 export const getDir = (book: Book) => {
+  // In local storage mode, return the folder name (same as book name without extension)
+  if (book.relativePath) {
+    return book.relativePath.replace(/\.[^.]+$/, '');
+  }
+  // Legacy: hash-based storage
   return `${book.hash}`;
 };
 export const getLibraryFilename = () => {
@@ -27,12 +32,35 @@ export const getRemoteBookFilename = (book: Book) => {
   }
 };
 export const getLocalBookFilename = (book: Book) => {
+  // In local storage mode, books are stored in their original relative paths
+  if (book.relativePath) {
+    return book.relativePath;
+  }
+  // Legacy: hash-based storage
   return `${book.hash}/${makeSafeFilename(book.sourceTitle || book.title)}.${EXTS[book.format]}`;
 };
 export const getCoverFilename = (book: Book) => {
-  return `${book.hash}/cover.png`;
+  // In local storage mode, covers are stored in a folder next to the book with the same name
+  if (book.relativePath) {
+    // Remove extension from book path to get folder name
+    const pathWithoutExt = book.relativePath.replace(/\.[^.]+$/, '');
+    const result = `${pathWithoutExt}/cover.png`;
+    console.log('[getCoverFilename] Using relativePath:', book.relativePath, '-> cover:', result);
+    return result;
+  }
+  // Legacy: hash-based storage
+  const result = `${book.hash}/cover.png`;
+  console.log('[getCoverFilename] Using hash:', book.hash, '-> cover:', result);
+  return result;
 };
 export const getConfigFilename = (book: Book) => {
+  // In local storage mode, configs are stored in a folder next to the book with the same name
+  if (book.relativePath) {
+    // Remove extension from book path to get folder name
+    const pathWithoutExt = book.relativePath.replace(/\.[^.]+$/, '');
+    return `${pathWithoutExt}/config.json`;
+  }
+  // Legacy: hash-based storage
   return `${book.hash}/config.json`;
 };
 export const isBookFile = (filename: string) => {
@@ -88,17 +116,17 @@ export const flattenContributors = (
   if (!contributors) return '';
   return Array.isArray(contributors)
     ? contributors
-        .map((contributor) =>
-          typeof contributor === 'string' ? contributor : formatLanguageMap(contributor?.name),
-        )
-        .join(', ')
+      .map((contributor) =>
+        typeof contributor === 'string' ? contributor : formatLanguageMap(contributor?.name),
+      )
+      .join(', ')
     : typeof contributors === 'string'
       ? contributors
       : formatLanguageMap(contributors?.name);
 };
 
 // prettier-ignore
-const LASTNAME_AUTHOR_SORT_LANGS = [ 'ar', 'bo', 'de', 'en', 'es', 'fr', 'hi', 'it', 'nl', 'pl', 'pt', 'ru', 'th', 'tr', 'uk' ];
+const LASTNAME_AUTHOR_SORT_LANGS = ['ar', 'bo', 'de', 'en', 'es', 'fr', 'hi', 'it', 'nl', 'pl', 'pt', 'ru', 'th', 'tr', 'uk'];
 
 const formatAuthorName = (name: string, lastNameFirst: boolean) => {
   if (!name) return '';
@@ -118,12 +146,12 @@ export const formatAuthors = (
   const lastNameFirst = !!sortAs && LASTNAME_AUTHOR_SORT_LANGS.includes(langCode);
   return Array.isArray(contributors)
     ? listFormater(langCode === 'zh', langCode).format(
-        contributors.map((contributor) =>
-          typeof contributor === 'string'
-            ? formatAuthorName(contributor, lastNameFirst)
-            : formatAuthorName(formatLanguageMap(contributor?.name), lastNameFirst),
-        ),
-      )
+      contributors.map((contributor) =>
+        typeof contributor === 'string'
+          ? formatAuthorName(contributor, lastNameFirst)
+          : formatAuthorName(formatLanguageMap(contributor?.name), lastNameFirst),
+      ),
+    )
     : typeof contributors === 'string'
       ? formatAuthorName(contributors, lastNameFirst)
       : formatAuthorName(formatLanguageMap(contributors?.name), lastNameFirst);
@@ -232,17 +260,17 @@ const getAuthorsList = (contributors: string | string[] | Contributor | Contribu
   if (!contributors) return [];
   return Array.isArray(contributors)
     ? contributors
-        .map((contributor) =>
-          typeof contributor === 'string'
-            ? contributor
-            : formatLanguageMap(contributor?.name, true),
-        )
-        .filter(Boolean)
+      .map((contributor) =>
+        typeof contributor === 'string'
+          ? contributor
+          : formatLanguageMap(contributor?.name, true),
+      )
+      .filter(Boolean)
     : [
-        typeof contributors === 'string'
-          ? contributors
-          : formatLanguageMap(contributors?.name, true),
-      ];
+      typeof contributors === 'string'
+        ? contributors
+        : formatLanguageMap(contributors?.name, true),
+    ];
 };
 
 const normalizeIdentifier = (identifier: string) => {
@@ -286,10 +314,10 @@ const getIdentifiersList = (
   }
   return Array.isArray(identifiers)
     ? identifiers
-        .map((identifier) =>
-          typeof identifier === 'string' ? normalizeIdentifier(identifier) : identifier.value,
-        )
-        .filter(Boolean)
+      .map((identifier) =>
+        typeof identifier === 'string' ? normalizeIdentifier(identifier) : identifier.value,
+      )
+      .filter(Boolean)
     : typeof identifiers === 'string'
       ? [normalizeIdentifier(identifiers)]
       : [identifiers.value];

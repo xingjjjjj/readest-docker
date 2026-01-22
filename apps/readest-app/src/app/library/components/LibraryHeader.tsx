@@ -21,6 +21,8 @@ import Dropdown from '@/components/Dropdown';
 import SettingsMenu from './SettingsMenu';
 import ImportMenu from './ImportMenu';
 import ViewMenu from './ViewMenu';
+import { ScanBooksButton } from './ScanBooksButton';
+import { isWebAppPlatform } from '@/services/environment';
 
 interface LibraryHeaderProps {
   isSelectMode: boolean;
@@ -116,8 +118,8 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
               placeholder={
                 currentBooksCount > 1
                   ? _('Search in {{count}} Book(s)...', {
-                      count: currentBooksCount,
-                    })
+                    count: currentBooksCount,
+                  })
                   : _('Search Books...')
               }
               onChange={handleSearchChange}
@@ -195,6 +197,9 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
           </div>
         ) : (
           <div className='flex h-full items-center gap-x-2 sm:gap-x-4'>
+            {isWebAppPlatform() && process.env.NEXT_PUBLIC_STORAGE_MODE === 'local' && (
+              <ScanBooksButton />
+            )}
             <Dropdown
               label={_('View Menu')}
               className='exclude-title-bar-mousedown dropdown-bottom dropdown-end'

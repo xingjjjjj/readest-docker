@@ -166,11 +166,15 @@ For Windows targets, “Build Tools for Visual Studio 2022” (or a higher editi
 ```bash
 # Start development for the Tauri app
 pnpm tauri dev
-# or start development for the Web app
+# or start development for the Web app with local storage
 pnpm dev-web
 # preview with OpenNext build for the Web app
 pnpm preview
 ```
+
+**Quick Start Web App with Local Storage:**
+
+For a quick start without cloud dependencies, see [Local Storage Quick Start](./docs/LOCAL_STORAGE_QUICKSTART.md).
 
 For Android:
 

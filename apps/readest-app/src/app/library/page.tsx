@@ -410,17 +410,27 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       const file = selectedFile.file || selectedFile.path;
       if (!file) return null;
       try {
-        const book = await appService?.importBook(file, library);
-        if (!book) return null;
         const { path, basePath } = selectedFile;
+        let inferredGroupName = '';
+
         if (groupId) {
-          book.groupId = groupId;
-          book.groupName = getGroupName(groupId);
+          inferredGroupName = getGroupName(groupId);
         } else if (path && basePath) {
           const rootPath = getDirPath(basePath);
-          const groupName = getDirPath(path).replace(rootPath, '').replace(/^\//, '');
-          book.groupName = groupName;
-          book.groupId = getGroupId(groupName);
+          inferredGroupName = getDirPath(path).replace(rootPath, '').replace(/^\//, '');
+        }
+
+        const book = await appService?.importBook(file, library, true, true, false, false, {
+          targetGroupName: inferredGroupName,
+        });
+        if (!book) return null;
+
+        if (groupId) {
+          book.groupId = groupId;
+          book.groupName = inferredGroupName;
+        } else if (inferredGroupName) {
+          book.groupName = inferredGroupName;
+          book.groupId = getGroupId(inferredGroupName);
         }
 
         if (user && !book.uploadedAt && settings.autoUpload) {
@@ -766,9 +776,8 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       )}
       {currentGroupPath && (
         <div
-          className={`transition-all duration-300 ease-in-out ${
-            currentGroupPath ? 'opacity-100' : 'max-h-0 opacity-0'
-          }`}
+          className={`transition-all duration-300 ease-in-out ${currentGroupPath ? 'opacity-100' : 'max-h-0 opacity-0'
+            }`}
         >
           <div className='flex flex-wrap items-center gap-y-1 px-4 text-base'>
             <button

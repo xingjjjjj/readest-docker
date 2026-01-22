@@ -9,6 +9,17 @@ import {
   LOCAL_FONTS_SUBDIR,
   LOCAL_IMAGES_SUBDIR,
 } from './constants';
+import { apiFileSystem } from './apiFileSystem';
+
+// Check storage mode at runtime to support window.__STORAGE_MODE__ set by Providers
+const getIsLocalStorageMode = (): boolean => {
+  // First check window.__STORAGE_MODE__ (runtime set by Providers)
+  if (typeof window !== 'undefined' && (window as any).__STORAGE_MODE__ === 'local') {
+    return true;
+  }
+  // Fallback to compile-time environment variable
+  return (process.env['NEXT_PUBLIC_STORAGE_MODE'] || 'remote') === 'local';
+};
 
 const basePrefix = async () => '';
 
@@ -277,7 +288,10 @@ const indexedDBFileSystem: FileSystem = {
 };
 
 export class WebAppService extends BaseAppService {
-  fs = indexedDBFileSystem;
+  // Use getter to check storage mode dynamically at runtime
+  get fs(): FileSystem {
+    return getIsLocalStorageMode() ? apiFileSystem : indexedDBFileSystem;
+  }
   override isMobile = ['android', 'ios'].includes(getOSPlatform());
   override appPlatform = 'web' as AppPlatform;
   override hasSafeAreaInset = isPWA();
