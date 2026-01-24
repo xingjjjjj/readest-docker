@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { md5 } from 'js-md5';

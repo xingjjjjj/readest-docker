@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import React, { useState, ChangeEvent, useEffect } from 'react';
 import { MdPlayCircle, MdPauseCircle, MdFastRewind, MdFastForward, MdAlarm } from 'react-icons/md';

@@ -19,7 +19,7 @@ import { getDirFromUILanguage } from '@/utils/rtl';
 
 // Set storage mode globally before any other code runs
 if (typeof window !== 'undefined' && !((window as any).__STORAGE_MODE_SET__)) {
-  const storageMode = process.env.NEXT_PUBLIC_STORAGE_MODE || 'remote';
+  const storageMode = process.env['NEXT_PUBLIC_STORAGE_MODE'] || 'remote';
   (window as any).__STORAGE_MODE__ = storageMode;
   (window as any).__STORAGE_MODE_SET__ = true;
   console.log('[Providers] Global: Set window.__STORAGE_MODE__ to:', storageMode);
@@ -35,7 +35,7 @@ const Providers = ({ children }: { children: React.ReactNode }) => {
 
   useEffect(() => {
     // Verify storage mode is set (redundant safety check)
-    const storageMode = process.env.NEXT_PUBLIC_STORAGE_MODE || 'remote';
+    const storageMode = process.env['NEXT_PUBLIC_STORAGE_MODE'] || 'local';
     if (!((window as any).__STORAGE_MODE__)) {
       (window as any).__STORAGE_MODE__ = storageMode;
     }

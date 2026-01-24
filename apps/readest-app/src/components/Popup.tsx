@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import { Position } from '@/utils/sel';
 import { useEffect, useRef, useState } from 'react';

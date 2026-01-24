@@ -1,7 +1,6 @@
 import { SystemSettings } from './settings';
 import { Book, BookConfig, BookContent, ViewSettings } from './book';
 import { BookMetadata } from '@/libs/document';
-import { ProgressHandler } from '@/utils/transfer';
 import { CustomFont, CustomFontInfo } from '@/styles/fonts';
 import { CustomTextureInfo } from '@/styles/textures';
 
@@ -123,26 +122,16 @@ export interface AppService {
     saveCover?: boolean,
     overwrite?: boolean,
     transient?: boolean,
+    options?: {
+      targetRelativePath?: string;
+      targetGroupName?: string;
+    },
   ): Promise<Book | null>;
   importBookFromPath?(filePath: string, relativePath: string, books: Book[]): Promise<Book | null>;
   reclassifyBook?(book: Book, newGroupName: string, oldGroupName?: string): Promise<void>;
+  reconcileBookPaths(books: Book[]): Promise<any>;
+  applyReconciliation(books: Book[], reconcileResults: any[]): Promise<Book[]>;
   deleteBook(book: Book, deleteAction: DeleteAction): Promise<void>;
-  uploadBook(book: Book, onProgress?: ProgressHandler): Promise<void>;
-  downloadBook(
-    book: Book,
-    onlyCover?: boolean,
-    redownload?: boolean,
-    onProgress?: ProgressHandler,
-  ): Promise<void>;
-  uploadFileToCloud(
-    lfp: string,
-    cfp: string,
-    base: BaseDir,
-    handleProgress: ProgressHandler,
-    hash: string,
-    temp?: boolean,
-  ): Promise<string | undefined>;
-  downloadBookCovers(books: Book[], redownload?: boolean): Promise<void>;
   exportBook(book: Book): Promise<boolean>;
   isBookAvailable(book: Book): Promise<boolean>;
   getBookFileSize(book: Book): Promise<number | null>;

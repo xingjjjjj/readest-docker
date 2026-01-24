@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
             message: 'Book files successfully moved',
             bookPath: newPath,
             metadataPath: newMetadataDir,
+            absolutePath: newResolved.fullPath,
         });
     } catch (error: any) {
         console.error('[Reclassify] Error:', error);

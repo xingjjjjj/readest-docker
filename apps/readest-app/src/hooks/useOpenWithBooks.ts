@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useEnv } from '@/context/EnvContext';
@@ -29,10 +31,16 @@ export function useOpenWithBooks() {
   const listenedOpenWithBooks = useRef(false);
 
   const isFirstWindow = async () => {
-    const allWindows = await getAllWindows();
-    const currentWindow = getCurrentWindow();
-    const sortedWindows = allWindows.sort((a, b) => a.label.localeCompare(b.label));
-    return sortedWindows[0]?.label === currentWindow.label;
+    if (!isTauriAppPlatform()) return true; // Web 模式下总是认为是第一窗口
+    try {
+      const allWindows = await getAllWindows();
+      const currentWindow = getCurrentWindow();
+      const sortedWindows = allWindows.sort((a, b) => a.label.localeCompare(b.label));
+      return sortedWindows[0]?.label === currentWindow.label;
+    } catch (error) {
+      console.warn('Failed to check if first window:', error);
+      return true;
+    }
   };
 
   const handleOpenWithFileUrl = async (urls: string[]) => {

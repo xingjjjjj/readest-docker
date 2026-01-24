@@ -50,6 +50,8 @@ export interface SystemSettings {
   version: number;
   localBooksDir: string;
   customRootDir?: string;
+  // Book group directory mappings: groupName -> directory path (relative to localBooksDir)
+  groupDirectories?: Record<string, string>;
 
   keepLogin: boolean;
   autoUpload: boolean;

@@ -19,6 +19,8 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "incremental": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "plugins": [
       {
         "name": "next"
@@ -45,5 +47,6 @@
   ],
   "exclude": [
     "node_modules",
+    "src/__examples__/**"
   ]
 }

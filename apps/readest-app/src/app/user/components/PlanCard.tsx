@@ -1,13 +1,12 @@
 import { IoCheckmark } from 'react-icons/io5';
 import { useTranslation } from '@/hooks/useTranslation';
 import { getLocale } from '@/utils/misc';
-import { PlanDetails } from '../utils/plan';
 import { PlanType } from '@/types/quota';
 import PlanActionButton from './PlanActionButton';
 import PurchaseCallToActions from './PurchaseCallToActions';
 
 interface PlanCardProps {
-  plan: PlanDetails;
+  plan: any;
   isUserPlan: boolean;
   comingSoon?: boolean;
   upgradable?: boolean;
@@ -57,7 +56,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
         </div>
 
         <div role='none' className='mb-6 space-y-3' onClick={() => onSelectPlan(index)}>
-          {plan.features.map((feature, featureIndex) => (
+          {plan.features.map((feature: any, featureIndex: number) => (
             <div key={featureIndex} className='flex flex-col'>
               <div className='flex items-center gap-2'>
                 <IoCheckmark className='h-5 w-5 flex-shrink-0 text-green-500' />
@@ -83,7 +82,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
               {Object.entries(plan.limits).map(([key, value]) => (
                 <div key={key} className='flex justify-between text-sm'>
                   <span>{_(key)}:</span>
-                  <span className='font-medium'>{value}</span>
+                  <span className='font-medium'>{value as React.ReactNode}</span>
                 </div>
               ))}
             </div>

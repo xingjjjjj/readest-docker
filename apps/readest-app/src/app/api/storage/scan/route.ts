@@ -57,7 +57,7 @@ async function scanDirectory(dir: string, baseDir: string): Promise<ScannedBook[
     return books;
 }
 
-export async function POST(req: NextRequest) {
+export async function POST(_req: NextRequest) {
     if (!isLocalStorageEnabled()) {
         return NextResponse.json({ error: 'Local storage disabled' }, { status: 501 });
     }

@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect } from 'react';
 import { useEnv } from '@/context/EnvContext';
 import { FoliateView } from '@/types/view';

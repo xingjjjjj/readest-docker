@@ -1,3 +1,5 @@
+'use client';
+
 import { useCallback } from 'react';
 import { useCustomTextureStore } from '@/store/customTextureStore';
 import { useSettingsStore } from '@/store/settingsStore';

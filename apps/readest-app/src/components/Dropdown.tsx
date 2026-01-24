@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import React, { useState, isValidElement, ReactElement, ReactNode, useRef } from 'react';
 import { Overlay } from './Overlay';
@@ -92,7 +94,7 @@ const Dropdown: React.FC<DropdownProps> = ({
   };
 
   const handleBlur = (e: React.FocusEvent) => {
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env['NODE_ENV'] === 'development') {
       return;
     }
     if (!containerRef.current) return;

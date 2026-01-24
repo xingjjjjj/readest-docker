@@ -26,7 +26,15 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# local env files
+# local env files (also used by .dockerignore via symlink)
+.env
+.env.*
+!.env.example
+!.env.local.example
+# keep app-specific examples
+!apps/readest-app/.env.local.example
+
+# legacy local env patterns
 .env*.local
 
 # vercel
@@ -42,6 +50,14 @@ target
 fastlane/report.xml
 
 *.koplugin.zip
+
+# editor/ide
+.vscode/
+.idea/
+
+# docker build context heavy data (repo-root paths → /app/readest/...)
+/books/
+/backups/
 
 # nix
 result*

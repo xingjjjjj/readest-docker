@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Position } from '@/utils/sel';
 import { useTranslation } from '@/hooks/useTranslation';

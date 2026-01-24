@@ -1,10 +1,9 @@
 import { useTranslation } from '@/hooks/useTranslation';
 import { PlanType } from '@/types/quota';
 import { getLocale } from '@/utils/misc';
-import { PlanDetails } from '../utils/plan';
 
 interface PurchaseCallToActionsProps {
-  plan: PlanDetails;
+  plan: any;
   onSubscribe: (priceId?: string, planType?: PlanType) => void;
 }
 
@@ -15,9 +14,9 @@ const PurchaseCallToActions: React.FC<PurchaseCallToActionsProps> = ({ plan, onS
     return null;
   }
 
-  const storageProducts = plan.products.filter((product) => product.feature === 'storage');
+  const storageProducts = plan.products.filter((product: any) => product.feature === 'storage');
   const customizationProducts = plan.products.filter(
-    (product) => product.feature === 'customization',
+    (product: any) => product.feature === 'customization',
   );
 
   const formatProductPrice = (price: number, currency: string) => {
@@ -31,7 +30,7 @@ const PurchaseCallToActions: React.FC<PurchaseCallToActionsProps> = ({ plan, onS
     <div className='flex flex-col gap-4'>
       {storageProducts.length > 0 && (
         <div className='grid grid-cols-2 gap-2'>
-          {storageProducts.map((product) => {
+          {storageProducts.map((product: any) => {
             const productPrice = formatProductPrice(product.price, product.currency);
             return (
               <button
@@ -49,7 +48,7 @@ const PurchaseCallToActions: React.FC<PurchaseCallToActionsProps> = ({ plan, onS
 
       {customizationProducts.length > 0 ? (
         <div className='grid grid-cols-1 gap-2'>
-          {customizationProducts.map((product) => {
+          {customizationProducts.map((product: any) => {
             const productPrice = formatProductPrice(product.price, product.currency);
             return (
               <button

@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useCallback, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { ErrorCodes, getTranslator, getTranslators, TranslatorName } from '@/services/translators';

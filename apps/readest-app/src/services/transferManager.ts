@@ -23,7 +23,7 @@ class TransferManager {
   private updateBook: ((book: Book) => Promise<void>) | null = null;
   private _: TranslationFunc | null = null;
 
-  private constructor() {}
+  private constructor() { }
 
   static getInstance(): TransferManager {
     if (!TransferManager.instance) {
@@ -238,13 +238,11 @@ class TransferManager {
       }
 
       if (transfer.type === 'upload') {
-        await this.appService.uploadBook(book, progressHandler);
-        book.uploadedAt = Date.now();
-        await this.updateBook(book);
+        // Cloud upload functionality removed - using local server storage only
+        throw new Error(_('Upload functionality has been removed'));
       } else if (transfer.type === 'download') {
-        await this.appService.downloadBook(book, false, false, progressHandler);
-        book.downloadedAt = Date.now();
-        await this.updateBook(book);
+        // Cloud download functionality removed - using local server storage only
+        throw new Error(_('Download functionality has been removed'));
       } else if (transfer.type === 'delete') {
         await this.appService.deleteBook(book, 'cloud');
         await this.updateBook(book);

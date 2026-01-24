@@ -1,45 +1,29 @@
-import { s3Storage } from './s3';
-import { r2Storage } from './r2';
-import { getStorageType } from './storage';
+/**
+ * Local file storage implementation
+ * Cloud storage (R2, S3, MinIO) has been removed
+ * All files are now stored locally
+ */
 
 export const getDownloadSignedUrl = async (
   fileKey: string,
-  expiresIn: number,
-  bucketName?: string,
-) => {
-  const storageType = getStorageType();
-  if (storageType === 'r2') {
-    bucketName = bucketName || process.env['R2_BUCKET_NAME'] || '';
-    return await r2Storage.getDownloadSignedUrl(bucketName, fileKey, expiresIn);
-  } else {
-    bucketName = bucketName || process.env['S3_BUCKET_NAME'] || '';
-    return await s3Storage.getDownloadSignedUrl(bucketName, fileKey, expiresIn);
-  }
+  _expiresIn?: number,
+  _bucketName?: string,
+): Promise<string> => {
+  // For local storage, return the file key as-is
+  return fileKey;
 };
 
 export const getUploadSignedUrl = async (
   fileKey: string,
-  contentLength: number,
-  expiresIn: number,
-  bucketName?: string,
-) => {
-  const storageType = getStorageType();
-  if (storageType === 'r2') {
-    bucketName = bucketName || process.env['R2_BUCKET_NAME'] || '';
-    return await r2Storage.getUploadSignedUrl(bucketName, fileKey, contentLength, expiresIn);
-  } else {
-    bucketName = bucketName || process.env['S3_BUCKET_NAME'] || '';
-    return await s3Storage.getUploadSignedUrl(bucketName, fileKey, contentLength, expiresIn);
-  }
+  _contentLength?: number,
+  _expiresIn?: number,
+  _bucketName?: string,
+): Promise<string> => {
+  // For local storage, return the file key as-is
+  return fileKey;
 };
 
-export const deleteObject = async (fileKey: string, bucketName?: string) => {
-  const storageType = getStorageType();
-  if (storageType === 'r2') {
-    bucketName = bucketName || process.env['R2_BUCKET_NAME'] || '';
-    return await r2Storage.deleteObject(bucketName, fileKey);
-  } else {
-    bucketName = bucketName || process.env['S3_BUCKET_NAME'] || '';
-    return await s3Storage.deleteObject(bucketName, fileKey);
-  }
+export const deleteObject = async (fileKey: string, _bucketName?: string): Promise<void> => {
+  // For local storage, file deletion is handled by the local file system
+  // This method is kept for compatibility but actual deletion is handled by the file system
 };

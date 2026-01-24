@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect } from 'react';
 import { useReaderStore } from '@/store/readerStore';
 import { useNotebookStore } from '@/store/notebookStore';

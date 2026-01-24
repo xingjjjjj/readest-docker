@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import React, { useEffect, useRef } from 'react';
 import { useEnv } from '@/context/EnvContext';

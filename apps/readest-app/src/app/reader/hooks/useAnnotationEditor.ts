@@ -1,3 +1,5 @@
+'use client';
+
 import { useCallback, useRef, useState } from 'react';
 import { BookNote } from '@/types/book';
 import { Point, TextSelection } from '@/utils/sel';

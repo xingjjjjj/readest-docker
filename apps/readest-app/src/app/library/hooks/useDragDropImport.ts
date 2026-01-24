@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useState } from 'react';
 import { useEnv } from '@/context/EnvContext';
 import { impactFeedback } from '@tauri-apps/plugin-haptics';

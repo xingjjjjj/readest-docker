@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect } from 'react';
 import { useEnv } from '@/context/EnvContext';
 import { useTrafficLightStore } from '@/store/trafficLightStore';

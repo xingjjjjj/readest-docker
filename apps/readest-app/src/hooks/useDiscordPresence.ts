@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useRef } from 'react';
 import { Book } from '@/types/book';
 import { useEnv } from '@/context/EnvContext';

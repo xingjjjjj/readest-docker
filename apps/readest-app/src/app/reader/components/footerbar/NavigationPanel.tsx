@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import React, { useCallback, useEffect } from 'react';
 import { RiArrowLeftSLine, RiArrowRightSLine } from 'react-icons/ri';

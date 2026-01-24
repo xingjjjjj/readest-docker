@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useMemo, useRef } from 'react';
 import { BookProgress } from '@/types/book';
 import { isCfiInLocation } from '@/utils/cfi';

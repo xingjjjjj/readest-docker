@@ -68,6 +68,7 @@ import DropIndicator from '@/components/DropIndicator';
 import SettingsDialog from '@/components/settings/SettingsDialog';
 import ModalPortal from '@/components/ModalPortal';
 import TransferQueuePanel from './components/TransferQueuePanel';
+import ReconcileModal from './components/ReconcileModal';
 
 const LibraryPageWithSearchParams = () => {
   const searchParams = useSearchParams();
@@ -109,6 +110,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   const [isSelectAll, setIsSelectAll] = useState(false);
   const [isSelectNone, setIsSelectNone] = useState(false);
   const [showDetailsBook, setShowDetailsBook] = useState<Book | null>(null);
+  const [showReconcileModal, setShowReconcileModal] = useState(false);
   const [currentGroupPath, setCurrentGroupPath] = useState<string | undefined>(undefined);
   const [booksTransferProgress, setBooksTransferProgress] = useState<{
     [key: string]: number | null;
@@ -414,7 +416,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
         let inferredGroupName = '';
 
         if (groupId) {
-          inferredGroupName = getGroupName(groupId);
+          inferredGroupName = getGroupName(groupId) || '';
         } else if (path && basePath) {
           const rootPath = getDirPath(basePath);
           inferredGroupName = getDirPath(path).replace(rootPath, '').replace(/^\//, '');
@@ -517,44 +519,11 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
 
   const handleBookDownload = useCallback(
     async (book: Book, downloadOptions: { redownload?: boolean; queued?: boolean } = {}) => {
-      const { redownload = false, queued = false } = downloadOptions;
-      if (redownload || !queued) {
-        try {
-          await appService?.downloadBook(book, false, redownload, (progress) => {
-            updateBookTransferProgress(book.hash, progress);
-          });
-          await updateBook(envConfig, book);
-          eventDispatcher.dispatch('toast', {
-            type: 'info',
-            timeout: 2000,
-            message: _('Book downloaded: {{title}}', {
-              title: book.title,
-            }),
-          });
-          return true;
-        } catch {
-          eventDispatcher.dispatch('toast', {
-            message: _('Failed to download book: {{title}}', {
-              title: book.title,
-            }),
-            type: 'error',
-          });
-          return false;
-        }
-      }
-
-      // Use transfer queue for normal downloads - priority 1 for manual downloads
-      const transferId = transferManager.queueDownload(book, 1);
-      if (transferId) {
-        eventDispatcher.dispatch('toast', {
-          type: 'info',
-          timeout: 2000,
-          message: _('Download queued: {{title}}', {
-            title: book.title,
-          }),
-        });
-        return true;
-      }
+      // Cloud download functionality removed - using local server storage only
+      eventDispatcher.dispatch('toast', {
+        message: _('Cloud download has been removed. All books are stored locally on the server.'),
+        type: 'info',
+      });
       return false;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -759,6 +728,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
           onToggleSelectMode={() => handleSetSelectMode(!isSelectMode)}
           onSelectAll={handleSelectAll}
           onDeselectAll={handleDeselectAll}
+          onReconcilePaths={() => setShowReconcileModal(true)}
         />
         <progress
           className={clsx(
@@ -891,6 +861,20 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       <MigrateDataWindow />
       {isSettingsDialogOpen && <SettingsDialog bookKey={''} />}
       {showCatalogManager && <CatalogDialog onClose={handleDismissOPDSDialog} />}
+      {showReconcileModal && appService && (
+        <ReconcileModal
+          isOpen={showReconcileModal}
+          onClose={() => setShowReconcileModal(false)}
+          onConfirm={(results) => {
+            console.log('校准完成，更新了', results.length, '本书');
+            setShowReconcileModal(false);
+            handleRefreshLibrary();
+          }}
+          reconcileBookPaths={appService.reconcileBookPaths.bind(appService)}
+          applyReconciliation={appService.applyReconciliation.bind(appService)}
+          books={libraryBooks}
+        />
+      )}
       <Toast />
     </div>
   );

@@ -50,50 +50,20 @@ const getCoverUrlForDiscord = async (
       return undefined;
     }
 
-    const cacheKey = `drp_${book.hash}.jpg`;
-    // Check if processed image exists in cache
-    const cachedExists = await appService.exists(cacheKey, 'Cache');
-    if (cachedExists) {
-      const downloadUrl = await appService.uploadFileToCloud(
-        cacheKey,
-        cacheKey,
-        'Cache',
-        () => {},
-        book.hash,
-        true,
-      );
-
-      if (downloadUrl) {
-        coverUrlCache.set(book.hash, { url: downloadUrl, timestamp: Date.now() });
-        return downloadUrl;
-      }
-    }
-
+    // Process cover for Discord without cloud upload
     const fullPath = await appService.resolveFilePath(fp, 'Books');
     const coverUrl = await appService.getImageURL(fullPath);
     const iconUrl = '/icon-tiny.png';
 
     const processedBlob = await processDiscordCover(coverUrl, iconUrl);
     console.log('Processed Discord cover for book:', book.title);
-    const arrayBuffer = await processedBlob.arrayBuffer();
-    await appService.writeFile(cacheKey, 'Cache', arrayBuffer);
-    const downloadUrl = await appService.uploadFileToCloud(
-      cacheKey,
-      cacheKey,
-      'Cache',
-      () => {},
-      book.hash,
-      true,
-    );
 
-    if (downloadUrl) {
-      coverUrlCache.set(book.hash, { url: downloadUrl, timestamp: Date.now() });
-      return downloadUrl;
-    }
+    // Note: Discord Rich Presence doesn't support local file URLs
+    // This would require an external URL accessible by Discord's servers
     coverUrlCache.set(book.hash, { url: null, timestamp: Date.now() });
     return undefined;
   } catch (error) {
-    console.warn('Failed to process/upload cover for Discord:', error);
+    console.warn('Failed to process cover for Discord:', error);
     coverUrlCache.set(book.hash, { url: null, timestamp: Date.now() });
     return undefined;
   }

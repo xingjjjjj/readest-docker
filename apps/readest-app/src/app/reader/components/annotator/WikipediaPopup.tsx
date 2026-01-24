@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useEffect, useRef } from 'react';
 import Popup from '@/components/Popup';
 import { Position } from '@/utils/sel';

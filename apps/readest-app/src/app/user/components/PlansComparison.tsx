@@ -1,8 +1,9 @@
+'use client';
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AvailablePlan, PlanType, UserPlan } from '@/types/quota';
 import { useEnv } from '@/context/EnvContext';
 import { debounce } from '@/utils/debounce';
-import { getPlanDetails } from '../utils/plan';
 import PlanNavigation from './PlanNavigation';
 import PlanCard from './PlanCard';
 import PlanIndicators from './PlanIndicators';
@@ -26,8 +27,8 @@ const PlansComparison: React.FC<PlansComparisonProps> = ({
   const userPlans: UserPlan[] = ['free', 'plus', 'pro', 'purchase'];
 
   const allPlans = userPlans.map((plan) => ({
-    ...getPlanDetails(plan, availablePlans),
-  }));
+    plan,
+  } as any));
 
   useEffect(() => {
     if (userPlan) {

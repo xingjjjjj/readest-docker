@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import semver from 'semver';
 import Image from 'next/image';
@@ -364,7 +366,7 @@ export const UpdaterContent = ({
       }
     });
     console.log('package installed');
-    if (!appService?.isAndroidApp && process.env.NODE_ENV === 'production') {
+    if (!appService?.isAndroidApp && process.env['NODE_ENV'] === 'production') {
       await relaunch();
     }
   };

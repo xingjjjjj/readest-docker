@@ -1,3 +1,5 @@
+'use client';
+
 import { useRouter, redirect } from 'next/navigation';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow';

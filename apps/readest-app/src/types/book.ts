@@ -26,6 +26,8 @@ export interface Book {
   filePath?: string;
   // For local storage mode: relative path from storage root (e.g., "fiction/book.epub")
   relativePath?: string;
+  // Absolute file path in the file system (for path reconciliation)
+  absolutePath?: string;
   // Partial md5 hash of the book file, used as the unique identifier
   hash: string;
   // Metadata md5 hash, used to aggregate different versions of the same book

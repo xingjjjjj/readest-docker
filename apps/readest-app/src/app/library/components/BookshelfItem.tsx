@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import { useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -204,7 +206,10 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
     const showBookInFinderMenuItem = await MenuItem.new({
       text: _(fileRevealLabel),
       action: async () => {
-        const folder = `${settings.localBooksDir}/${book.hash}`;
+        // Use relativePath for flat structure, fallback to directory of the book file
+        const folder = book.relativePath
+          ? `${settings.localBooksDir}/${book.relativePath.replace(/\/[^/]+$/, '')}`
+          : settings.localBooksDir;
         revealItemInDir(folder);
       },
     });
@@ -214,18 +219,19 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
         showBookDetailsModal(book);
       },
     });
-    const downloadBookMenuItem = await MenuItem.new({
-      text: _('Download Book'),
-      action: async () => {
-        handleBookDownload(book, { queued: true });
-      },
-    });
-    const uploadBookMenuItem = await MenuItem.new({
-      text: _('Upload Book'),
-      action: async () => {
-        handleBookUpload(book);
-      },
-    });
+    // Cloud upload/download functionality removed - using local server storage only
+    // const downloadBookMenuItem = await MenuItem.new({
+    //   text: _('Download Book'),
+    //   action: async () => {
+    //     handleBookDownload(book, { queued: true });
+    //   },
+    // });
+    // const uploadBookMenuItem = await MenuItem.new({
+    //   text: _('Upload Book'),
+    //   action: async () => {
+    //     handleBookUpload(book);
+    //   },
+    // });
     const deleteBookMenuItem = await MenuItem.new({
       text: _('Delete'),
       action: async () => {
@@ -237,12 +243,13 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
     menu.append(groupBooksMenuItem);
     menu.append(showBookDetailsMenuItem);
     menu.append(showBookInFinderMenuItem);
-    if (book.uploadedAt && !book.downloadedAt) {
-      menu.append(downloadBookMenuItem);
-    }
-    if (!book.uploadedAt && book.downloadedAt) {
-      menu.append(uploadBookMenuItem);
-    }
+    // Cloud storage menu items removed
+    // if (book.uploadedAt && !book.downloadedAt) {
+    //   menu.append(downloadBookMenuItem);
+    // }
+    // if (!book.uploadedAt && book.downloadedAt) {
+    //   menu.append(uploadBookMenuItem);
+    // }
     menu.append(deleteBookMenuItem);
     menu.popup();
   };
@@ -358,7 +365,7 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
         className={clsx(
           'visible-focus-inset-2 group',
           mode === 'grid' &&
-            'sm:hover:bg-base-300/50 flex h-full flex-col px-0 py-2 sm:px-4 sm:py-4',
+          'sm:hover:bg-base-300/50 flex h-full flex-col px-0 py-2 sm:px-4 sm:py-4',
           mode === 'list' && 'border-base-300 flex flex-col border-b py-2',
           appService?.isMobileApp && 'no-context-menu',
           pressing && mode === 'grid' ? 'not-eink:scale-95' : 'scale-100',

@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import React, { useCallback } from 'react';
 import { TbBoxMargin } from 'react-icons/tb';

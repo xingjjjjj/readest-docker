@@ -1,3 +1,5 @@
+'use client';
+
 import { useCallback, useRef, useEffect } from 'react';
 import { useEnv } from '@/context/EnvContext';
 import { useThemeStore } from '@/store/themeStore';

@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useEnv } from '@/context/EnvContext';
 import { useSettingsStore } from '@/store/settingsStore';

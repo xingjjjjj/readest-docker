@@ -1,5 +1,11 @@
 import withSerwistInit from '@serwist/next';
-import withBundleAnalyzer from '@next/bundle-analyzer';
+
+let withBundleAnalyzer = (config) => config; // Default: no-op
+try {
+  withBundleAnalyzer = (await import('@next/bundle-analyzer')).default;
+} catch (e) {
+  // @next/bundle-analyzer not available in production
+}
 
 const isDev = process.env['NODE_ENV'] === 'development';
 const appPlatform = process.env['NEXT_PUBLIC_APP_PLATFORM'];
@@ -39,6 +45,21 @@ const nextConfig = {
         'marked',
       ]
     : [],
+  webpack: (config, { isServer }) => {
+    // Suppress React Hook usage warnings in utils/libraries
+    if (!isDev) {
+      config.ignoreWarnings = config.ignoreWarnings || [];
+      config.ignoreWarnings.push({
+        module: /utils\/nav\.ts/,
+        message: /useRouter/,
+      });
+      config.ignoreWarnings.push({
+        module: /hooks\/useTheme\.ts/,
+        message: /use.*Hook/,
+      });
+    }
+    return config;
+  },
   async headers() {
     return [
       {
@@ -81,4 +102,7 @@ const withAnalyzer = withBundleAnalyzer({
   enabled: process.env.ANALYZE === 'true',
 });
 
-export default withPWA(withAnalyzer(nextConfig));
+// Safely apply withAnalyzer if it's a real function
+export default withPWA(
+  typeof withAnalyzer === 'function' ? withAnalyzer(nextConfig) : nextConfig,
+);

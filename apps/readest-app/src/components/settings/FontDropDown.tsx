@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import React, { useMemo } from 'react';
 import { FixedSizeList as List } from 'react-window';

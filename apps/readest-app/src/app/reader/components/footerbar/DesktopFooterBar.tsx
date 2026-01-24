@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useCallback, useEffect, useRef } from 'react';
 import { FaHeadphones } from 'react-icons/fa6';
 import { RiArrowLeftSLine, RiArrowRightSLine } from 'react-icons/ri';

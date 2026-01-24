@@ -1,3 +1,5 @@
+'use client';
+
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import React from 'react';

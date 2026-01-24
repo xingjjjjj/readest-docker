@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import { useEffect, useRef, useState } from 'react';
 import { MdCheckCircle, MdCheckCircleOutline, MdChevronRight, MdChevronLeft } from 'react-icons/md';

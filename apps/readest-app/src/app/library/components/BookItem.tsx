@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import { MdCheckCircle, MdCheckCircleOutline } from 'react-icons/md';
 import {

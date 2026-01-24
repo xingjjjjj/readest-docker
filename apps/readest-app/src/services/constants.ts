@@ -638,8 +638,9 @@ export const BOOK_IDS_SEPARATOR = '+';
 
 export const DOWNLOAD_READEST_URL = 'https://readest.com?utm_source=readest_web';
 
-export const READEST_WEB_BASE_URL = 'https://web.readest.com';
-export const READEST_NODE_BASE_URL = 'https://node.readest.com';
+// 支持通过环境变量自定义 API 地址（用于本地部署或自托管）
+export const READEST_WEB_BASE_URL = process.env['NEXT_PUBLIC_WEB_BASE_URL'] || 'https://web.readest.com';
+export const READEST_NODE_BASE_URL = process.env['NEXT_PUBLIC_NODE_BASE_URL'] || 'https://node.readest.com';
 
 const LATEST_DOWNLOAD_BASE_URL = 'https://download.readest.com/releases';
 
@@ -647,7 +648,8 @@ export const READEST_UPDATER_FILE = `${LATEST_DOWNLOAD_BASE_URL}/latest.json`;
 
 export const READEST_CHANGELOG_FILE = `${LATEST_DOWNLOAD_BASE_URL}/release-notes.json`;
 
-export const READEST_PUBLIC_STORAGE_BASE_URL = 'https://storage.readest.com';
+// 支持通过环境变量自定义存储 URL
+export const READEST_PUBLIC_STORAGE_BASE_URL = process.env['NEXT_PUBLIC_STORAGE_BASE_URL'] || 'https://storage.readest.com';
 
 export const READEST_OPDS_USER_AGENT = 'Readest/1.0 (OPDS Browser)';
 

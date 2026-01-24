@@ -4,7 +4,15 @@ import Providers from '@/components/Providers';
 
 import '../styles/globals.css';
 
-const url = 'https://web.readest.com/';
+// 支持通过环境变量配置应用 URL（用于本地部署或自托管）
+const getAppUrl = () => {
+  if (typeof process !== 'undefined' && process.env['NEXT_PUBLIC_WEB_BASE_URL']) {
+    return process.env['NEXT_PUBLIC_WEB_BASE_URL'] + '/';
+  }
+  return 'https://web.readest.com/';
+};
+
+const url = getAppUrl();
 const title = 'Readest — Where You Read, Digest and Get Insight';
 const description =
   'Discover Readest, the ultimate online ebook reader for immersive and organized reading. ' +

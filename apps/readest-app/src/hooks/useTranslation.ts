@@ -1,3 +1,5 @@
+'use client';
+
 import '@/i18n/i18n';
 import { useCallback } from 'react';
 import { useTranslation as _useTranslation } from 'react-i18next';

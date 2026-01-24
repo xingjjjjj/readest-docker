@@ -1,3 +1,5 @@
+'use client';
+
 import { useCallback, useMemo } from 'react';
 import * as CFI from 'foliate-js/epubcfi.js';
 import { useSidebarStore } from '@/store/sidebarStore';

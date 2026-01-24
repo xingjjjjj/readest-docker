@@ -1,8 +1,7 @@
 import { useTranslation } from '@/hooks/useTranslation';
-import { PlanDetails } from '../utils/plan';
 
 interface PlanActionButtonProps {
-  plan: PlanDetails;
+  plan: any;
   isUserPlan: boolean;
   comingSoon?: boolean;
   upgradable?: boolean;

@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import React, { useCallback, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -33,6 +35,7 @@ interface LibraryHeaderProps {
   onToggleSelectMode: () => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
+  onReconcilePaths?: () => void;
 }
 
 const LibraryHeader: React.FC<LibraryHeaderProps> = ({
@@ -44,6 +47,7 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
   onToggleSelectMode,
   onSelectAll,
   onDeselectAll,
+  onReconcilePaths,
 }) => {
   const _ = useTranslation();
   const router = useRouter();
@@ -197,8 +201,19 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
           </div>
         ) : (
           <div className='flex h-full items-center gap-x-2 sm:gap-x-4'>
-            {isWebAppPlatform() && process.env.NEXT_PUBLIC_STORAGE_MODE === 'local' && (
-              <ScanBooksButton />
+            {isWebAppPlatform() && process.env['NEXT_PUBLIC_STORAGE_MODE'] === 'local' && (
+              <>
+                <ScanBooksButton />
+                {onReconcilePaths && (
+                  <button
+                    onClick={onReconcilePaths}
+                    className='btn btn-ghost h-8 min-h-8 px-2'
+                    title='校准书籍路径'
+                  >
+                    <span className='text-xs'>校准</span>
+                  </button>
+                )}
+              </>
             )}
             <Dropdown
               label={_('View Menu')}

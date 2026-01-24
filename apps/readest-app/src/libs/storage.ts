@@ -351,23 +351,3 @@ export const scanBooks = async (): Promise<{ count: number; books: ScannedBook[]
     throw new Error('Scan books failed');
   }
 };
-
-export const importScannedBook = async (
-  relativePath: string,
-  hash: string,
-  createLinks = true,
-): Promise<any> => {
-  try {
-    const response = await request(API_ENDPOINTS.import, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ relativePath, hash, createLinks }),
-    });
-    return await response.json();
-  } catch (error) {
-    console.error('Import scanned book failed:', error);
-    throw new Error('Import scanned book failed');
-  }
-};

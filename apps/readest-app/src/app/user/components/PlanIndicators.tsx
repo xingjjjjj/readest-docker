@@ -1,7 +1,5 @@
-import { PlanDetails } from '../utils/plan';
-
 interface PlanIndicatorsProps {
-  allPlans: PlanDetails[];
+  allPlans: any[];
   currentPlanIndex: number;
   onSelectPlan: (index: number) => void;
 }
@@ -16,9 +14,8 @@ const PlanIndicators: React.FC<PlanIndicatorsProps> = ({
       <button
         key={index}
         onClick={() => onSelectPlan(index)}
-        className={`h-2 w-2 rounded-full transition-colors ${
-          index === currentPlanIndex ? 'bg-blue-500' : 'bg-gray-300'
-        }`}
+        className={`h-2 w-2 rounded-full transition-colors ${index === currentPlanIndex ? 'bg-blue-500' : 'bg-gray-300'
+          }`}
       />
     ))}
   </div>

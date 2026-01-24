@@ -7,33 +7,29 @@ const basePrefix = async () => '';
 
 const resolvePath = (path: string, base: BaseDir): ResolvedPath => {
     // Check if we're in local storage mode
-    const isLocalMode = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_STORAGE_MODE === 'local') ||
+    const isLocalMode = (typeof process !== 'undefined' && process.env?.['NEXT_PUBLIC_STORAGE_MODE'] === 'local') ||
         (typeof window !== 'undefined' && (window as any).__STORAGE_MODE__ === 'local');
 
     if (typeof window === 'undefined' && typeof process !== 'undefined') {
-        console.log('[ResolvePath] Env Check - NEXT_PUBLIC_STORAGE_MODE:', process.env?.NEXT_PUBLIC_STORAGE_MODE, 'isLocalMode:', isLocalMode, 'base:', base, 'path:', path);
+        console.log('[ResolvePath] Env Check - NEXT_PUBLIC_STORAGE_MODE:', process.env?.['NEXT_PUBLIC_STORAGE_MODE'], 'isLocalMode:', isLocalMode, 'base:', base, 'path:', path);
     }
 
     switch (base) {
         case 'Data':
             return { baseDir: 0, basePrefix, fp: `${DATA_SUBDIR}/${path}`, base };
         case 'Settings':
-            // In local storage mode, settings.json stored in Settings directory
-            // In remote mode, stored at root
-            if ((typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_STORAGE_MODE === 'local') ||
-                (typeof window !== 'undefined' && (window as any).__STORAGE_MODE__ === 'local')) {
-                return { baseDir: 0, basePrefix, fp: `Settings/${path}`, base };
-            }
-            return { baseDir: 0, basePrefix, fp: path, base };
+            // Settings files now stored in .readest directory
+            return { baseDir: 0, basePrefix, fp: `.readest/${path}`, base };
         case 'Books':
             // Always use flat storage structure (no Readest/Books/ prefix)
-            // Library metadata files go to Settings directory
+            // Library metadata files now go to .readest directory
             if (path === 'library.json' || path === 'library.json.bak' || path === 'library_backup.json') {
-                console.log('[ResolvePath] Books/Library detected, routing to Settings');
-                return { baseDir: 0, basePrefix, fp: `Settings/${path}`, base };
+                console.log('[ResolvePath] Books/Library detected, routing to .readest');
+                return { baseDir: 0, basePrefix, fp: `.readest/${path}`, base };
             }
             // All book files and metadata use flat structure (no Readest/Books/ prefix)
-            console.log('[ResolvePath] Books flat path (no prefix):', path);
+            console.log('[ResolvePath] ✓ Books base, flat path (no prefix):', path);
+            console.log('[ResolvePath] ✓ Returning fp:', path);
             return { baseDir: 0, basePrefix, fp: path, base };
         case 'Fonts':
             return { baseDir: 0, basePrefix, fp: `${LOCAL_FONTS_SUBDIR}/${path}`, base };
@@ -92,7 +88,9 @@ export const apiFileSystem: FileSystem = {
     },
     async writeFile(path: string, base: BaseDir, content: string | ArrayBuffer | File) {
         const { fp } = this.resolvePath(path, base);
-        console.log('[APIFileSystem.writeFile] path:', path, 'base:', base, 'resolved fp:', fp);
+        console.log('[APIFileSystem.writeFile] 11. Input path:', path);
+        console.log('[APIFileSystem.writeFile] 12. Base:', base);
+        console.log('[APIFileSystem.writeFile] 13. Resolved fp:', fp);
         let buffer: Buffer;
         if (content instanceof File) {
             buffer = Buffer.from(await content.arrayBuffer());
@@ -101,6 +99,7 @@ export const apiFileSystem: FileSystem = {
         } else {
             buffer = Buffer.from(content);
         }
+        console.log('[APIFileSystem.writeFile] 14. Calling PUT /api/storage/file with filePath:', fp);
         const res = await fetch(`/api/storage/file?filePath=${encodeURIComponent(fp)}`, {
             method: 'PUT',
             body: buffer,

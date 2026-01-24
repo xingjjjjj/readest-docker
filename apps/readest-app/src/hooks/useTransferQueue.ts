@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useCallback, useMemo } from 'react';
 import { useEnv } from '@/context/EnvContext';
 import { useTranslation } from './useTranslation';

@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -271,9 +273,9 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ setIsDropdownOpen }) => {
           description={
             hasActiveTransfers
               ? _('{{activeCount}} active, {{pendingCount}} pending', {
-                  activeCount: stats.active,
-                  pendingCount: stats.pending,
-                })
+                activeCount: stats.active,
+                pendingCount: stats.pending,
+              })
               : stats.failed > 0
                 ? _('{{failedCount}} failed', { failedCount: stats.failed })
                 : ''
@@ -281,11 +283,13 @@ const SettingsMenu: React.FC<SettingsMenuProps> = ({ setIsDropdownOpen }) => {
           onClick={openTransferQueue}
         />
       )}
+      {/* Cloud upload functionality removed - using local server storage only
       <MenuItem
         label={_('Auto Upload Books to Cloud')}
         toggled={isAutoUpload}
         onClick={toggleAutoUploadBooks}
       />
+      */}
       {isTauriAppPlatform() && !appService?.isMobile && (
         <MenuItem
           label={_('Auto Import on File Open')}

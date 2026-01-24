@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FaSearch, FaChevronDown } from 'react-icons/fa';

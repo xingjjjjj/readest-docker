@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import React, { useState, useMemo, useEffect } from 'react';
 import { marked } from 'marked';

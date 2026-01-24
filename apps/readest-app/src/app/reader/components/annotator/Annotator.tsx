@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { RiDeleteBinLine } from 'react-icons/ri';
 

@@ -1,19 +1,17 @@
 import { BookMetadata, EXTS } from '@/libs/document';
 import { Book, BookConfig, BookProgress, WritingMode } from '@/types/book';
 import { SUPPORTED_LANGS } from '@/services/constants';
-import { getUserLang, makeSafeFilename } from './misc';
-import { getStorageType } from './storage';
+import { getUserLang } from './misc';
 import { getDirFromLanguage } from './rtl';
 import { code6392to6391, isValidLang, normalizedLangCode } from './lang';
 import { md5 } from './md5';
 
 export const getDir = (book: Book) => {
   // In local storage mode, return the folder name (same as book name without extension)
-  if (book.relativePath) {
-    return book.relativePath.replace(/\.[^.]+$/, '');
+  if (!book.relativePath) {
+    throw new Error(`Book ${book.title} (${book.hash}) is missing relativePath. Please re-import the book.`);
   }
-  // Legacy: hash-based storage
-  return `${book.hash}`;
+  return book.relativePath.replace(/\.[^.]+$/, '');
 };
 export const getLibraryFilename = () => {
   return 'library.json';
@@ -21,47 +19,33 @@ export const getLibraryFilename = () => {
 export const getLibraryBackupFilename = () => {
   return 'library_backup.json';
 };
-export const getRemoteBookFilename = (book: Book) => {
-  // S3 storage: https://docs.aws.amazon.com/zh_cn/AmazonS3/latest/userguide/object-keys.html
-  if (getStorageType() === 'r2') {
-    return `${book.hash}/${makeSafeFilename(book.sourceTitle || book.title)}.${EXTS[book.format]}`;
-  } else if (getStorageType() === 's3') {
-    return `${book.hash}/${book.hash}.${EXTS[book.format]}`;
-  } else {
-    return '';
-  }
-};
 export const getLocalBookFilename = (book: Book) => {
   // In local storage mode, books are stored in their original relative paths
-  if (book.relativePath) {
-    return book.relativePath;
+  if (!book.relativePath) {
+    throw new Error(`Book ${book.title} (${book.hash}) is missing relativePath. Please re-import the book.`);
   }
-  // Legacy: hash-based storage
-  return `${book.hash}/${makeSafeFilename(book.sourceTitle || book.title)}.${EXTS[book.format]}`;
+  return book.relativePath;
 };
 export const getCoverFilename = (book: Book) => {
   // In local storage mode, covers are stored in a folder next to the book with the same name
-  if (book.relativePath) {
-    // Remove extension from book path to get folder name
-    const pathWithoutExt = book.relativePath.replace(/\.[^.]+$/, '');
-    const result = `${pathWithoutExt}/cover.png`;
-    console.log('[getCoverFilename] Using relativePath:', book.relativePath, '-> cover:', result);
-    return result;
+  if (!book.relativePath) {
+    throw new Error(`Book ${book.title} (${book.hash}) is missing relativePath. Please re-import the book.`);
   }
-  // Legacy: hash-based storage
-  const result = `${book.hash}/cover.png`;
-  console.log('[getCoverFilename] Using hash:', book.hash, '-> cover:', result);
+  // Remove extension from book path to get folder name
+  const pathWithoutExt = book.relativePath.replace(/\.[^.]+$/, '');
+  const result = `${pathWithoutExt}/cover.png`;
+  console.log('[getCoverFilename] ✓ Using relativePath:', book.relativePath);
+  console.log('[getCoverFilename] ✓ Cover path result:', result);
   return result;
 };
 export const getConfigFilename = (book: Book) => {
   // In local storage mode, configs are stored in a folder next to the book with the same name
-  if (book.relativePath) {
-    // Remove extension from book path to get folder name
-    const pathWithoutExt = book.relativePath.replace(/\.[^.]+$/, '');
-    return `${pathWithoutExt}/config.json`;
+  if (!book.relativePath) {
+    throw new Error(`Book ${book.title} (${book.hash}) is missing relativePath. Please re-import the book.`);
   }
-  // Legacy: hash-based storage
-  return `${book.hash}/config.json`;
+  // Remove extension from book path to get folder name
+  const pathWithoutExt = book.relativePath.replace(/\.[^.]+$/, '');
+  return `${pathWithoutExt}/config.json`;
 };
 export const isBookFile = (filename: string) => {
   return Object.values(EXTS).includes(filename.split('.').pop()!);

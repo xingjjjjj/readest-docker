@@ -21,7 +21,6 @@ import {
 import {
   getDir,
   getLocalBookFilename,
-  getRemoteBookFilename,
   getCoverFilename,
   getConfigFilename,
   getLibraryFilename,
@@ -31,7 +30,7 @@ import {
   getPrimaryLanguage,
   getLibraryBackupFilename,
 } from '@/utils/book';
-import { md5, partialMD5 } from '@/utils/md5';
+import { md5, partialMD5, md5Fingerprint } from '@/utils/md5';
 import { getBaseFilename, getFilename } from '@/utils/path';
 import { BookDoc, DocumentLoader, EXTS } from '@/libs/document';
 import {
@@ -56,6 +55,7 @@ import {
   DEFAULT_ANNOTATOR_CONFIG,
   DEFAULT_EINK_VIEW_SETTINGS,
 } from './constants';
+import { cachedFetchAsUrl } from '@/utils/cachedFetch';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
 import {
   getOSPlatform,
@@ -66,15 +66,7 @@ import {
   makeSafeFilename,
 } from '@/utils/misc';
 import { deserializeConfig, serializeConfig } from '@/utils/serializer';
-import {
-  downloadFile,
-  uploadFile,
-  deleteFile,
-  createProgressHandler,
-  batchGetDownloadUrls,
-} from '@/libs/storage';
 import { ClosableFile } from '@/utils/file';
-import { ProgressHandler } from '@/utils/transfer';
 import { TxtToEpubConverter } from '@/utils/txt';
 import { BOOK_FILE_NOT_FOUND_ERROR } from './errors';
 import { CustomTextureInfo } from '@/styles/textures';
@@ -147,6 +139,49 @@ export abstract class BaseAppService implements AppService {
 
   async prepareBooksDir() {
     this.localBooksDir = await this.fs.getPrefix('Books');
+    // Initialize configuration files in .readest directory
+    await this.ensureConfigFilesExist();
+  }
+
+  /**
+   * Ensure settings.json and library.json exist in .readest directory
+   * If they don't exist, create them with default values
+   */
+  private async ensureConfigFilesExist(): Promise<void> {
+    try {
+      // Check and create settings.json if needed
+      const settingsExists = await this.fs.exists(SETTINGS_FILENAME, 'Settings');
+      if (!settingsExists) {
+        console.log('[Init] settings.json not found, creating with defaults...');
+        const defaultSettings = {
+          ...DEFAULT_SYSTEM_SETTINGS,
+          ...(this.isMobile ? DEFAULT_MOBILE_SYSTEM_SETTINGS : {}),
+          version: SYSTEM_SETTINGS_VERSION,
+          localBooksDir: await this.fs.getPrefix('Books'),
+          globalReadSettings: {
+            ...DEFAULT_READSETTINGS,
+            ...(this.isMobile ? DEFAULT_MOBILE_READSETTINGS : {}),
+          },
+          globalViewSettings: this.getDefaultViewSettings(),
+        } as SystemSettings;
+        await this.safeSaveJSON(SETTINGS_FILENAME, 'Settings', defaultSettings);
+        console.log('[Init] ✓ settings.json created successfully');
+      }
+
+      // Check and create library.json if needed
+      const libraryFilename = getLibraryFilename();
+      const libraryExists = await this.fs.exists(libraryFilename, 'Books');
+      if (!libraryExists) {
+        console.log('[Init] library.json not found, creating with defaults...');
+        await this.safeSaveJSON(libraryFilename, 'Books', []);
+        console.log('[Init] ✓ library.json created successfully');
+      }
+
+      console.log('[Init] ✓ All configuration files are ready');
+    } catch (error) {
+      console.error('[Init] Error ensuring config files exist:', error);
+      // Don't throw, continue with defaults
+    }
   }
 
   async openFile(path: string, base: BaseDir): Promise<File> {
@@ -206,11 +241,31 @@ export abstract class BaseAppService implements AppService {
     // Use the resolved path from 'Books' base instead of manually prefixing with localBooksDir
     // This correctly handles both flat (relativePath) and legacy (hash-based) paths
     const coverPath = getCoverFilename(book);
-    try {
-      return await this.fs.getBlobURL(coverPath, 'Books');
-    } catch {
-      // Fallback to old path if the new path doesn't exist
-      return `${this.localBooksDir}/${coverPath}`;
+
+    // 在 web 平台使用缓存的 Blob URL
+    if (this.appPlatform === 'web') {
+      try {
+        const coverUrl = this.fs.getURL(this.fs.resolvePath(coverPath, 'Books').fp) ||
+          `${this.localBooksDir}/${coverPath}`;
+
+        // 使用缓存获取 Blob URL，缓存 30 天
+        return await cachedFetchAsUrl(coverUrl, {
+          cacheStrategy: 'cache-first',
+          cacheTTL: 30 * 24 * 60 * 60 * 1000, // 30 天
+        }).catch(() => {
+          // 如果缓存失败，回退到原始方式
+          return `${this.localBooksDir}/${coverPath}`;
+        });
+      } catch {
+        return `${this.localBooksDir}/${coverPath}`;
+      }
+    } else {
+      try {
+        return await this.fs.getBlobURL(coverPath, 'Books');
+      } catch {
+        // Fallback to old path if the new path doesn't exist
+        return `${this.localBooksDir}/${coverPath}`;
+      }
     }
   };
 
@@ -369,10 +424,12 @@ export abstract class BaseAppService implements AppService {
       targetGroupName?: string;
     },
   ): Promise<Book | null> {
+    const startTime = Date.now();
+    let filename = '';
+
     try {
       let loadedBook: BookDoc;
       let format: BookFormat;
-      let filename: string;
       let fileobj: File;
 
       if (transient && typeof file !== 'string') {
@@ -387,14 +444,29 @@ export abstract class BaseAppService implements AppService {
           fileobj = file;
           filename = file.name;
         }
+
+        // 记录文件大小
+        const fileSizeMB = fileobj.size / (1024 * 1024);
+        console.log(`[importBook] Processing: ${filename}, size: ${fileSizeMB.toFixed(2)} MB`);
+
+        // 检查文件大小
+        if (fileobj.size === 0) {
+          throw new Error('Invalid or empty book file');
+        }
+
+        // 警告大文件
+        if (fileobj.size > 100 * 1024 * 1024) {
+          console.warn(`[importBook] ⚠️ Large file: ${fileSizeMB.toFixed(2)} MB, processing may take longer`);
+        }
+
         if (/\.txt$/i.test(filename)) {
           const txt2epub = new TxtToEpubConverter();
           ({ file: fileobj } = await txt2epub.convert({ file: fileobj }));
         }
-        if (!fileobj || fileobj.size === 0) {
-          throw new Error('Invalid or empty book file');
-        }
+
+        console.log(`[importBook] Opening document: ${filename}`);
         ({ book: loadedBook, format } = await new DocumentLoader(fileobj).open());
+
         if (!loadedBook) {
           throw new Error('Unsupported or corrupted book file');
         }
@@ -402,18 +474,24 @@ export abstract class BaseAppService implements AppService {
         if (!metadataTitle || !metadataTitle.trim() || metadataTitle === filename) {
           loadedBook.metadata.title = getBaseFilename(filename);
         }
+
+        console.log(`[importBook] ✓ Document opened successfully: ${filename}`);
       } catch (error) {
-        throw new Error(`Failed to open the book: ${(error as Error).message || error}`);
+        const errorMsg = (error as Error).message || String(error);
+        console.error(`[importBook] ✗ Failed to open book: ${filename}`, errorMsg);
+        throw new Error(`Failed to open the book: ${errorMsg}`);
       }
 
+      console.log(`[importBook] Computing hash for: ${filename}`);
       const hash = await partialMD5(fileobj);
       const existingBook = books.filter((b) => b.hash === hash)[0];
+      const now = Date.now();
       if (existingBook) {
         if (!transient) {
           existingBook.deletedAt = null;
         }
-        existingBook.createdAt = Date.now();
-        existingBook.updatedAt = Date.now();
+        existingBook.createdAt = now;
+        existingBook.updatedAt = now;
       }
 
       const primaryLanguage = getPrimaryLanguage(loadedBook.metadata.language);
@@ -424,11 +502,11 @@ export abstract class BaseAppService implements AppService {
         sourceTitle: formatTitle(loadedBook.metadata.title),
         primaryLanguage,
         author: formatAuthors(loadedBook.metadata.author, primaryLanguage),
-        createdAt: existingBook ? existingBook.createdAt : Date.now(),
-        uploadedAt: existingBook ? existingBook.uploadedAt : null,
-        deletedAt: transient ? Date.now() : null,
-        downloadedAt: Date.now(),
-        updatedAt: Date.now(),
+        createdAt: existingBook ? existingBook.createdAt : now,
+        uploadedAt: existingBook ? existingBook.uploadedAt : (transient ? null : now),
+        deletedAt: transient ? now : null,
+        downloadedAt: now,
+        updatedAt: now,
       };
       // update book metadata when reimporting the same book
       if (existingBook) {
@@ -444,10 +522,10 @@ export abstract class BaseAppService implements AppService {
       // Check runtime window.__STORAGE_MODE__ first (set by Providers), then fallback to compile-time env var
       const isLocalStorageMode =
         (typeof window !== 'undefined' && (window as any).__STORAGE_MODE__ === 'local') ||
-        process.env.NEXT_PUBLIC_STORAGE_MODE === 'local';
+        process.env['NEXT_PUBLIC_STORAGE_MODE'] === 'local';
       const shouldUseLocalFlatStorage = this.appPlatform === 'web' && isLocalStorageMode;
 
-      console.log('[ImportBook] appPlatform:', this.appPlatform, 'STORAGE_MODE (runtime):', (typeof window !== 'undefined' && (window as any).__STORAGE_MODE__), 'STORAGE_MODE (env):', process.env.NEXT_PUBLIC_STORAGE_MODE, 'shouldUseLocalFlatStorage:', shouldUseLocalFlatStorage);
+      console.log('[ImportBook] appPlatform:', this.appPlatform, 'STORAGE_MODE (runtime):', (typeof window !== 'undefined' && (window as any).__STORAGE_MODE__), 'STORAGE_MODE (env):', process.env['NEXT_PUBLIC_STORAGE_MODE'], 'shouldUseLocalFlatStorage:', shouldUseLocalFlatStorage);
 
       const fileExt = EXTS[format] || format.toLowerCase?.() || 'book';
       const safeBaseName = makeSafeFilename(book.sourceTitle || book.title);
@@ -458,8 +536,14 @@ export abstract class BaseAppService implements AppService {
         const derivedRelativePath = options?.targetRelativePath
           ? options.targetRelativePath
           : `${targetGroupName ? `${targetGroupName}/` : ''}${safeBaseName}.${fileExt}`;
+
+        if (!derivedRelativePath) {
+          throw new Error('targetRelativePath is required for local storage mode. Please provide a valid relative path.');
+        }
+
         book.relativePath = derivedRelativePath;
-        console.log('[ImportBook] Setting relativePath to:', derivedRelativePath);
+        console.log('[ImportBook] 5. Setting book.relativePath to:', derivedRelativePath);
+        console.log('[ImportBook] 6. Book hash:', book.hash);
         if (existingBook) {
           existingBook.relativePath = derivedRelativePath;
         }
@@ -468,6 +552,15 @@ export abstract class BaseAppService implements AppService {
           if (existingBook && !existingBook.groupName) {
             existingBook.groupName = targetGroupName;
           }
+        }
+      } else if (this.appPlatform === 'web') {
+        // For web platform in remote mode, still require relativePath for consistency
+        const derivedRelativePath = options?.targetRelativePath
+          ? options.targetRelativePath
+          : `${targetGroupName ? `${targetGroupName}/` : ''}${safeBaseName}.${fileExt}`;
+        book.relativePath = derivedRelativePath;
+        if (existingBook) {
+          existingBook.relativePath = derivedRelativePath;
         }
       }
 
@@ -494,15 +587,20 @@ export abstract class BaseAppService implements AppService {
         }
       }
       if (saveCover && (!(await this.fs.exists(getCoverFilename(book), 'Books')) || overwrite)) {
+        console.log('[ImportBook] 7. Preparing to save cover');
         let cover = await loadedBook.getCover();
         if (cover?.type === 'image/svg+xml') {
           try {
-            console.log('Converting SVG cover to PNG...');
+            console.log('[ImportBook] Converting SVG cover to PNG...');
             cover = await svg2png(cover);
           } catch { }
         }
         if (cover) {
-          await this.fs.writeFile(getCoverFilename(book), 'Books', await cover.arrayBuffer());
+          const coverFilename = getCoverFilename(book);
+          console.log('[ImportBook] 8. Saving cover with filename:', coverFilename);
+          console.log('[ImportBook] 9. Cover size:', cover.size, 'bytes');
+          await this.fs.writeFile(coverFilename, 'Books', await cover.arrayBuffer());
+          console.log('[ImportBook] 10. Cover saved successfully');
         }
       }
       // Never overwrite the config file only when it's not existed
@@ -528,9 +626,32 @@ export abstract class BaseAppService implements AppService {
         await f.close();
       }
 
+      const elapsed = Date.now() - startTime;
+      console.log(`[importBook] ✓ Import completed in ${elapsed}ms: ${filename}`);
+
       return existingBook || book;
     } catch (error) {
-      console.error('Error importing book:', error);
+      const elapsed = Date.now() - startTime;
+      const errorMsg = (error as Error).message || String(error);
+      const errorStack = (error as Error).stack;
+
+      console.error(`[importBook] ✗ Import failed after ${elapsed}ms`);
+      console.error(`[importBook] File: ${filename || (typeof file === 'string' ? file : 'unknown')}`);
+      console.error(`[importBook] Error: ${errorMsg}`);
+      if (errorStack) {
+        console.error(`[importBook] Stack trace:`, errorStack);
+      }
+
+      // 如果是内存错误，提供更明确的提示
+      if (errorMsg.includes('memory') || errorMsg.includes('ENOMEM')) {
+        throw new Error(`内存不足：文件可能过大。请尝试导入较小的文件或关闭其他程序。原始错误：${errorMsg}`);
+      }
+
+      // 如果是文件大小限制错误，直接抛出
+      if (errorMsg.includes('too large') || errorMsg.includes('Maximum size')) {
+        throw error;
+      }
+
       throw error;
     }
   }
@@ -572,7 +693,8 @@ export abstract class BaseAppService implements AppService {
    */
   async reclassifyBook(book: Book, newGroupName: string, oldGroupName?: string): Promise<void> {
     // 仅在本地存储模式下执行文件移动
-    if (this.appPlatform !== 'web' || process.env.NEXT_PUBLIC_STORAGE_MODE !== 'local') {
+    // @ts-ignore - NEXT_PUBLIC_STORAGE_MODE is set at build time
+    if (this.appPlatform !== 'web' || (process.env['NEXT_PUBLIC_STORAGE_MODE'] || 'local') !== 'local') {
       console.log('[Reclassify] 非本地存储模式，跳过文件移动');
       return;
     }
@@ -584,22 +706,40 @@ export abstract class BaseAppService implements AppService {
     }
 
     try {
-      // 计算旧路径：从当前 relativePath 中移除旧分组名称
-      let oldRelativePath = book.relativePath;
-      if (oldGroupName) {
-        // 如果提供了旧分组，尝试从 relativePath 中移除它
-        if (book.relativePath.startsWith(`${oldGroupName}/`)) {
-          oldRelativePath = book.relativePath.substring(oldGroupName.length + 1);
-        }
+      // 获取当前设置，读取分组目录配置
+      const settings = await this.loadSettings();
+      const groupDirectories = settings.groupDirectories || {};
+
+      // 当前的 relativePath 就是旧路径
+      const oldRelativePath = book.relativePath;
+
+      // 提取文件名（不包含分组路径）
+      let filename: string;
+      if (oldGroupName && oldRelativePath.startsWith(`${oldGroupName}/`)) {
+        // 如果旧路径包含分组，提取文件名
+        filename = oldRelativePath.substring(oldGroupName.length + 1);
       } else {
-        // 如果没有提供旧分组，假设书籍在根目录
-        // oldRelativePath 已经正确设置
+        // 否则，relativePath 本身就是文件名（或已经是正确的相对路径）
+        // 提取最后的文件名部分
+        const parts = oldRelativePath.split('/');
+        filename = parts[parts.length - 1] || '';
       }
 
-      // 计算新路径：添加新分组名称
-      const newRelativePath = newGroupName
-        ? `${newGroupName}/${oldRelativePath}`
-        : oldRelativePath;
+      // 计算新路径：
+      // 1. 如果新分组在 groupDirectories 中有配置，使用配置的目录
+      // 2. 否则使用分组名称作为目录
+      let targetDirectory: string;
+      if (newGroupName && groupDirectories[newGroupName]) {
+        targetDirectory = groupDirectories[newGroupName];
+      } else if (newGroupName) {
+        targetDirectory = newGroupName;
+      } else {
+        targetDirectory = '';
+      }
+
+      const newRelativePath = targetDirectory
+        ? `${targetDirectory}/${filename}`
+        : filename;
 
       // 如果新旧路径相同，无需移动
       if (oldRelativePath === newRelativePath) {
@@ -610,6 +750,9 @@ export abstract class BaseAppService implements AppService {
       console.log('[Reclassify] 准备移动书籍文件');
       console.log('  旧路径:', oldRelativePath);
       console.log('  新路径:', newRelativePath);
+      console.log('  文件名:', filename);
+      console.log('  新分组:', newGroupName);
+      console.log('  目标目录:', targetDirectory);
 
       // 调用 API 移动文件
       const response = await fetch('/api/storage/reclassify', {
@@ -627,11 +770,16 @@ export abstract class BaseAppService implements AppService {
         throw new Error(`Failed to move book files: ${error}`);
       }
 
-      // 更新 book.relativePath 和 book.groupName
+      const result = await response.json();
+
+      // 更新 book 的路径信息
       book.relativePath = newRelativePath;
       book.groupName = newGroupName || undefined;
+      // 如果 API 返回了绝对路径，也更新它
+      if (result.absolutePath) {
+        book.absolutePath = result.absolutePath;
+      }
 
-      const result = await response.json();
       console.log('[Reclassify] 文件移动成功:', result);
     } catch (error) {
       console.error('[Reclassify] 重新分类书籍时出错:', error);
@@ -658,186 +806,14 @@ export abstract class BaseAppService implements AppService {
         book.coverDownloadedAt = null;
       }
     }
+    // Cloud storage delete functionality removed - using local server storage only
     if ((deleteAction === 'cloud' || deleteAction === 'both') && book.uploadedAt) {
-      const fps = [getRemoteBookFilename(book), getCoverFilename(book)];
-      for (const fp of fps) {
-        console.log('Deleting uploaded file:', fp);
-        try {
-          deleteFile(fp);
-        } catch (error) {
-          console.log('Failed to delete uploaded file:', error);
-        }
-      }
+      console.log('Cloud delete operation skipped - cloud storage removed');
       book.uploadedAt = null;
     }
   }
 
-  async uploadFileToCloud(
-    lfp: string,
-    cfp: string,
-    base: BaseDir,
-    handleProgress: ProgressHandler,
-    hash: string,
-    temp: boolean = false,
-  ) {
-    console.log('Uploading file:', lfp, 'to', cfp);
-    const file = await this.fs.openFile(lfp, base, cfp);
-    const localFullpath = await this.resolveFilePath(lfp, base);
-    const downloadUrl = await uploadFile(file, localFullpath, handleProgress, hash, temp, cfp);
-    const f = file as ClosableFile;
-    if (f && f.close) {
-      await f.close();
-    }
-    return downloadUrl;
-  }
-
-  async uploadBook(book: Book, onProgress?: ProgressHandler): Promise<void> {
-    let uploaded = false;
-    const completedFiles = { count: 0 };
-    let toUploadFpCount = 0;
-    const coverExist = await this.fs.exists(getCoverFilename(book), 'Books');
-    let bookFileExist = await this.fs.exists(getLocalBookFilename(book), 'Books');
-    if (coverExist) {
-      toUploadFpCount++;
-    }
-    if (bookFileExist) {
-      toUploadFpCount++;
-    }
-    if (!bookFileExist && book.url) {
-      // download the book from the URL
-      const fileobj = await this.fs.openFile(book.url, 'None');
-      await this.fs.writeFile(getLocalBookFilename(book), 'Books', await fileobj.arrayBuffer());
-      bookFileExist = true;
-    }
-
-    const handleProgress = createProgressHandler(toUploadFpCount, completedFiles, onProgress);
-
-    if (coverExist) {
-      const lfp = getCoverFilename(book);
-      await this.uploadFileToCloud(lfp, lfp, 'Books', handleProgress, book.hash);
-      uploaded = true;
-      completedFiles.count++;
-    }
-
-    if (bookFileExist) {
-      const lfp = getLocalBookFilename(book);
-      await this.uploadFileToCloud(lfp, lfp, 'Books', handleProgress, book.hash);
-      uploaded = true;
-      completedFiles.count++;
-    }
-
-    if (uploaded) {
-      book.deletedAt = null;
-      book.updatedAt = Date.now();
-      book.uploadedAt = Date.now();
-      book.downloadedAt = Date.now();
-      book.coverDownloadedAt = Date.now();
-    } else {
-      throw new Error('Book file not uploaded');
-    }
-  }
-
-  async downloadCloudFile(lfp: string, cfp: string, onProgress: ProgressHandler) {
-    console.log('Downloading file:', cfp, 'to', lfp);
-    const dstPath = `${this.localBooksDir}/${lfp}`;
-    await downloadFile({ appService: this, cfp, dst: dstPath, onProgress });
-  }
-
-  async downloadBookCovers(books: Book[]): Promise<void> {
-    const booksLfps = new Map(
-      books.map((book) => {
-        const lfp = getCoverFilename(book);
-        return [lfp, book];
-      }),
-    );
-    const filePaths = books.map((book) => {
-      const lfp = getCoverFilename(book);
-      return {
-        lfp,
-        cfp: lfp,
-      };
-    });
-    const downloadUrls = await batchGetDownloadUrls(filePaths);
-    await Promise.all(
-      books.map(async (book) => {
-        if (!(await this.fs.exists(getDir(book), 'Books'))) {
-          await this.fs.createDir(getDir(book), 'Books');
-        }
-      }),
-    );
-    await Promise.all(
-      downloadUrls.map(async (file) => {
-        try {
-          const dst = `${this.localBooksDir}/${file.lfp}`;
-          if (!file.downloadUrl) return;
-          await downloadFile({ appService: this, dst, cfp: file.cfp, url: file.downloadUrl });
-          const book = booksLfps.get(file.lfp);
-          if (book && !book.coverDownloadedAt) {
-            book.coverDownloadedAt = Date.now();
-          }
-        } catch (error) {
-          console.log(`Failed to download cover file for book: '${file.lfp}'`, error);
-        }
-      }),
-    );
-  }
-
-  async downloadBook(
-    book: Book,
-    onlyCover = false,
-    redownload = false,
-    onProgress?: ProgressHandler,
-  ): Promise<void> {
-    let bookDownloaded = false;
-    let bookCoverDownloaded = false;
-    const completedFiles = { count: 0 };
-    let toDownloadFpCount = 0;
-    const needDownCover = !(await this.fs.exists(getCoverFilename(book), 'Books')) || redownload;
-    const needDownBook =
-      (!onlyCover && !(await this.fs.exists(getLocalBookFilename(book), 'Books'))) || redownload;
-    if (needDownCover) {
-      toDownloadFpCount++;
-    }
-    if (needDownBook) {
-      toDownloadFpCount++;
-    }
-
-    const handleProgress = createProgressHandler(toDownloadFpCount, completedFiles, onProgress);
-
-    if (!(await this.fs.exists(getDir(book), 'Books'))) {
-      await this.fs.createDir(getDir(book), 'Books');
-    }
-
-    try {
-      if (needDownCover) {
-        const lfp = getCoverFilename(book);
-        await this.downloadCloudFile(lfp, lfp, handleProgress);
-        bookCoverDownloaded = true;
-      }
-    } catch (error) {
-      // don't throw error here since some books may not have cover images at all
-      console.log(`Failed to download cover file for book: '${book.title}'`, error);
-    } finally {
-      if (needDownCover) {
-        completedFiles.count++;
-      }
-    }
-
-    if (needDownBook) {
-      const lfp = getLocalBookFilename(book);
-      await this.downloadCloudFile(lfp, lfp, handleProgress);
-      const localFullpath = `${this.localBooksDir}/${lfp}`;
-      bookDownloaded = await this.fs.exists(localFullpath, 'None');
-      completedFiles.count++;
-    }
-    // some books may not have cover image, so we need to check if the book is downloaded
-    if (bookDownloaded || (!onlyCover && !needDownBook)) {
-      book.downloadedAt = Date.now();
-    }
-    if ((bookCoverDownloaded || !needDownCover) && !book.coverDownloadedAt) {
-      book.coverDownloadedAt = Date.now();
-    }
-  }
+  // Cloud storage methods removed - using local server storage only
 
   async exportBook(book: Book): Promise<boolean> {
     const { file } = await this.loadBookContent(book);
@@ -922,7 +898,9 @@ export abstract class BaseAppService implements AppService {
   async fetchBookDetails(book: Book) {
     const fp = getLocalBookFilename(book);
     if (!(await this.fs.exists(fp, 'Books')) && book.uploadedAt) {
-      await this.downloadBook(book);
+      // Cloud download functionality removed - books should already be stored locally
+      console.warn('Book file not found locally and cloud download is disabled:', book.title);
+      throw new Error('Book file not found locally');
     }
     const { file } = await this.loadBookContent(book);
     const bookDoc = (await new DocumentLoader(file).open()).book;
@@ -978,6 +956,87 @@ export abstract class BaseAppService implements AppService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const libraryBooks = books.map(({ coverImageUrl, ...rest }) => rest);
     await this.safeSaveJSON(getLibraryFilename(), 'Books', libraryBooks);
+  }
+
+  /**
+   * 校准书籍路径
+   * 扫描文件系统与 library.json 进行对比，找出路径不一致的书籍
+   */
+  async reconcileBookPaths(books: Book[]): Promise<any> {
+    // 仅在本地存储模式下执行
+    // @ts-ignore - NEXT_PUBLIC_STORAGE_MODE is set at build time
+    if (this.appPlatform !== 'web' || (process.env['NEXT_PUBLIC_STORAGE_MODE'] || 'local') !== 'local') {
+      console.log('[Reconcile] 非本地存储模式，跳过路径校准');
+      return { success: false, error: 'Not in local storage mode' };
+    }
+
+    try {
+      console.log('[Reconcile] 开始校准书籍路径，共', books.length, '本书');
+
+      // 准备需要发送的书籍数据（只发送必要字段）
+      const libraryData = books
+        .filter(book => !book.deletedAt)
+        .map(book => ({
+          hash: book.hash,
+          relativePath: book.relativePath,
+          absolutePath: book.absolutePath,
+          title: book.title,
+          groupName: book.groupName,
+        }));
+
+      const response = await fetch('/api/storage/reconcile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ library: libraryData }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error('[Reconcile] 路径校准失败:', error);
+        throw new Error(`Failed to reconcile paths: ${error}`);
+      }
+
+      const result = await response.json();
+      console.log('[Reconcile] 路径校准完成:', result.summary);
+      return result;
+    } catch (error) {
+      console.error('[Reconcile] 路径校准出错:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 应用路径校准结果
+   * 根据校准结果更新 library.json 中的书籍信息
+   */
+  async applyReconciliation(books: Book[], reconcileResults: any[]): Promise<Book[]> {
+    const updatedBooks = [...books];
+
+    for (const result of reconcileResults) {
+      if (result.status === 'moved') {
+        // 找到对应的书籍并更新路径信息
+        const bookIndex = updatedBooks.findIndex(b => b.hash === result.hash);
+        if (bookIndex !== -1) {
+          const book = updatedBooks[bookIndex];
+          if (book) {
+            book.relativePath = result.newRelativePath;
+            book.absolutePath = result.absolutePath;
+            if (result.suggestedGroupName !== undefined) {
+              book.groupName = result.suggestedGroupName;
+              // 更新 groupId
+              book.groupId = result.suggestedGroupName
+                ? md5Fingerprint(result.suggestedGroupName)
+                : '';
+            }
+            book.updatedAt = Date.now();
+            console.log('[Reconcile] 更新书籍:', book.title, '新路径:', book.relativePath);
+          }
+        }
+      }
+    }
+
+    await this.saveLibraryBooks(updatedBooks);
+    return updatedBooks;
   }
 
   private imageToArrayBuffer(imageUrl?: string, imageFile?: string): Promise<ArrayBuffer> {
@@ -1142,7 +1201,8 @@ export abstract class BaseAppService implements AppService {
    * - For any book without relativePath, derive a flat path and move files + metadata
    */
   private async migrate20260121(): Promise<void> {
-    const isLocalMode = (process.env.NEXT_PUBLIC_STORAGE_MODE || 'remote') === 'local';
+    // @ts-ignore - NEXT_PUBLIC_STORAGE_MODE is set at build time
+    const isLocalMode = (process.env['NEXT_PUBLIC_STORAGE_MODE'] || 'local') === 'local';
     if (this.appPlatform !== 'web' || !isLocalMode) {
       console.log('[Migration 20260121] Skip (not web/local mode)');
       return;

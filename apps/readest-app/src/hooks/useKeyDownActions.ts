@@ -1,3 +1,5 @@
+'use client';
+
 import { RefObject, useEffect, useRef } from 'react';
 import { useEnv } from '@/context/EnvContext';
 import { useDeviceControlStore } from '@/store/deviceStore';

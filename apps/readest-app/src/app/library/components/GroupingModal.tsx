@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import React, { useEffect, useRef, useState } from 'react';
 import { MdCheck, MdChevronRight, MdEdit } from 'react-icons/md';

@@ -17,14 +17,14 @@ const initI18n = async () => {
     .init({
       supportedLngs: ['en', ...options.lngs],
       fallbackLng: {
-        'zh-HK': ['zh-TW', 'en'],
+        'zh-HK': ['zh-TW', 'zh-CN', 'en'],
         kk: ['ru', 'en'],
         ky: ['ru', 'en'],
         tk: ['ru', 'en'],
         uz: ['ru', 'en'],
         ug: ['ru', 'en'],
         tt: ['ru', 'en'],
-        default: ['en'],
+        default: ['zh-CN', 'en'],
       },
       ns: options.ns,
       defaultNS: options.defaultNs,

@@ -3,13 +3,13 @@ import type { Dirent } from 'node:fs';
 import path from 'node:path';
 
 export const isLocalStorageEnabled = () =>
-    (process.env.STORAGE_MODE || process.env.NEXT_PUBLIC_STORAGE_MODE || 'remote') === 'local';
+    (process.env['STORAGE_MODE'] || process.env['NEXT_PUBLIC_STORAGE_MODE'] || 'remote') === 'local';
 
 export const STORAGE_ROOT = path.resolve(
-    process.env.LOCAL_STORAGE_ROOT || path.join(process.cwd(), 'data', 'storage'),
+    process.env['LOCAL_STORAGE_ROOT'] || path.join(process.cwd(), 'data', 'storage'),
 );
 export const TEMP_ROOT = path.resolve(
-    process.env.LOCAL_STORAGE_TEMP_ROOT || path.join(STORAGE_ROOT, 'temp'),
+    process.env['LOCAL_STORAGE_TEMP_ROOT'] || path.join(STORAGE_ROOT, 'temp'),
 );
 
 export const ensureRoots = async () => {
@@ -35,11 +35,11 @@ export const resolveLocalPath = (fileKey: string, useTemp = false) => {
 
     const cleanKey = stripUserPrefix(fileKey);
 
-    // In local storage mode, route certain files to Settings directory
+    // In local storage mode, route certain files to .readest directory
     if (isLocalStorageEnabled()) {
-        // Settings files go to Settings/ directory
+        // Settings files go to .readest/ directory
         if (cleanKey === 'settings.json' || cleanKey === 'settings.json.bak') {
-            const settingsRelPath = path.posix.normalize(`Settings/${cleanKey}`);
+            const settingsRelPath = path.posix.normalize(`.readest/${cleanKey}`);
             const settingsFullPath = path.join(base, settingsRelPath);
             if (!settingsFullPath.startsWith(base)) {
                 throw new Error('Invalid file path');
@@ -48,9 +48,9 @@ export const resolveLocalPath = (fileKey: string, useTemp = false) => {
             return { fullPath: settingsFullPath, relPath: settingsRelPath, basePath: base };
         }
 
-        // Library files also go to Settings/ directory
+        // Library files also go to .readest/ directory
         if (cleanKey === 'library.json' || cleanKey === 'library.json.bak' || cleanKey === 'library_backup.json') {
-            const libraryRelPath = path.posix.normalize(`Settings/${cleanKey}`);
+            const libraryRelPath = path.posix.normalize(`.readest/${cleanKey}`);
             const libraryFullPath = path.join(base, libraryRelPath);
             if (!libraryFullPath.startsWith(base)) {
                 throw new Error('Invalid file path');
@@ -60,7 +60,7 @@ export const resolveLocalPath = (fileKey: string, useTemp = false) => {
         }
 
         // All other files use flat structure
-        console.log('[LocalFS] Flat storage path:', cleanKey);
+        console.log('[LocalFS] ✓ Using flat storage, cleanKey:', cleanKey);
     }
 
     const relPath = path.posix.normalize(cleanKey);
@@ -71,6 +71,7 @@ export const resolveLocalPath = (fileKey: string, useTemp = false) => {
     if (!fullPath.startsWith(base)) {
         throw new Error('Invalid file path');
     }
+    console.log('[LocalFS] ✓ Final paths - Full:', fullPath, ', Relative:', relPath);
     return { fullPath, relPath, basePath: base };
 };
 
@@ -80,7 +81,32 @@ export const ensureParentDir = async (fullPath: string) => {
 };
 
 export const readFileBuffer = async (fullPath: string) => {
-    return Buffer.from(await fs.readFile(fullPath));
+    try {
+        const stats = await fs.stat(fullPath);
+        const fileSizeMB = stats.size / (1024 * 1024);
+
+        console.log(`[readFileBuffer] Reading file: ${fullPath}, size: ${fileSizeMB.toFixed(2)} MB`);
+
+        // 警告：文件超过 100MB
+        if (stats.size > 100 * 1024 * 1024) {
+            console.warn(`[readFileBuffer] ⚠️ Large file detected: ${fileSizeMB.toFixed(2)} MB`);
+        }
+
+        // 限制：文件超过 500MB 时抛出错误
+        if (stats.size > 500 * 1024 * 1024) {
+            throw new Error(`File too large: ${fileSizeMB.toFixed(2)} MB. Maximum size is 500 MB.`);
+        }
+
+        const buffer = Buffer.from(await fs.readFile(fullPath));
+        console.log(`[readFileBuffer] ✓ Successfully read ${fileSizeMB.toFixed(2)} MB`);
+        return buffer;
+    } catch (error: any) {
+        console.error(`[readFileBuffer] ✗ Error reading file ${fullPath}:`, error.message);
+        if (error.code === 'ENOMEM' || error.message?.includes('memory')) {
+            throw new Error(`Out of memory while reading file. File may be too large.`);
+        }
+        throw error;
+    }
 };
 
 export const writeFileBuffer = async (fullPath: string, buffer: Buffer) => {

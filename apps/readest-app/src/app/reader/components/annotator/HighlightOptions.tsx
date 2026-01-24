@@ -1,3 +1,5 @@
+'use client';
+
 import clsx from 'clsx';
 import React, { useState } from 'react';
 import { FaCheckCircle } from 'react-icons/fa';

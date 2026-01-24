@@ -1,3 +1,5 @@
+'use client';
+
 import { useCallback, useEffect, useRef } from 'react';
 import { Book } from '@/types/book';
 import { useSync } from '@/hooks/useSync';
@@ -109,7 +111,8 @@ export const useBooksSync = () => {
     const oldBooksBatchSize = 100;
     for (let i = 0; i < oldBooksNeedsDownload.length; i += oldBooksBatchSize) {
       const batch = oldBooksNeedsDownload.slice(i, i + oldBooksBatchSize);
-      await appService?.downloadBookCovers(batch);
+      // Cloud download covers functionality removed - covers are stored locally on server
+      console.log('Skipping cloud cover download for', batch.length, 'books');
     }
 
     const updatedLibrary = await Promise.all(library.map(processOldBook));
@@ -135,7 +138,8 @@ export const useBooksSync = () => {
       const batchSize = 10;
       for (let i = 0; i < newBooks.length; i += batchSize) {
         const batch = newBooks.slice(i, i + batchSize);
-        await appService?.downloadBookCovers(batch);
+        // Cloud download covers functionality removed - covers are stored locally on server
+        console.log('Skipping cloud cover download for', batch.length, 'books');
         await Promise.all(batch.map(processNewBook));
         const progress = Math.min((i + batchSize) / newBooks.length, 1);
         setSyncProgress(progress);
