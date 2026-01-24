@@ -651,8 +651,6 @@ export const READEST_CHANGELOG_FILE = `${LATEST_DOWNLOAD_BASE_URL}/release-notes
 // 支持通过环境变量自定义存储 URL
 export const READEST_PUBLIC_STORAGE_BASE_URL = process.env['NEXT_PUBLIC_STORAGE_BASE_URL'] || 'https://storage.readest.com';
 
-export const READEST_OPDS_USER_AGENT = 'Readest/1.0 (OPDS Browser)';
-
 export const SYNC_PROGRESS_INTERVAL_SEC = 3;
 export const SYNC_NOTES_INTERVAL_SEC = 5;
 export const SYNC_BOOKS_INTERVAL_SEC = 5;

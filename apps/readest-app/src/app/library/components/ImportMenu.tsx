@@ -1,7 +1,6 @@
 import clsx from 'clsx';
 import { useTranslation } from '@/hooks/useTranslation';
 import { IoFileTray } from 'react-icons/io5';
-import { MdRssFeed } from 'react-icons/md';
 
 import MenuItem from '@/components/MenuItem';
 import Menu from '@/components/Menu';
@@ -10,14 +9,12 @@ interface ImportMenuProps {
   setIsDropdownOpen?: (open: boolean) => void;
   onImportBooksFromFiles: () => void;
   onImportBooksFromDirectory?: () => void;
-  onOpenCatalogManager: () => void;
 }
 
 const ImportMenu: React.FC<ImportMenuProps> = ({
   setIsDropdownOpen,
   onImportBooksFromFiles,
   onImportBooksFromDirectory,
-  onOpenCatalogManager,
 }) => {
   const _ = useTranslation();
 
@@ -28,11 +25,6 @@ const ImportMenu: React.FC<ImportMenuProps> = ({
 
   const handleImportFromDirectory = () => {
     onImportBooksFromDirectory?.();
-    setIsDropdownOpen?.(false);
-  };
-
-  const handleOpenCatalogManager = () => {
-    onOpenCatalogManager();
     setIsDropdownOpen?.(false);
   };
 
@@ -53,11 +45,6 @@ const ImportMenu: React.FC<ImportMenuProps> = ({
           onClick={handleImportFromDirectory}
         />
       )}
-      <MenuItem
-        label={_('Online Library')}
-        Icon={<MdRssFeed className='h-5 w-5' />}
-        onClick={handleOpenCatalogManager}
-      />
     </Menu>
   );
 };

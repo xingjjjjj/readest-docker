@@ -54,7 +54,6 @@ import { BookMetadata } from '@/libs/document';
 import { AboutWindow } from '@/components/AboutWindow';
 import { BookDetailModal } from '@/components/metadata';
 import { UpdaterWindow } from '@/components/UpdaterWindow';
-import { CatalogDialog } from './components/OPDSDialog';
 import { MigrateDataWindow } from './components/MigrateDataWindow';
 import { useDragDropImport } from './hooks/useDragDropImport';
 import { useTransferQueue } from '@/hooks/useTransferQueue';
@@ -101,9 +100,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   const { settings, setSettings, saveSettings } = useSettingsStore();
   const { isSettingsDialogOpen, setSettingsDialogOpen } = useSettingsStore();
   const { isTransferQueueOpen } = useTransferStore();
-  const [showCatalogManager, setShowCatalogManager] = useState(
-    searchParams?.get('opds') === 'true',
-  );
   const [loading, setLoading] = useState(false);
   const [libraryLoaded, setLibraryLoaded] = useState(false);
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -287,17 +283,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       return true;
     }
     return false;
-  };
-
-  const handleShowOPDSDialog = () => {
-    setShowCatalogManager(true);
-  };
-
-  const handleDismissOPDSDialog = () => {
-    setShowCatalogManager(false);
-    const params = new URLSearchParams(searchParams?.toString());
-    params.delete('opds');
-    navigateToLibrary(router, `${params.toString()}`);
   };
 
   useEffect(() => {
@@ -724,7 +709,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
           onImportBooksFromDirectory={
             appService?.canReadExternalDir ? handleImportBooksFromDirectory : undefined
           }
-          onOpenCatalogManager={handleShowOPDSDialog}
           onToggleSelectMode={() => handleSetSelectMode(!isSelectMode)}
           onSelectAll={handleSelectAll}
           onDeselectAll={handleDeselectAll}
@@ -860,7 +844,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       <UpdaterWindow />
       <MigrateDataWindow />
       {isSettingsDialogOpen && <SettingsDialog bookKey={''} />}
-      {showCatalogManager && <CatalogDialog onClose={handleDismissOPDSDialog} />}
       {showReconcileModal && appService && (
         <ReconcileModal
           isOpen={showReconcileModal}
