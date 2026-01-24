@@ -5,44 +5,15 @@ import { BiScan } from 'react-icons/bi';
 import { useEnv } from '@/context/EnvContext';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useTranslation } from '@/hooks/useTranslation';
-import { scanBooks, ScannedBook } from '@/libs/storage';
+import { scanBooks } from '@/libs/storage';
 import { eventDispatcher } from '@/utils/event';
 import { getCoverFilename, getConfigFilename } from '@/utils/book';
-import { Book } from '@/types/book';
-import { getBaseFilename } from '@/utils/path';
 
 export const ScanBooksButton: React.FC = () => {
     const _ = useTranslation();
     const { envConfig } = useEnv();
-    const { library, setLibrary } = useLibraryStore();
+    const { library, updateBooks } = useLibraryStore();
     const [isScanning, setIsScanning] = useState(false);
-
-    const extToFormat = (ext?: string): Book['format'] => {
-        switch ((ext || '').toLowerCase()) {
-            case 'epub':
-                return 'EPUB';
-            case 'pdf':
-                return 'PDF';
-            case 'mobi':
-                return 'MOBI';
-            case 'azw':
-                return 'AZW';
-            case 'azw3':
-                return 'AZW3';
-            case 'cbz':
-                return 'CBZ';
-            case 'fb2':
-                return 'FB2';
-            case 'fbz':
-                return 'FBZ';
-            case 'txt':
-                return 'TXT';
-            case 'md':
-                return 'MD';
-            default:
-                return 'EPUB';
-        }
-    };
 
     const handleScanBooks = async () => {
         if (isScanning) return;
@@ -72,110 +43,101 @@ export const ScanBooksButton: React.FC = () => {
             }
 
             // Import scanned books
-            const importedBooks: Book[] = [];
-            const newBooks: Book[] = [];
-            const existingBooks = new Map(library.map(b => [b.hash, b]));
+            const importedBooks = [];
+            const newBooks = [];
+            const existingBooks = new Set(library.map(b => b.hash));
 
             console.log('[ScanBooks] 3. Current library has', library.length, 'books');
             console.log('[ScanBooks] 4. Found', result.books.length, 'books to process');
 
             let failedBooks: Array<{ name: string, error: string }> = [];
 
-            // Identify missing files: present in library but not on disk
-            const scannedHashes = new Set(result.books.map(b => b.hash || b.relativePath));
-            const missingBooks = library.filter(b => !scannedHashes.has(b.hash));
-
-            // First pass: Identify books using backend-calculated hash
-            // Skip downloading files for books that already exist in library
-            const booksToImport: ScannedBook[] = [];
-            const alreadyExists: Array<{ scannedBook: ScannedBook; existingBook: Book }> = [];
-
             for (const scannedBook of result.books) {
-                if (scannedBook.hash && existingBooks.has(scannedBook.hash)) {
-                    // Book already exists - check if moved
-                    const existingBook = existingBooks.get(scannedBook.hash)!;
-                    if (existingBook.relativePath !== scannedBook.relativePath) {
-                        alreadyExists.push({
-                            scannedBook,
-                            existingBook,
-                        });
-                    }
-                    console.log('[ScanBooks] 5a. Book exists (hash match):', scannedBook.relativePath);
-                } else {
-                    // New book or hash unavailable - need to import
-                    booksToImport.push(scannedBook);
-                    console.log('[ScanBooks] 5b. New book to import:', scannedBook.relativePath);
-                }
-            }
-
-            console.log('[ScanBooks] 5. Books to import:', booksToImport.length, ', already existing:', alreadyExists.length, ', missing:', missingBooks.length);
-
-            // Handle already-existing books that may have moved
-            for (const { scannedBook, existingBook } of alreadyExists) {
                 try {
-                    console.log('[ScanBooks] Book moved: from', existingBook.relativePath, 'to', scannedBook.relativePath);
-                    // 移动封面文件
-                    const oldCoverPath = getCoverFilename(existingBook);
-                    const newCoverPath = getCoverFilename({ ...existingBook, relativePath: scannedBook.relativePath });
-
-                    if (oldCoverPath !== newCoverPath && await appService.exists(oldCoverPath, 'Books')) {
-                        console.log('[ScanBooks] Moving cover from:', oldCoverPath, 'to:', newCoverPath);
-                        const coverFile = await appService.openFile(oldCoverPath, 'Books');
-                        await appService.writeFile(newCoverPath, 'Books', coverFile);
-                        await appService.deleteFile(oldCoverPath, 'Books');
-                        console.log('[ScanBooks] ✓ Cover moved successfully');
-                    }
-
-                    // 移动配置文件
-                    const oldConfigPath = getConfigFilename(existingBook);
-                    const newConfigPath = getConfigFilename({ ...existingBook, relativePath: scannedBook.relativePath });
-
-                    if (oldConfigPath !== newConfigPath && await appService.exists(oldConfigPath, 'Books')) {
-                        console.log('[ScanBooks] Moving config from:', oldConfigPath, 'to:', newConfigPath);
-                        const configContent = await appService.readFile(oldConfigPath, 'Books', 'text');
-                        await appService.writeFile(newConfigPath, 'Books', configContent);
-                        await appService.deleteFile(oldConfigPath, 'Books');
-                        console.log('[ScanBooks] ✓ Config moved successfully');
-                    }
-
-                    // 更新 relativePath
-                    existingBook.relativePath = scannedBook.relativePath;
-                } catch (moveError) {
-                    console.warn('[ScanBooks] Failed to move metadata files:', moveError);
-                }
-            }
-
-            // Second pass: create metadata-only records for new books (no file download here)
-            const now = Date.now();
-            for (const scannedBook of booksToImport) {
-                try {
-                    console.log('[ScanBooks] 6. Adding metadata-only book:', scannedBook.relativePath);
+                    console.log('[ScanBooks] 5. Processing book:', scannedBook.relativePath);
                     const directory = scannedBook.relativePath.split('/').slice(0, -1).join('/');
                     const groupName = directory || '';
-                    const title = getBaseFilename(scannedBook.fileName);
-                    const book: Book = {
-                        hash: scannedBook.hash || scannedBook.relativePath,
-                        format: extToFormat(scannedBook.ext),
-                        title,
-                        sourceTitle: title,
-                        author: _('Unknown Author'),
-                        groupName,
-                        relativePath: scannedBook.relativePath,
-                        filePath: scannedBook.filePath,
-                        createdAt: now,
-                        updatedAt: now,
-                        deletedAt: null,
-                    } as Book;
 
-                    const coverPath = getCoverFilename(book);
-                    book.coverImageUrl = `/api/storage/file?filePath=${encodeURIComponent(coverPath)}`;
+                    // Use the absolute filePath to open the file
+                    const sourcePath = scannedBook.filePath;
+                    console.log('[ScanBooks] 6. Calling importBook with:', { sourcePath, relativePath: scannedBook.relativePath, groupName });
 
-                    importedBooks.push(book);
-                    newBooks.push(book);
-                    console.log('[ScanBooks] 7. Metadata entry created, hash:', book.hash);
+                    const book = await appService.importBook(
+                        sourcePath,
+                        library,
+                        false, // saveBook = false (transient)
+                        true,  // saveCover = true
+                        false, // overwrite = false
+                        true,  // transient = true
+                        {
+                            targetRelativePath: scannedBook.relativePath,
+                            targetGroupName: groupName,
+                        },
+                    );
+
+                    if (book) {
+                        const isNewBook = !existingBooks.has(book.hash);
+                        console.log('[ScanBooks] 7. Book hash:', book.hash, 'isNew:', isNewBook);
+
+                        // 处理已存在书籍的移动情况
+                        if (!isNewBook) {
+                            const existingBook = library.find(b => b.hash === book.hash);
+                            if (existingBook && existingBook.relativePath && existingBook.relativePath !== scannedBook.relativePath) {
+                                // 书籍被移动了，需要同时移动附属文件
+                                console.log('[ScanBooks] Book moved: from', existingBook.relativePath, 'to', scannedBook.relativePath);
+
+                                try {
+                                    // 移动封面文件
+                                    const oldCoverPath = getCoverFilename(existingBook);
+                                    const newCoverPath = getCoverFilename(book);
+
+                                    if (oldCoverPath !== newCoverPath && await appService.exists(oldCoverPath, 'Books')) {
+                                        console.log('[ScanBooks] Moving cover from:', oldCoverPath, 'to:', newCoverPath);
+                                        const coverFile = await appService.openFile(oldCoverPath, 'Books');
+                                        await appService.writeFile(newCoverPath, 'Books', coverFile);
+                                        await appService.deleteFile(oldCoverPath, 'Books');
+                                        console.log('[ScanBooks] ✓ Cover moved successfully');
+                                    }
+
+                                    // 移动配置文件
+                                    const oldConfigPath = getConfigFilename(existingBook);
+                                    const newConfigPath = getConfigFilename(book);
+
+                                    if (oldConfigPath !== newConfigPath && await appService.exists(oldConfigPath, 'Books')) {
+                                        console.log('[ScanBooks] Moving config from:', oldConfigPath, 'to:', newConfigPath);
+                                        const configContent = await appService.readFile(oldConfigPath, 'Books', 'text');
+                                        await appService.writeFile(newConfigPath, 'Books', configContent);
+                                        await appService.deleteFile(oldConfigPath, 'Books');
+                                        console.log('[ScanBooks] ✓ Config moved successfully');
+                                    }
+
+                                    // 删除旧目录（如果为空）
+                                    const oldDir = existingBook.relativePath.replace(/\.[^.]+$/, '');
+                                    try {
+                                        const files = await appService.readDirectory(oldDir, 'Books');
+                                        if (files.length === 0) {
+                                            await appService.deleteDir(oldDir, 'Books', true);
+                                            console.log('[ScanBooks] ✓ Old directory removed');
+                                        }
+                                    } catch (error) {
+                                        console.log('[ScanBooks] Old directory still contains files or cannot be deleted');
+                                    }
+                                } catch (moveError) {
+                                    console.warn('[ScanBooks] Failed to move metadata files:', moveError);
+                                }
+
+                                // 更新 relativePath
+                                existingBook.relativePath = scannedBook.relativePath;
+                            }
+                        } else {
+                            // 新书籍
+                            importedBooks.push(book);
+                            newBooks.push(book);
+                        }
+                    }
                 } catch (error: any) {
                     const errorMsg = error?.message || 'Unknown error';
-                    console.error('[ScanBooks] Error creating metadata for book:', scannedBook.relativePath, error);
+                    console.error('[ScanBooks] Error importing book:', scannedBook.relativePath, error);
                     failedBooks.push({
                         name: scannedBook.fileName,
                         error: errorMsg
@@ -184,7 +146,7 @@ export const ScanBooksButton: React.FC = () => {
                     eventDispatcher.dispatch('toast', {
                         type: 'error',
                         timeout: 4000,
-                        message: _('Failed to add "{{name}}": {{error}}', {
+                        message: _('Failed to import "{{name}}": {{error}}', {
                             name: scannedBook.fileName,
                             error: errorMsg
                         }),
@@ -192,48 +154,29 @@ export const ScanBooksButton: React.FC = () => {
                 }
             }
 
-            // Build final library: remove missing, apply moves, add new
-            const movedMap = new Map(alreadyExists.map(({ scannedBook }) => [scannedBook.hash || scannedBook.relativePath, scannedBook.relativePath]));
-            const missingHashes = new Set(missingBooks.map(b => b.hash));
+            console.log('[ScanBooks] 8. Imported', importedBooks.length, 'books,', newBooks.length, 'are new,', failedBooks.length, 'failed');
 
-            const updatedExisting = library
-                .filter(b => !missingHashes.has(b.hash))
-                .map(b => {
-                    const newPath = movedMap.get(b.hash);
-                    return newPath ? { ...b, relativePath: newPath } : b;
-                });
+            if (importedBooks.length > 0) {
+                await updateBooks(envConfig, importedBooks);
 
-            const finalLibrary = Array.from(new Map([...updatedExisting, ...importedBooks].map(b => [b.hash, b])).values());
-
-            setLibrary(finalLibrary);
-            await appService.saveLibraryBooks(finalLibrary);
-
-            console.log('[ScanBooks] 9. Imported', importedBooks.length, 'books,', newBooks.length, 'are new,', missingBooks.length, 'missing removed,', failedBooks.length, 'failed');
-
-            if (importedBooks.length > 0 || alreadyExists.length > 0 || missingBooks.length > 0) {
-                let message = '';
                 if (newBooks.length > 0) {
                     const bookTitles = newBooks.map(b => b.title).join(', ');
-                    message = newBooks.length === 1
+                    const message = newBooks.length === 1
                         ? _('Found 1 new book: {{title}}', { title: bookTitles })
                         : _('Found {{count}} new books: {{titles}}', { count: newBooks.length, titles: bookTitles });
-                }
 
-                if (alreadyExists.length > 0) {
-                    const msg2 = _('{{count}} book(s) detected as moved', { count: alreadyExists.length });
-                    message = message ? message + '\n' + msg2 : msg2;
+                    eventDispatcher.dispatch('toast', {
+                        type: 'success',
+                        timeout: 5000,
+                        message,
+                    });
+                } else {
+                    eventDispatcher.dispatch('toast', {
+                        type: 'info',
+                        timeout: 3000,
+                        message: _('No new books found, library has {{count}} book(s)', { count: library.length }),
+                    });
                 }
-
-                if (missingBooks.length > 0) {
-                    const msg3 = _('{{count}} book file(s) missing and removed from cache', { count: missingBooks.length });
-                    message = message ? message + '\n' + msg3 : msg3;
-                }
-
-                eventDispatcher.dispatch('toast', {
-                    type: 'success',
-                    timeout: 5000,
-                    message: message || _('Scan completed'),
-                });
 
                 // 显示失败的书籍摘要
                 if (failedBooks.length > 0 && failedBooks.length <= 3) {
@@ -268,7 +211,7 @@ export const ScanBooksButton: React.FC = () => {
                     eventDispatcher.dispatch('toast', {
                         type: 'info',
                         timeout: 3000,
-                        message: _('No new books found, library has {{count}} book(s)', { count: library.length }),
+                        message: _('No books found in directory'),
                     });
                 }
             }

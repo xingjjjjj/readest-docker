@@ -234,15 +234,15 @@ class TransferManager {
       const book = library.find((b) => b.hash === transfer.bookHash);
 
       if (!book) {
-        throw new Error(_('Book not found in library') as string);
+        throw new Error(_('Book not found in library'));
       }
 
       if (transfer.type === 'upload') {
         // Cloud upload functionality removed - using local server storage only
-        throw new Error(_('Upload functionality has been removed') as string);
+        throw new Error(_('Upload functionality has been removed'));
       } else if (transfer.type === 'download') {
         // Cloud download functionality removed - using local server storage only
-        throw new Error(_('Download functionality has been removed') as string);
+        throw new Error(_('Download functionality has been removed'));
       } else if (transfer.type === 'delete') {
         await this.appService.deleteBook(book, 'cloud');
         await this.updateBook(book);

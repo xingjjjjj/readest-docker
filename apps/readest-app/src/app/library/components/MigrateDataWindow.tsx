@@ -180,7 +180,7 @@ export const MigrateDataWindow = () => {
 
     try {
       if (newDataDir === currentDataDir) {
-        throw new Error(_('The new data directory must be different from the current one.') as string);
+        throw new Error(_('The new data directory must be different from the current one.'));
       }
 
       // Copy all files to new location

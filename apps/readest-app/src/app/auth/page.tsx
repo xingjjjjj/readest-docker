@@ -55,7 +55,7 @@ export default function AuthPage() {
       });
 
       if (!response.ok) {
-        throw new Error(_('Invalid password') as string);
+        throw new Error(_('Invalid password'));
       }
 
       const { token, user } = await response.json();
@@ -66,8 +66,7 @@ export default function AuthPage() {
         router.replace(redirectTarget);
       }, 100);
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      setError(errorMessage || _('Login failed'));
+      setError(err instanceof Error ? err.message : _('Login failed'));
     } finally {
       setLoading(false);
     }
