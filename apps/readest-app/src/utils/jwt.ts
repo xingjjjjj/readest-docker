@@ -6,14 +6,14 @@ const SECRET_KEY = process.env['AUTH_SECRET'] || 'dev-secret';
 const USER_PASSWORD = process.env['AUTH_PASSWORD'] || 'changeme-' + Math.random().toString(36).substring(2, 15);
 const USERNAME = 'xingjjjjj';
 
-// 认证信息已在 .env.web 中配置，无需在启动时打印（避免多进程重复打印）
-// if (typeof window === 'undefined') {
-//     console.log('\n========== READEST AUTHENTICATION ==========');
-//     console.log(`Username: ${USERNAME}`);
-//     console.log(`Password: ${USER_PASSWORD}`);
-//     console.log(`Secret Key: ${SECRET_KEY}`);
-//     console.log('==========================================\n');
-// }
+// 在服务器端启动时打印认证信息
+if (typeof window === 'undefined' && process.env['NODE_ENV'] !== 'production') {
+    console.log('\n========== READEST AUTHENTICATION (Development) ==========');
+    console.log(`Username: ${USERNAME}`);
+    console.log(`Password: ${USER_PASSWORD}`);
+    console.log(`Secret Key: ${SECRET_KEY}`);
+    console.log('==========================================================\n');
+}
 
 const key = new TextEncoder().encode(SECRET_KEY);
 
