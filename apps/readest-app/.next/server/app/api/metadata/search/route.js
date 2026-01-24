@@ -1,0 +1,10 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/metadata/search/route.js")
+R.c("server/chunks/[root-of-the-server]__aa006812._.js")
+R.c("server/chunks/_c64212a8._.js")
+R.c("server/chunks/004ea_next_dist_esm_build_templates_app-route_d674c856.js")
+R.c("server/chunks/[root-of-the-server]__f80cda96._.js")
+R.c("server/chunks/apps_readest-app_src_utils_lang_ts_8205ef5c._.js")
+R.c("server/chunks/apps_readest-app_src_utils_jwt_ts_72148c2b._.js")
+R.c("server/chunks/468f4__next-internal_server_app_api_metadata_search_route_actions_fd6155f5.js")
+R.m(940232)
+module.exports=R.m(940232).exports

@@ -1,0 +1,6 @@
+1:"$Sreact.fragment"
+2:I[140519,["/_next/static/chunks/93e4c41f497eb604.js","/_next/static/chunks/7cc45a6bfea19cbb.js","/_next/static/chunks/4979b6ff587e3cbc.js","/_next/static/chunks/b556eb20f570ff40.js","/_next/static/chunks/e512994041178bc1.js","/_next/static/chunks/e91b3304ba2886a7.js","/_next/static/chunks/b7c59bc7832ef99e.js"],"Image"]
+3:I[721643,["/_next/static/chunks/94f79b31e0484b79.js","/_next/static/chunks/33622e366a1033b4.js"],"OutletBoundary"]
+4:"$Sreact.suspense"
+0:{"buildId":"tOY8II_dH22FgWLbOgp4o","rsc":["$","$1","c",{"children":[["$","div",null,{"className":"flex min-h-screen flex-col items-center justify-center bg-gray-100 text-center","children":[["$","div",null,{"className":"mb-4","children":["$","$L2",null,{"src":"/icon.png","alt":"App Icon","width":100,"height":100,"className":"rounded-lg"}]}],["$","h1",null,{"className":"text-2xl font-bold text-gray-800","children":"Readest"}],["$","p",null,{"className":"mt-2 text-gray-600","children":"It seems you're offline. Please check your internet connection and try again."}]]}],[["$","script","script-0",{"src":"/_next/static/chunks/b7c59bc7832ef99e.js","async":true}]],["$","$L3",null,{"children":["$","$4",null,{"name":"Next.MetadataOutlet","children":"$@5"}]}]]}],"loading":null,"isPartial":false}
+5:null

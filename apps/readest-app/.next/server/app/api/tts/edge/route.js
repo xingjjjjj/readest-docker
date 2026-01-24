@@ -1,0 +1,10 @@
+var R=require("../../../../chunks/[turbopack]_runtime.js")("server/app/api/tts/edge/route.js")
+R.c("server/chunks/[root-of-the-server]__6b66cc56._.js")
+R.c("server/chunks/apps_readest-app_src_utils_lang_ts_8205ef5c._.js")
+R.c("server/chunks/apps_readest-app_src_utils_jwt_ts_72148c2b._.js")
+R.c("server/chunks/node_modules__pnpm_0ab34597._.js")
+R.c("server/chunks/[root-of-the-server]__f80cda96._.js")
+R.c("server/chunks/_c64212a8._.js")
+R.c("server/chunks/apps_readest-app__next-internal_server_app_api_tts_edge_route_actions_3f565af8.js")
+R.m(240928)
+module.exports=R.m(240928).exports

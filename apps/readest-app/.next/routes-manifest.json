@@ -1,0 +1,230 @@
+{
+  "version": 3,
+  "pages404": true,
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/.well-known/apple-app-site-association",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "application/json"
+        }
+      ],
+      "regex": "^/\\.well-known/apple-app-site-association(?:/)?$"
+    },
+    {
+      "source": "/_next/static/:path*",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ],
+      "regex": "^/_next/static(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))?(?:/)?$"
+    }
+  ],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/reader/[ids]",
+      "regex": "^/reader/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPids": "nxtPids"
+      },
+      "namedRegex": "^/reader/(?<nxtPids>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/api/auth/login",
+      "regex": "^/api/auth/login(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/login(?:/)?$"
+    },
+    {
+      "page": "/api/auth/logout",
+      "regex": "^/api/auth/logout(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/logout(?:/)?$"
+    },
+    {
+      "page": "/api/auth/verify",
+      "regex": "^/api/auth/verify(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/auth/verify(?:/)?$"
+    },
+    {
+      "page": "/api/deepl/translate",
+      "regex": "^/api/deepl/translate(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/deepl/translate(?:/)?$"
+    },
+    {
+      "page": "/api/metadata/search",
+      "regex": "^/api/metadata/search(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/metadata/search(?:/)?$"
+    },
+    {
+      "page": "/api/opds/proxy",
+      "regex": "^/api/opds/proxy(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/opds/proxy(?:/)?$"
+    },
+    {
+      "page": "/api/storage/delete",
+      "regex": "^/api/storage/delete(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/storage/delete(?:/)?$"
+    },
+    {
+      "page": "/api/storage/file",
+      "regex": "^/api/storage/file(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/storage/file(?:/)?$"
+    },
+    {
+      "page": "/api/storage/import",
+      "regex": "^/api/storage/import(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/storage/import(?:/)?$"
+    },
+    {
+      "page": "/api/storage/list",
+      "regex": "^/api/storage/list(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/storage/list(?:/)?$"
+    },
+    {
+      "page": "/api/storage/purge",
+      "regex": "^/api/storage/purge(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/storage/purge(?:/)?$"
+    },
+    {
+      "page": "/api/storage/reclassify",
+      "regex": "^/api/storage/reclassify(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/storage/reclassify(?:/)?$"
+    },
+    {
+      "page": "/api/storage/reconcile",
+      "regex": "^/api/storage/reconcile(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/storage/reconcile(?:/)?$"
+    },
+    {
+      "page": "/api/storage/scan",
+      "regex": "^/api/storage/scan(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/storage/scan(?:/)?$"
+    },
+    {
+      "page": "/api/storage/stats",
+      "regex": "^/api/storage/stats(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/storage/stats(?:/)?$"
+    },
+    {
+      "page": "/api/tts/edge",
+      "regex": "^/api/tts/edge(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/api/tts/edge(?:/)?$"
+    },
+    {
+      "page": "/auth",
+      "regex": "^/auth(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth(?:/)?$"
+    },
+    {
+      "page": "/auth/error",
+      "regex": "^/auth/error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/auth/error(?:/)?$"
+    },
+    {
+      "page": "/library",
+      "regex": "^/library(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/library(?:/)?$"
+    },
+    {
+      "page": "/offline",
+      "regex": "^/offline(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/offline(?:/)?$"
+    },
+    {
+      "page": "/opds",
+      "regex": "^/opds(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/opds(?:/)?$"
+    },
+    {
+      "page": "/reader",
+      "regex": "^/reader(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/reader(?:/)?$"
+    },
+    {
+      "page": "/updater",
+      "regex": "^/updater(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/updater(?:/)?$"
+    },
+    {
+      "page": "/user",
+      "regex": "^/user(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/user(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSuffix": ".prefetch.rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}
