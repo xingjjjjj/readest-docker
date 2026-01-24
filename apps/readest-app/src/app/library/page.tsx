@@ -67,7 +67,6 @@ import DropIndicator from '@/components/DropIndicator';
 import SettingsDialog from '@/components/settings/SettingsDialog';
 import ModalPortal from '@/components/ModalPortal';
 import TransferQueuePanel from './components/TransferQueuePanel';
-import ReconcileModal from './components/ReconcileModal';
 
 const LibraryPageWithSearchParams = () => {
   const searchParams = useSearchParams();
@@ -106,7 +105,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   const [isSelectAll, setIsSelectAll] = useState(false);
   const [isSelectNone, setIsSelectNone] = useState(false);
   const [showDetailsBook, setShowDetailsBook] = useState<Book | null>(null);
-  const [showReconcileModal, setShowReconcileModal] = useState(false);
   const [currentGroupPath, setCurrentGroupPath] = useState<string | undefined>(undefined);
   const [booksTransferProgress, setBooksTransferProgress] = useState<{
     [key: string]: number | null;
@@ -319,8 +317,9 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       const settings = await appService.loadSettings();
       setSettings(settings);
 
-      // Reuse the library from the store when we return from the reader
-      const library = libraryBooks.length > 0 ? libraryBooks : await appService.loadLibraryBooks();
+      // 始终从后端重新加载最新的图书列表，不使用 store 缓存
+      // 这确保页面刷新或 scan books 后能看到最新的书籍
+      const library = await appService.loadLibraryBooks();
       let opened = false;
       if (checkOpenWithBooks) {
         opened = await handleOpenWithBooks(appService, library);
@@ -712,7 +711,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
           onToggleSelectMode={() => handleSetSelectMode(!isSelectMode)}
           onSelectAll={handleSelectAll}
           onDeselectAll={handleDeselectAll}
-          onReconcilePaths={() => setShowReconcileModal(true)}
         />
         <progress
           className={clsx(
@@ -844,20 +842,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       <UpdaterWindow />
       <MigrateDataWindow />
       {isSettingsDialogOpen && <SettingsDialog bookKey={''} />}
-      {showReconcileModal && appService && (
-        <ReconcileModal
-          isOpen={showReconcileModal}
-          onClose={() => setShowReconcileModal(false)}
-          onConfirm={(results) => {
-            console.log('校准完成，更新了', results.length, '本书');
-            setShowReconcileModal(false);
-            handleRefreshLibrary();
-          }}
-          reconcileBookPaths={appService.reconcileBookPaths.bind(appService)}
-          applyReconciliation={appService.applyReconciliation.bind(appService)}
-          books={libraryBooks}
-        />
-      )}
       <Toast />
     </div>
   );

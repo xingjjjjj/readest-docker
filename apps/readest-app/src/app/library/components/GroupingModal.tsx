@@ -67,8 +67,13 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
   const isSelectedBooksHasGroup =
     selectedBooks.some((hash) => !isMd5(hash)) ||
     selectedBooks
-      .map((hash) => libraryBooks.find((book) => book.hash === hash)?.groupId)
-      .some((group) => group && group !== BOOK_UNGROUPED_NAME);
+      .map((hash) => libraryBooks.find((book) => book.hash === hash))
+      .some((book) => {
+        if (!book) return false;
+        const hasGroupId = book.groupId && book.groupId !== BOOK_UNGROUPED_ID;
+        const hasGroupName = book.groupName && book.groupName !== BOOK_UNGROUPED_NAME;
+        return !!(hasGroupId || hasGroupName);
+      });
 
   const canRenameGroup = selectedBooks.length === 1 && selectedBooks.every((id) => !isMd5(id));
   const currentGroupForRename = canRenameGroup
@@ -116,33 +121,55 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
     setIsRenaming(true);
   };
 
-  const handleRemoveFromGroup = () => {
+  const handleRemoveFromGroup = async () => {
+    const reclassifyPromises: Promise<void>[] = [];
+
+    const getGroupFromRelativePath = (relativePath?: string) => {
+      if (!relativePath) return undefined;
+      const idx = relativePath.lastIndexOf('/');
+      return idx > 0 ? relativePath.slice(0, idx) : '';
+    };
+
     selectedBooks.forEach((id) => {
       for (const book of libraryBooks.filter((book) => book.hash === id || book.groupId === id)) {
-        if (
-          book &&
-          book.groupId &&
-          book.groupName &&
-          book.groupId !== BOOK_UNGROUPED_ID &&
-          book.groupName !== BOOK_UNGROUPED_NAME
-        ) {
-          book.groupId = undefined;
-          book.groupName = undefined;
+        if (!book) continue;
+
+        const hasGroupId = book.groupId && book.groupId !== BOOK_UNGROUPED_ID;
+        const hasGroupName = book.groupName && book.groupName !== BOOK_UNGROUPED_NAME;
+
+        if (hasGroupId || hasGroupName || book.relativePath?.includes('/')) {
+          const oldGroupName = book.groupName || getGroupFromRelativePath(book.relativePath) || '';
+          const newGroupName = BOOK_UNGROUPED_NAME;
+
+          // 在本地存储模式下同步移动文件到未分组根目录
+          if (book.relativePath && appService?.reclassifyBook) {
+            const promise = appService.reclassifyBook(book, newGroupName, oldGroupName).catch((error) => {
+              console.error('Failed to move files when removing group:', error);
+            });
+            reclassifyPromises.push(promise);
+          }
+
+          book.groupId = BOOK_UNGROUPED_ID;
+          book.groupName = BOOK_UNGROUPED_NAME;
           book.updatedAt = Date.now();
         }
       }
     });
+
+    await Promise.all(reclassifyPromises);
+
     setLibrary([...libraryBooks]);
     appService?.saveLibraryBooks(libraryBooks);
     onConfirm();
   };
 
-  const handleConfirmCreateGroup = () => {
+  const handleConfirmCreateGroup = async () => {
     let groupName = editGroupName.trim();
     if (groupName) {
       if (isRenaming && originalGroupName) {
         // Renaming existing group
         const oldGroupName = originalGroupName;
+        const reclassifyPromises: Promise<void>[] = [];
 
         // Update the group name for all books in this group and nested groups
         libraryBooks.forEach((book) => {
@@ -151,9 +178,10 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
 
             // 在本地存储模式下，移动文件以匹配新的分组名
             if (book.relativePath && appService?.reclassifyBook) {
-              appService.reclassifyBook(book, newGroupName, oldGroupName).catch((error) => {
+              const promise = appService.reclassifyBook(book, newGroupName, oldGroupName).catch((error) => {
                 console.error('Failed to reclassify book files during rename:', error);
               });
+              reclassifyPromises.push(promise);
             }
 
             book.groupName = newGroupName;
@@ -164,9 +192,10 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
 
             // 在本地存储模式下，移动文件以匹配新的分组
             if (book.relativePath && appService?.reclassifyBook) {
-              appService.reclassifyBook(book, newGroupName, book.groupName).catch((error) => {
+              const promise = appService.reclassifyBook(book, newGroupName, book.groupName).catch((error) => {
                 console.error('Failed to reclassify book files during rename:', error);
               });
+              reclassifyPromises.push(promise);
             }
 
             book.groupName = newGroupName;
@@ -174,6 +203,9 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
             book.updatedAt = Date.now();
           }
         });
+
+        // 等待所有文件移动操作完成后再保存库
+        await Promise.all(reclassifyPromises);
 
         setLibrary([...libraryBooks]);
         appService?.saveLibraryBooks(libraryBooks);
@@ -218,6 +250,8 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
   };
 
   const handleConfirmGrouping = async () => {
+    const reclassifyPromises: Promise<void>[] = [];
+
     selectedBooks.forEach((id) => {
       for (const book of libraryBooks.filter((book) => book.hash === id || book.groupId === id)) {
         if (book && selectedGroup) {
@@ -228,14 +262,19 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
 
           // 在本地存储模式下，移动文件以匹配新的分组
           if (book.relativePath && appService?.reclassifyBook) {
-            appService.reclassifyBook(book, selectedGroup.name, oldGroupName).catch((error) => {
+            const promise = appService.reclassifyBook(book, selectedGroup.name, oldGroupName).catch((error) => {
               console.error('Failed to reclassify book files:', error);
               // 不中断流程，继续保存元数据
             });
+            reclassifyPromises.push(promise);
           }
         }
       }
     });
+
+    // 等待所有文件移动操作完成后再保存库
+    await Promise.all(reclassifyPromises);
+
     setLibrary([...libraryBooks]);
     appService?.saveLibraryBooks(libraryBooks);
     onConfirm();

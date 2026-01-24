@@ -49,22 +49,7 @@ export async function GET(req: NextRequest) {
         const filename = relPath.split('/').pop() || 'file';
         const encodedFilename = encodeURIComponent(filename);
 
-        // 生成 ETag
-        const etag = generateETag(stats.size, stats.mtimeMs || 0);
-        const ifNoneMatch = req.headers.get('if-none-match');
-
-        // 检查客户端缓存
-        if (ifNoneMatch === etag) {
-            console.log('[Storage File GET] 304 Not Modified for:', filename);
-            return new NextResponse(null, {
-                status: 304,
-                headers: {
-                    'ETag': etag,
-                    'Cache-Control': 'public, max-age=86400, immutable',
-                },
-            });
-        }
-
+        // 不使用缓存，确保始终返回最新文件内容
         if (stats.size > USE_STREAMING_THRESHOLD) {
             console.log('[Storage File GET] Using streaming for large file');
 
@@ -97,8 +82,9 @@ export async function GET(req: NextRequest) {
                     'Content-Type': 'application/octet-stream',
                     'Content-Disposition': `attachment; filename*=UTF-8''${encodedFilename}`,
                     'Content-Length': stats.size.toString(),
-                    'ETag': etag,
-                    'Cache-Control': 'public, max-age=86400, immutable',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
                 },
             });
         } else {
@@ -110,8 +96,9 @@ export async function GET(req: NextRequest) {
                     'Content-Type': 'application/octet-stream',
                     'Content-Disposition': `attachment; filename*=UTF-8''${encodedFilename}`,
                     'Content-Length': buffer.length.toString(),
-                    'ETag': etag,
-                    'Cache-Control': 'public, max-age=86400, immutable',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
                 },
             });
         }

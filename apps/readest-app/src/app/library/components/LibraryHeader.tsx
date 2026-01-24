@@ -34,7 +34,6 @@ interface LibraryHeaderProps {
   onToggleSelectMode: () => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
-  onReconcilePaths?: () => void;
 }
 
 const LibraryHeader: React.FC<LibraryHeaderProps> = ({
@@ -45,7 +44,6 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
   onToggleSelectMode,
   onSelectAll,
   onDeselectAll,
-  onReconcilePaths,
 }) => {
   const _ = useTranslation();
   const router = useRouter();
@@ -109,8 +107,8 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
       }}
     >
       <div className='flex w-full items-center justify-between space-x-6 sm:space-x-12'>
-        <div className='exclude-title-bar-mousedown relative flex w-full items-center pl-4'>
-          <div className='relative flex h-9 w-full items-center sm:h-7'>
+        <div className='exclude-title-bar-mousedown relative flex flex-1 min-w-0 items-center pl-4'>
+          <div className='relative flex h-9 w-full max-w-lg items-center sm:h-7'>
             <span className='text-base-content/50 absolute ps-3'>
               <FaSearch className='h-4 w-4' />
             </span>

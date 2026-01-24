@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { STORAGE_ROOT, ensureRoots, isLocalStorageEnabled } from '../_lib/localFs';
+import { extractCover } from '../_lib/coverExtractor';
 
 const SUPPORTED_EXTS = ['.epub', '.mobi', '.azw', '.azw3', '.fb2', '.cbz', '.pdf', '.txt'];
 const METADATA_DIR = '.readest';
@@ -275,10 +276,94 @@ export async function POST(_req: NextRequest) {
             }
         }
 
-        // Step 6: 更新库（移除删除的书，保留现有的，添加新书）
+        // Step 6a: 为新书籍创建同名文件夹并提取封面
+        console.log('[ScanAndImport] Creating metadata folders and extracting covers for', newBooks.length, 'new books...');
+        let coversExtracted = 0;
+        let coversFailed = 0;
+
+        for (const newBook of newBooks) {
+            const bookFilePath = path.join(STORAGE_ROOT, newBook['relativePath']!);
+            const metadataFolderPath = path.join(
+                STORAGE_ROOT,
+                newBook['relativePath']!.replace(/\.[^.]+$/, '')
+            );
+
+            try {
+                // 创建元数据文件夹
+                await fs.mkdir(metadataFolderPath, { recursive: true });
+                console.log('[ScanAndImport] ✓ Created metadata folder:', path.basename(metadataFolderPath));
+
+                // 创建初始 config.json
+                const configPath = path.join(metadataFolderPath, 'config.json');
+                const configExists = await fs.stat(configPath).then(() => true).catch(() => false);
+                if (!configExists) {
+                    const initConfig = { updatedAt: 0 };
+                    await fs.writeFile(configPath, JSON.stringify(initConfig, null, 2), 'utf-8');
+                    console.log('[ScanAndImport] ✓ Created config.json for:', newBook['title']);
+                }
+
+                // 提取并保存封面
+                const coverBuffer = await extractCover(bookFilePath);
+                if (coverBuffer) {
+                    const coverPath = path.join(metadataFolderPath, 'cover.png');
+                    await fs.writeFile(coverPath, coverBuffer);
+                    console.log('[ScanAndImport] ✓ Extracted cover for:', newBook['title']);
+                    coversExtracted++;
+                } else {
+                    console.warn('[ScanAndImport] ⚠️ No cover found for:', newBook['title']);
+                    coversFailed++;
+                }
+            } catch (error) {
+                console.error('[ScanAndImport] ✗ Failed to process metadata for:', newBook['title'], error);
+                coversFailed++;
+            }
+        }
+
+        if (newBooks.length > 0) {
+            console.log(`[ScanAndImport] Cover extraction summary: ${coversExtracted} extracted, ${coversFailed} failed`);
+        }
+
+        // Step 6b: 更新库（移除删除的书，保留现有的，添加新书）
         const updatedLibrary = existingLibrary
             .filter(b => !deletedBooks.some(db => db.hash === b.hash))
             .concat(newBooks);
+
+        // Step 6c: 检查所有书籍的元数据文件夹，确保存在
+        console.log('[ScanAndImport] Checking metadata folders for all books...');
+        let foldersCreated = 0;
+        let configsCreated = 0;
+        for (const book of updatedLibrary) {
+            if (!book.relativePath) continue;
+
+            const metadataFolderName = book.relativePath.replace(/\.[^.]+$/, '');
+            const metadataFolderPath = path.join(STORAGE_ROOT, metadataFolderName);
+
+            try {
+                const folderExists = await fs.stat(metadataFolderPath).then(() => true).catch(() => false);
+                if (!folderExists) {
+                    await fs.mkdir(metadataFolderPath, { recursive: true });
+                    console.log('[ScanAndImport] Created missing metadata folder:', metadataFolderName);
+                    foldersCreated++;
+                }
+
+                // 确保 config.json 存在
+                const configPath = path.join(metadataFolderPath, 'config.json');
+                const configExists = await fs.stat(configPath).then(() => true).catch(() => false);
+                if (!configExists) {
+                    const initConfig = { updatedAt: 0 };
+                    await fs.writeFile(configPath, JSON.stringify(initConfig, null, 2), 'utf-8');
+                    configsCreated++;
+                }
+            } catch (error) {
+                console.warn('[ScanAndImport] Failed to create metadata folder for:', book['title'], error);
+            }
+        }
+        if (foldersCreated > 0) {
+            console.log('[ScanAndImport] ✓ Created', foldersCreated, 'missing metadata folders');
+        }
+        if (configsCreated > 0) {
+            console.log('[ScanAndImport] ✓ Created', configsCreated, 'missing config.json files');
+        }
 
         // Step 7: 直接保存更新的库到 library.json
         // 这是关键优化：后端直接更新，前端无需额外处理

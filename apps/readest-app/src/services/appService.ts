@@ -238,6 +238,9 @@ export abstract class BaseAppService implements AppService {
   };
 
   getCoverImageBlobUrl = async (book: Book): Promise<string> => {
+    // 确保缺失的封面会被及时恢复
+    await this.ensureCoverExists(book);
+
     // Use the resolved path from 'Books' base instead of manually prefixing with localBooksDir
     // This correctly handles both flat (relativePath) and legacy (hash-based) paths
     const coverPath = getCoverFilename(book);
@@ -926,13 +929,62 @@ export abstract class BaseAppService implements AppService {
   }
 
   async generateCoverImageUrl(book: Book): Promise<string> {
+    await this.ensureCoverExists(book);
+
     return this.appPlatform === 'web'
       ? await this.getCoverImageBlobUrl(book)
       : this.getCoverImageUrl(book);
   }
 
+  private async ensureCoverExists(book: Book): Promise<void> {
+    if (book.deletedAt) return;
+    const coverPath = getCoverFilename(book);
+    const coverExists = await this.fs.exists(coverPath, 'Books');
+    if (coverExists) return;
+
+    try {
+      console.log('[Cover] Missing cover for:', book.title, '→ regenerating');
+
+      // 优先使用 relativePath（本地存储），否则使用 filePath（绝对路径/临时导入）
+      const bookPath = book.relativePath || book.filePath;
+      if (!bookPath) {
+        console.warn('[Cover] No book path available to regenerate cover:', book.title);
+        return;
+      }
+
+      // 确保元数据文件夹存在
+      const metadataDir = bookPath.replace(/\.[^.]+$/, '');
+      try {
+        await this.fs.createDir(metadataDir, 'Books', true);
+        console.log('[Cover] 元数据文件夹已创建:', metadataDir);
+      } catch (e) {
+        console.warn('[Cover] 创建元数据文件夹失败:', metadataDir, e);
+      }
+
+      const base: BaseDir = book.relativePath ? 'Books' : 'None';
+      const bookFile = await this.fs.openFile(bookPath, base);
+      const { book: loadedBook } = await new DocumentLoader(bookFile).open();
+      const cover = await loadedBook.getCover();
+
+      if (!cover) return;
+
+      let coverBlob = cover;
+      if (cover.type === 'image/svg+xml') {
+        try {
+          coverBlob = await svg2png(cover);
+        } catch (e) {
+          console.warn('[Cover] SVG→PNG failed, using original:', e);
+        }
+      }
+
+      await this.fs.writeFile(coverPath, 'Books', await coverBlob.arrayBuffer());
+      console.log('[Cover] Regenerated cover saved:', coverPath);
+    } catch (error) {
+      console.warn('[Cover] Failed to regenerate cover for', book.title, error);
+    }
+  }
+
   async loadLibraryBooks(): Promise<Book[]> {
-    console.log('Loading library books...');
     const libraryFilename = getLibraryFilename();
 
     if (!(await this.fs.exists('', 'Books'))) {
@@ -940,6 +992,7 @@ export abstract class BaseAppService implements AppService {
     }
 
     const books = await this.safeLoadJSON<Book[]>(libraryFilename, 'Books', []);
+    console.log(`[loadLibraryBooks] 从 ${libraryFilename} 加载了 ${books.length} 本书`);
 
     await Promise.all(
       books.map(async (book) => {
@@ -949,6 +1002,7 @@ export abstract class BaseAppService implements AppService {
       }),
     );
 
+    console.log(`[loadLibraryBooks] 返回 ${books.length} 本书`);
     return books;
   }
 

@@ -91,7 +91,9 @@ export const apiFileSystem: FileSystem = {
             return await new RemoteFile(path, filename).open();
         }
         const { fp } = this.resolvePath(path, base);
-        const res = await fetch(`/api/storage/file?filePath=${encodeURIComponent(fp)}`);
+        // 添加时间戳防止缓存
+        const cacheBuster = Date.now();
+        const res = await fetch(`/api/storage/file?filePath=${encodeURIComponent(fp)}&_t=${cacheBuster}`);
         if (!res.ok) throw new Error('File not found');
         return new File([await res.arrayBuffer()], filename || path);
     },
@@ -101,7 +103,11 @@ export const apiFileSystem: FileSystem = {
     },
     async readFile(path: string, base: BaseDir, mode: 'text' | 'binary') {
         const { fp } = this.resolvePath(path, base);
-        const res = await fetch(`/api/storage/file?filePath=${encodeURIComponent(fp)}`);
+        // 添加时间戳防止缓存
+        const cacheBuster = Date.now();
+        const res = await fetch(`/api/storage/file?filePath=${encodeURIComponent(fp)}&_t=${cacheBuster}`, {
+            cache: 'no-store'
+        });
         if (!res.ok) throw new Error(`File not found: ${fp}`);
         return mode === 'text' ? await res.text() : await res.arrayBuffer();
     },
