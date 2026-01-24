@@ -22,6 +22,7 @@ const API_ENDPOINTS = {
   list: getAPIBaseUrl() + '/storage/list',
   purge: getAPIBaseUrl() + '/storage/purge',
   scan: getAPIBaseUrl() + '/storage/scan',
+  scanAndImport: getAPIBaseUrl() + '/storage/scan-and-import',
   import: getAPIBaseUrl() + '/storage/import',
 };
 
@@ -339,6 +340,52 @@ export interface ScannedBook {
   mtime: number;
   ext: string;
 }
+
+export interface ScanAndImportResult {
+  success: boolean;
+  summary: {
+    totalScanned: number;
+    newCount: number;
+    movedCount: number;
+    deletedCount: number;
+  };
+  newBooks: Array<{
+    hash: string;
+    title: string;
+    relativePath: string;
+    format: string;
+  }>;
+  movedBooks: Array<{
+    oldPath: string;
+    newPath: string;
+    hash: string;
+  }>;
+  deletedBooks: Array<{
+    hash: string;
+    title: string;
+    relativePath: string;
+  }>;
+}
+
+/**
+ * 扫描并导入书籍（后端合一端点）
+ * 
+ * 优化：后端直接更新 library.json，减少数据传输
+ * - 返回增量数据摘要而非完整书籍列表
+ * - library.json 由后端原子性更新
+ * - 前端只需加载更新的库
+ */
+export const scanAndImportBooks = async (): Promise<ScanAndImportResult> => {
+  try {
+    const response = await request(API_ENDPOINTS.scanAndImport, {
+      method: 'POST',
+    });
+    return await response.json();
+  } catch (error) {
+    console.error('Scan and import books failed:', error);
+    throw new Error('Scan and import books failed');
+  }
+};
 
 export const scanBooks = async (): Promise<{ count: number; books: ScannedBook[] }> => {
   try {
