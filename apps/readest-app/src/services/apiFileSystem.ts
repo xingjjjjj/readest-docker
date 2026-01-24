@@ -54,18 +54,37 @@ export const apiFileSystem: FileSystem = {
         if (isValidURL(path)) {
             return path;
         }
-        return `/api/storage/file?filePath=${encodeURIComponent(path)}`;
+        // Guard against empty or invalid paths
+        if (!path || typeof path !== 'string' || path.trim() === '') {
+            console.warn('[APIFileSystem.getURL] ⚠️ WARNING: Called with empty or invalid path:', path);
+            console.warn('[APIFileSystem.getURL] Stack trace:', new Error().stack);
+            return '';
+        }
+        const result = `/api/storage/file?filePath=${encodeURIComponent(path)}`;
+        console.debug('[APIFileSystem.getURL] ✓ Generated URL for path:', path, '-> Result:', result);
+        return result;
     },
     async getBlobURL(path: string, base: BaseDir) {
         try {
+            console.log('[APIFileSystem.getBlobURL] Getting blob URL for path:', path, 'base:', base);
             const content = await this.readFile(path, base, 'binary');
-            return URL.createObjectURL(new Blob([content]));
-        } catch {
+            const result = URL.createObjectURL(new Blob([content]));
+            console.log('[APIFileSystem.getBlobURL] ✓ Created blob URL:', result);
+            return result;
+        } catch (error) {
+            console.error('[APIFileSystem.getBlobURL] ✗ Error creating blob URL:', error);
             return path;
         }
     },
     async getImageURL(path: string) {
-        return this.getURL(path);
+        console.log('[APIFileSystem.getImageURL] Getting image URL for path:', path);
+        if (!path || path.trim() === '') {
+            console.warn('[APIFileSystem.getImageURL] ⚠️ WARNING: Empty path provided');
+            return '';
+        }
+        const result = this.getURL(path);
+        console.log('[APIFileSystem.getImageURL] ✓ Result:', result);
+        return result;
     },
     async openFile(path: string, base: BaseDir, filename?: string) {
         if (isValidURL(path)) {
@@ -124,6 +143,12 @@ export const apiFileSystem: FileSystem = {
     },
     async exists(path: string, base: BaseDir) {
         const { fp } = this.resolvePath(path, base);
+        // Avoid hitting API with an empty filePath (e.g. checking root dir "")
+        if (!fp || fp.trim() === '') {
+            console.warn('[APIFileSystem.exists] WARNING: empty resolved path for', { path, base });
+            // Treat empty path as existing to prevent spurious 400s against /api/storage/file
+            return true;
+        }
         const res = await fetch(`/api/storage/file?filePath=${encodeURIComponent(fp)}`);
         return res.ok;
     },

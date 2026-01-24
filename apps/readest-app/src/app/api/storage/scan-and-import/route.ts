@@ -263,7 +263,7 @@ export async function POST(_req: NextRequest) {
                     deletedAt: null,
                 };
                 newBooks.push(book);
-                console.log('[ScanAndImport] New book found:', book.title);
+                console.log('[ScanAndImport] New book found:', book['title']);
             }
         }
 
@@ -271,7 +271,7 @@ export async function POST(_req: NextRequest) {
         for (const existingBook of existingLibrary) {
             if (!scannedByHash.has(existingBook.hash)) {
                 deletedBooks.push(existingBook);
-                console.log('[ScanAndImport] Book deleted:', existingBook.title);
+                console.log('[ScanAndImport] Book deleted:', existingBook['title']);
             }
         }
 
@@ -302,16 +302,16 @@ export async function POST(_req: NextRequest) {
                 deletedCount: deletedBooks.length,
             },
             newBooks: newBooks.map(b => ({
-                hash: b.hash,
-                title: b.title,
-                relativePath: b.relativePath,
-                format: b.format,
+                hash: b['hash'],
+                title: b['title'],
+                relativePath: b['relativePath'],
+                format: b['format'],
             })),
             movedBooks,
             deletedBooks: deletedBooks.map(b => ({
-                hash: b.hash,
-                title: b.title,
-                relativePath: b.relativePath,
+                hash: b['hash'],
+                title: b['title'],
+                relativePath: b['relativePath'],
             })),
         });
     } catch (error: any) {

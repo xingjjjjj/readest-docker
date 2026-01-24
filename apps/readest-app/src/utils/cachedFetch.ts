@@ -165,10 +165,17 @@ export async function cachedFetchAsUrl(
     url: string,
     options: FetchOptions = {},
 ): Promise<string> {
+    console.log('[cachedFetchAsUrl] Fetching and converting to URL:', url);
+    if (!url || url.trim() === '') {
+        console.error('[cachedFetchAsUrl] ✗ ERROR: Empty or invalid URL provided:', url);
+        throw new Error('Empty URL provided to cachedFetchAsUrl');
+    }
     const { data, headers } = await cachedFetch(url, options);
     const mimeType = headers.get('Content-Type') || 'application/octet-stream';
     const blob = new Blob([data], { type: mimeType });
-    return URL.createObjectURL(blob);
+    const result = URL.createObjectURL(blob);
+    console.log('[cachedFetchAsUrl] ✓ Created blob URL:', result);
+    return result;
 }
 
 /**

@@ -12,6 +12,9 @@
 # next.js
 /.next/
 /out/
+# Next.js app-in-workspace build outputs
+apps/readest-app/.next/
+apps/readest-app/out/
 
 # production
 /build

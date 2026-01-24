@@ -30,6 +30,7 @@ export const ScanBooksButton: React.FC = () => {
 
             // 调用后端的扫描和导入合一端点
             // 后端已直接更新 library.json，减少数据传输
+            console.log('[ScanBooks] Calling scanAndImportBooks...');
             const result = await scanAndImportBooks();
 
             if (!result.success) {
@@ -37,7 +38,9 @@ export const ScanBooksButton: React.FC = () => {
             }
 
             // 加载后端更新的库
+            console.log('[ScanBooks] Loading updated library books...');
             const updatedLibrary = await appService.loadLibraryBooks();
+            console.log('[ScanBooks] ✓ Loaded', updatedLibrary.length, 'books');
             setLibrary(updatedLibrary);
 
             // 构建提示信息
