@@ -49,11 +49,10 @@ const BackgroundTextureSelector: React.FC<BackgroundTextureSelectorProps> = ({
           <button
             key={texture.id}
             onClick={() => onTextureSelect(texture.id)}
-            className={`bg-base-100 relative flex flex-col items-center justify-center rounded-lg border-2 p-4 shadow-md transition-all ${
-              selectedTextureId === texture.id
-                ? 'ring-2 ring-indigo-500 ring-offset-2'
-                : 'border-base-300'
-            }`}
+            className={`bg-base-100 relative flex flex-col items-center justify-center rounded-lg border-2 p-4 shadow-md transition-all ${selectedTextureId === texture.id
+              ? 'ring-2 ring-indigo-500 ring-offset-2'
+              : 'border-base-300'
+              }`}
             style={{
               backgroundImage: texture.loaded ? `url("${texture.blobUrl || texture.url}")` : 'none',
               backgroundSize: 'cover',

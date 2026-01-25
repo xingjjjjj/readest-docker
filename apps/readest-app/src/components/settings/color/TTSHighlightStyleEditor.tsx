@@ -107,11 +107,10 @@ const TTSHighlightStyleEditor: React.FC<TTSHighlightStyleEditorProps> = ({
                 <button
                   key={quickColor}
                   onClick={() => onColorChange(quickColor)}
-                  className={`h-8 w-8 rounded-full border-2 transition-all hover:scale-110 ${
-                    color === quickColor
-                      ? 'ring-2 ring-indigo-500 ring-offset-2'
-                      : 'border-base-300'
-                  }`}
+                  className={`h-8 w-8 rounded-full border-2 transition-all hover:scale-110 ${color === quickColor
+                    ? 'ring-2 ring-indigo-500 ring-offset-2'
+                    : 'border-base-300'
+                    }`}
                   style={{ backgroundColor: quickColor }}
                 />
               ))}
@@ -120,11 +119,10 @@ const TTSHighlightStyleEditor: React.FC<TTSHighlightStyleEditorProps> = ({
                 <div key={customColor} className='group relative'>
                   <button
                     onClick={() => onColorChange(customColor)}
-                    className={`h-8 w-8 rounded-full border-2 transition-all hover:scale-110 ${
-                      color === customColor
-                        ? 'ring-2 ring-indigo-500 ring-offset-2'
-                        : 'border-base-300'
-                    }`}
+                    className={`h-8 w-8 rounded-full border-2 transition-all hover:scale-110 ${color === customColor
+                      ? 'ring-2 ring-indigo-500 ring-offset-2'
+                      : 'border-base-300'
+                      }`}
                     style={{ backgroundColor: customColor }}
                   />
                   <button
