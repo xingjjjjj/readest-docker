@@ -288,9 +288,9 @@ const indexedDBFileSystem: FileSystem = {
 };
 
 export class WebAppService extends BaseAppService {
-  // Use getter to check storage mode dynamically at runtime
-  get fs(): FileSystem {
-    return getIsLocalStorageMode() ? apiFileSystem : indexedDBFileSystem;
+  constructor() {
+    super();
+    this.fs = getIsLocalStorageMode() ? apiFileSystem : indexedDBFileSystem;
   }
   override isMobile = ['android', 'ios'].includes(getOSPlatform());
   override appPlatform = 'web' as AppPlatform;

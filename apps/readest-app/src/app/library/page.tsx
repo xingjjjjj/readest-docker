@@ -379,6 +379,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   }, [demoBooks, libraryLoaded]);
 
   const importBooks = async (files: SelectedFile[], groupId?: string) => {
+    console.log('[📚 importBooks] 🔄 Starting import batch:', { fileCount: files.length, groupId });
     setLoading(true);
     const { library } = useLibraryStore.getState();
     const failedImports: Array<{ filename: string; errorMessage: string }> = [];
@@ -406,16 +407,27 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
           inferredGroupName = getDirPath(path).replace(rootPath, '').replace(/^\//, '');
         }
 
+        const fileName = typeof file === 'string' ? file : file?.name;
+        console.log('[📚 processFile] Starting import:', fileName);
         const book = await appService?.importBook(file, library, true, true, false, false, {
           targetGroupName: inferredGroupName,
         });
-        if (!book) return null;
-
-        // 防止写入失败但仍返回书籍对象的情况
-        const available = await appService?.isBookAvailable(book);
-        if (!available) {
-          throw new Error(_('Book file is missing after import'));
+        console.log('[📚 processFile] importBook completed:', book ? `${book.title} (hash: ${book.hash})` : 'returned null');
+        if (!book) {
+          console.error('[📚 processFile] ❌ importBook returned null');
+          return null;
         }
+
+        // 防止写入失败但仍返回书籍对象的情况 - 强制验证
+        console.log('[📚 processFile] ⏳ Verifying file exists after import...');
+        const available = await appService?.isBookAvailable(book);
+        console.log('[📚 processFile] isBookAvailable result:', available);
+        if (!available) {
+          const errorDetails = `[File not found] Path: ${book.relativePath || book.filePath || 'none'}`;
+          console.error('[📚 processFile] ❌', errorDetails);
+          throw new Error(_('Book file is missing after import') + ` (${errorDetails})`);
+        }
+        console.log('[📚 processFile] ✅ File verified');
 
         if (groupId) {
           book.groupId = groupId;
@@ -438,6 +450,11 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
           error instanceof Error
             ? errorMap.find(([str]) => error.message.includes(str))?.[1] || error.message
             : '';
+        console.error('[📚 processFile] ❌ EXCEPTION during import:', {
+          filename: baseFilename,
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+        });
         failedImports.push({ filename: baseFilename, errorMessage });
         console.error('Failed to import book:', filename, error);
         return null;
@@ -448,15 +465,29 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     for (let i = 0; i < files.length; i += concurrency) {
       const batch = files.slice(i, i + concurrency);
       const importedBooks = (await Promise.all(batch.map(processFile))).filter((book) => !!book);
+      console.log(`[📚 importBooks] Batch ${Math.floor(i / concurrency) + 1}:`, {
+        batchSize: batch.length,
+        successCount: importedBooks.length,
+        titles: importedBooks.map((b) => b.title),
+      });
       await updateBooks(envConfig, importedBooks);
     }
 
     pushLibrary();
 
+    console.log('[📚 importBooks] 🎯 Final Summary:', {
+      totalFiles: files.length,
+      successfulImports: successfulImports.length,
+      failedImports: failedImports.length,
+      successTitles: successfulImports,
+      failedDetails: failedImports,
+    });
+
     if (failedImports.length > 0) {
       const filenames = failedImports.map((f) => f.filename);
       const errorMessage = failedImports.find((f) => f.errorMessage)?.errorMessage || '';
 
+      console.error('[📚 importBooks] ❌ Some imports failed:', failedImports);
       eventDispatcher.dispatch('toast', {
         message:
           _('Failed to import book(s): {{filenames}}', {
@@ -466,6 +497,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
         type: 'error',
       });
     } else if (successfulImports.length > 0) {
+      console.log('[📚 importBooks] ✅ All imports succeeded:', successfulImports);
       eventDispatcher.dispatch('toast', {
         message: _('Successfully imported {{count}} book(s)', {
           count: successfulImports.length,

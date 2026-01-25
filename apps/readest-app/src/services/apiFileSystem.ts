@@ -98,8 +98,12 @@ export const apiFileSystem: FileSystem = {
         return new File([await res.arrayBuffer()], filename || path);
     },
     async copyFile(srcPath: string, dstPath: string, base: BaseDir) {
+        console.log('[APIFileSystem.copyFile] 📋 Starting copy from:', srcPath);
         const file = await this.openFile(srcPath, base);
+        console.log('[APIFileSystem.copyFile] 📋 File opened, size:', file.size, 'bytes');
+        console.log('[APIFileSystem.copyFile] 📋 Now writing to:', dstPath);
         await this.writeFile(dstPath, base, file);
+        console.log('[APIFileSystem.copyFile] ✅ Copy completed');
     },
     async readFile(path: string, base: BaseDir, mode: 'text' | 'binary') {
         const { fp } = this.resolvePath(path, base);
@@ -116,6 +120,8 @@ export const apiFileSystem: FileSystem = {
         console.log('[APIFileSystem.writeFile] 11. Input path:', path);
         console.log('[APIFileSystem.writeFile] 12. Base:', base);
         console.log('[APIFileSystem.writeFile] 13. Resolved fp:', fp);
+        console.log('[APIFileSystem.writeFile] 14. Content type:', content instanceof File ? `File (${content.size} bytes)` : typeof content);
+        console.log('[APIFileSystem.writeFile] 15. Calling writeFile API...');
 
         const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB
         const toBuffer = async (c: string | ArrayBuffer | File): Promise<Buffer> => {
@@ -126,6 +132,7 @@ export const apiFileSystem: FileSystem = {
 
         // If content is File and large, stream in chunks without reading all into memory
         if (content instanceof File && content.size > CHUNK_SIZE) {
+            console.log('[APIFileSystem.writeFile] 📦 Large file detected, using chunked upload:', content.size, 'bytes');
             const uploadId = Math.random().toString(36).slice(2);
             const totalChunks = Math.ceil(content.size / CHUNK_SIZE);
             for (let i = 0; i < totalChunks; i++) {
@@ -133,6 +140,7 @@ export const apiFileSystem: FileSystem = {
                 const end = Math.min(start + CHUNK_SIZE, content.size);
                 const part = content.slice(start, end);
                 const partBuf = Buffer.from(await part.arrayBuffer());
+                console.log(`[APIFileSystem.writeFile] 📦 Uploading chunk ${i + 1}/${totalChunks} (${partBuf.length} bytes)`);
                 const res = await fetch(`/api/storage/upload-chunk?uploadId=${encodeURIComponent(uploadId)}&index=${i}&total=${totalChunks}`, {
                     method: 'POST',
                     body: partBuf,
@@ -145,6 +153,7 @@ export const apiFileSystem: FileSystem = {
                     throw new Error(`Failed to upload chunk ${i}/${totalChunks}: ${res.status} ${msg}`);
                 }
             }
+            console.log('[APIFileSystem.writeFile] ✅ All chunks uploaded, committing...');
             const commit = await fetch(`/api/storage/commit-upload?uploadId=${encodeURIComponent(uploadId)}&filePath=${encodeURIComponent(fp)}&expectedSize=${content.size}&overwrite=1`, {
                 method: 'POST',
             });
@@ -194,6 +203,7 @@ export const apiFileSystem: FileSystem = {
                 console.error('[APIFileSystem.writeFile] ✗ Commit size mismatch: expected', buffer.length, 'got', json.size);
                 throw new Error('Commit reported size mismatch');
             }
+            console.log('[APIFileSystem.writeFile] ✅ Chunked write completed:', json?.size, 'bytes');
             return;
         }
 
@@ -209,6 +219,7 @@ export const apiFileSystem: FileSystem = {
             const msg = await res.text().catch(() => res.statusText);
             throw new Error(`Failed to write file: ${res.status} ${msg}`);
         }
+        console.log('[APIFileSystem.writeFile] ✅ Single write completed:', buffer.length, 'bytes');
         try {
             const json = await res.json();
             if (json?.size !== undefined && json.size !== buffer.length) {

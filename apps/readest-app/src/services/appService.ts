@@ -74,7 +74,8 @@ import { CustomFont, CustomFontInfo } from '@/styles/fonts';
 import { parseFontInfo } from '@/utils/font';
 import { svg2png } from '@/utils/svg';
 
-export abstract class BaseAppService implements AppService {
+// Base class for app service
+export class BaseAppService implements AppService {
   osPlatform: OsPlatform = getOSPlatform();
   appPlatform: AppPlatform = 'tauri';
   localBooksDir = '';
@@ -105,19 +106,31 @@ export abstract class BaseAppService implements AppService {
 
   protected CURRENT_MIGRATION_VERSION = 20260121;
 
-  protected abstract fs: FileSystem;
-  protected abstract resolvePath(fp: string, base: BaseDir): ResolvedPath;
+  protected fs!: FileSystem;
+  protected resolvePath(fp: string, base: BaseDir): ResolvedPath {
+    throw new Error('Not implemented');
+  }
 
-  abstract init(): Promise<void>;
-  abstract setCustomRootDir(customRootDir: string): Promise<void>;
-  abstract selectDirectory(mode: SelectDirectoryMode): Promise<string>;
-  abstract selectFiles(name: string, extensions: string[]): Promise<string[]>;
-  abstract saveFile(
+  init(): Promise<void> {
+    throw new Error('Not implemented');
+  }
+  setCustomRootDir(customRootDir: string): Promise<void> {
+    throw new Error('Not implemented');
+  }
+  selectDirectory(mode: SelectDirectoryMode): Promise<string> {
+    throw new Error('Not implemented');
+  }
+  selectFiles(name: string, extensions: string[]): Promise<string[]> {
+    throw new Error('Not implemented');
+  }
+  async saveFile(
     filename: string,
     content: string | ArrayBuffer,
     filepath: string,
     mimeType?: string,
-  ): Promise<boolean>;
+  ): Promise<boolean> {
+    throw new Error('Not implemented');
+  }
 
   protected async runMigrations(lastMigrationVersion: number): Promise<void> {
     if (lastMigrationVersion < 20251124) {
@@ -568,54 +581,84 @@ export abstract class BaseAppService implements AppService {
       }
 
       // Ensure destination directories exist (new flat structure or legacy hash-based)
+      console.log('[importBook] 🔄 About to ensureLocalBookDirs for book:', book.title, book.relativePath);
       await this.ensureLocalBookDirs(book);
+      console.log('[importBook] 🔄 ensureLocalBookDirs completed');
 
       const bookFilename = getLocalBookFilename(book);
-      if (saveBook && !transient && (!(await this.fs.exists(bookFilename, 'Books')) || overwrite)) {
+      console.log('[importBook] 📚 bookFilename:', bookFilename);
+      console.log('[importBook] 📚 saveBook:', saveBook, ', transient:', transient);
+      const bookFileExists = await this.fs.exists(bookFilename, 'Books');
+      console.log('[importBook] 📚 Book file already exists:', bookFileExists, ', overwrite:', overwrite);
+      console.log('[importBook] 📚 Will write EPUB?', saveBook && !transient && (!bookFileExists || overwrite));
+
+      if (saveBook && !transient && (!bookFileExists || overwrite)) {
+        console.log('[importBook] 📝 Starting EPUB file write...', bookFilename);
+        const writeStartTime = Date.now();
+
         if (/\.txt$/i.test(filename)) {
+          console.log('[importBook] 📝 Writing as TXT...');
           await this.fs.writeFile(bookFilename, 'Books', fileobj);
         } else if (typeof file === 'string' && isContentURI(file)) {
+          console.log('[importBook] 📝 Copying from content URI...');
           await this.fs.copyFile(file, bookFilename, 'Books');
         } else if (typeof file === 'string' && !isValidURL(file)) {
+          console.log('[importBook] 📝 Copying from local file path...');
           try {
             // try to copy the file directly first in case of large files to avoid memory issues
             // on desktop when reading recursively from selected directory the direct copy will fail
             // due to permission issues, then fallback to read and write files
             await this.fs.copyFile(file, bookFilename, 'Books');
           } catch {
+            console.log('[importBook] 📝 copyFile failed, falling back to writeFile...');
             await this.fs.writeFile(bookFilename, 'Books', await fileobj.arrayBuffer());
           }
         } else {
+          console.log('[importBook] 📝 Writing as blob/file object...');
           await this.fs.writeFile(bookFilename, 'Books', fileobj);
         }
 
-        // Validate saved file size to detect truncated uploads (common cause of invalid zip/epub)
-        // Skip ultra-large files to avoid double-read overhead
-        const originalSize = Number(fileobj.size ?? 0);
-        const SHOULD_VERIFY = Number.isFinite(originalSize) ? originalSize <= 200 * 1024 * 1024 : true; // <=200MB
-        if (SHOULD_VERIFY) {
-          try {
-            const stats = await this.fs.stats(bookFilename, 'Books');
-            const savedSize = Number(stats?.size ?? 0);
-            if (!Number.isFinite(savedSize) || savedSize <= 0) {
-              throw new Error(`Saved file is empty or missing. Saved size: ${savedSize}`);
-            }
-            if (Number.isFinite(originalSize) && originalSize > 0 && savedSize !== originalSize) {
-              throw new Error(`Saved file size mismatch. Expected ${originalSize}, got ${savedSize}`);
-            }
-          } catch (verifyErr) {
-            console.error('[importBook] ✗ Saved file verification failed:', verifyErr);
-            throw new Error('书籍写入失败，文件可能不完整，请重试导入');
+        const writeEndTime = Date.now();
+        console.log('[importBook] ✅ EPUB file write completed in', writeEndTime - writeStartTime, 'ms');
+      } else {
+        console.log('[importBook] ⏭️  Skipping file write: saveBook=', saveBook, ', transient=', transient, ', fileExists=', bookFileExists, ', overwrite=', overwrite);
+      }
+
+      // Validate saved file size to detect truncated uploads (common cause of invalid zip/epub)
+      // Skip ultra-large files to avoid double-read overhead
+      const originalSize = Number(fileobj.size ?? 0);
+      const SHOULD_VERIFY = Number.isFinite(originalSize) ? originalSize <= 200 * 1024 * 1024 : true; // <=200MB
+      console.log('[importBook] 🔍 File size verification enabled:', SHOULD_VERIFY, ', originalSize:', originalSize, 'bytes');
+
+      if (SHOULD_VERIFY) {
+        try {
+          const stats = await this.fs.stats(bookFilename, 'Books');
+          const savedSize = Number(stats?.size ?? 0);
+          console.log('[importBook] 🔍 Original size:', originalSize, ', Saved size:', savedSize);
+
+          if (!Number.isFinite(savedSize) || savedSize <= 0) {
+            throw new Error(`Saved file is empty or missing. Saved size: ${savedSize}`);
           }
+          if (Number.isFinite(originalSize) && originalSize > 0 && savedSize !== originalSize) {
+            throw new Error(`Saved file size mismatch. Expected ${originalSize}, got ${savedSize}`);
+          }
+          console.log('[importBook] ✅ File size verification passed');
+        } catch (verifyErr) {
+          console.error('[importBook] ✗ Saved file verification failed:', verifyErr);
+          throw new Error('书籍写入失败，文件可能不完整，请重试导入');
         }
       }
 
       // If we expect the book to be saved locally, ensure the file actually exists before continuing
       if (saveBook && !transient) {
+        console.log('[importBook] 📌 Final file existence check before return:', bookFilename);
         const saved = await this.fs.exists(bookFilename, 'Books');
+        console.log('[importBook] File exists check result:', saved);
         if (!saved) {
+          console.error('[importBook] ❌ CRITICAL: File should exist but does not:', bookFilename);
           throw new Error('书籍写入失败，未找到已保存的文件');
         }
+        console.log('[importBook] ✅ File confirmed to exist before return');
       }
       if (saveCover && (!(await this.fs.exists(getCoverFilename(book), 'Books')) || overwrite)) {
         console.log('[ImportBook] 7. Preparing to save cover');
@@ -658,7 +701,14 @@ export abstract class BaseAppService implements AppService {
       }
 
       const elapsed = Date.now() - startTime;
-      console.log(`[importBook] ✓ Import completed in ${elapsed}ms: ${filename}`);
+      console.log(`[importBook] ✅ Import SUCCESSFULLY completed in ${elapsed}ms`);
+      console.log('[importBook] Returning book:', {
+        hash: book.hash || existingBook?.hash,
+        title: (existingBook || book).title,
+        relativePath: (existingBook || book).relativePath,
+        saveBook: saveBook,
+        transient: transient,
+      });
 
       return existingBook || book;
     } catch (error) {
@@ -685,6 +735,7 @@ export abstract class BaseAppService implements AppService {
 
       throw error;
     }
+
   }
 
   async importBookFromPath(
@@ -857,15 +908,52 @@ export abstract class BaseAppService implements AppService {
 
   async isBookAvailable(book: Book): Promise<boolean> {
     const fp = getLocalBookFilename(book);
-    if (await this.fs.exists(fp, 'Books')) {
-      return true;
+    console.log('[isBookAvailable] 📋 Checking book:', {
+      title: book.title,
+      hash: book.hash,
+      relativePath: book.relativePath,
+      filePath: book.filePath,
+      url: book.url,
+      localPath: fp,
+    });
+
+    // Check local book file (highest priority)
+    try {
+      const localExists = await this.fs.exists(fp, 'Books');
+      console.log('[isBookAvailable] 🔍 Local file exists:', localExists, 'at path:', fp);
+      if (localExists) {
+        try {
+          const stats = await this.fs.stats(fp, 'Books');
+          console.log('[isBookAvailable] ✅ Local file verified, size:', stats.size, 'bytes');
+          return true;
+        } catch (statsErr) {
+          console.warn('[isBookAvailable] ⚠️ File exists but can\'t get stats:', statsErr);
+          return true;
+        }
+      }
+    } catch (error) {
+      console.error('[isBookAvailable] ❌ Error checking local file:', error);
     }
+
+    // Check transient file path
     if (book.filePath) {
-      return await this.fs.exists(book.filePath, 'None');
+      try {
+        const transientExists = await this.fs.exists(book.filePath, 'None');
+        console.log('[isBookAvailable] 🔍 Transient file exists:', transientExists, 'at path:', book.filePath);
+        if (transientExists) return true;
+      } catch (error) {
+        console.error('[isBookAvailable] ❌ Error checking transient file:', error);
+      }
     }
+
+    // Check URL validity
     if (book.url) {
-      return isValidURL(book.url);
+      const valid = isValidURL(book.url);
+      console.log('[isBookAvailable] 🔍 URL valid:', valid, 'URL:', book.url);
+      if (valid) return true;
     }
+
+    console.error('[isBookAvailable] ❌ FAILED: No available source found for book:', book.title);
     return false;
   }
 
