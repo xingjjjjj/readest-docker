@@ -147,12 +147,29 @@ export class DocumentLoader {
     type Entry = import('@zip.js/zip.js').Entry;
     configure({ useWebWorkers: false });
     const reader = new ZipReader(new BlobReader(this.file));
-    const entries = await reader.getEntries();
+
+    // Guard against truncated/invalid ZIP (common when upload/copy failed)
+    let entries: Entry[] = [];
+    try {
+      entries = await reader.getEntries();
+    } catch (err) {
+      await reader.close?.();
+      const message = err instanceof Error ? err.message : String(err);
+      throw new Error(
+        `无法读取书籍文件（可能已损坏或未完整上传）：${message}`,
+      );
+    }
+
+    if (!entries || entries.length === 0) {
+      await reader.close?.();
+      throw new Error('书籍文件内容为空或已损坏，请重新导入');
+    }
+
     const map = new Map(entries.map((entry) => [entry.filename, entry]));
     const load =
       (f: (entry: Entry, type?: string) => Promise<string | Blob> | null) =>
-      (name: string, ...args: [string?]) =>
-        map.has(name) ? f(map.get(name)!, ...args) : null;
+        (name: string, ...args: [string?]) =>
+          map.has(name) ? f(map.get(name)!, ...args) : null;
 
     const loadText = load((entry: Entry) =>
       entry.getData ? entry.getData(new TextWriter()) : null,

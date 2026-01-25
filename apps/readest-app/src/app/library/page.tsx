@@ -411,6 +411,12 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
         });
         if (!book) return null;
 
+        // 防止写入失败但仍返回书籍对象的情况
+        const available = await appService?.isBookAvailable(book);
+        if (!available) {
+          throw new Error(_('Book file is missing after import'));
+        }
+
         if (groupId) {
           book.groupId = groupId;
           book.groupName = inferredGroupName;

@@ -588,6 +588,34 @@ export abstract class BaseAppService implements AppService {
         } else {
           await this.fs.writeFile(bookFilename, 'Books', fileobj);
         }
+
+        // Validate saved file size to detect truncated uploads (common cause of invalid zip/epub)
+        // Skip ultra-large files to avoid double-read overhead
+        const originalSize = Number(fileobj.size ?? 0);
+        const SHOULD_VERIFY = Number.isFinite(originalSize) ? originalSize <= 200 * 1024 * 1024 : true; // <=200MB
+        if (SHOULD_VERIFY) {
+          try {
+            const stats = await this.fs.stats(bookFilename, 'Books');
+            const savedSize = Number(stats?.size ?? 0);
+            if (!Number.isFinite(savedSize) || savedSize <= 0) {
+              throw new Error(`Saved file is empty or missing. Saved size: ${savedSize}`);
+            }
+            if (Number.isFinite(originalSize) && originalSize > 0 && savedSize !== originalSize) {
+              throw new Error(`Saved file size mismatch. Expected ${originalSize}, got ${savedSize}`);
+            }
+          } catch (verifyErr) {
+            console.error('[importBook] ✗ Saved file verification failed:', verifyErr);
+            throw new Error('书籍写入失败，文件可能不完整，请重试导入');
+          }
+        }
+      }
+
+      // If we expect the book to be saved locally, ensure the file actually exists before continuing
+      if (saveBook && !transient) {
+        const saved = await this.fs.exists(bookFilename, 'Books');
+        if (!saved) {
+          throw new Error('书籍写入失败，未找到已保存的文件');
+        }
       }
       if (saveCover && (!(await this.fs.exists(getCoverFilename(book), 'Books')) || overwrite)) {
         console.log('[ImportBook] 7. Preparing to save cover');

@@ -116,20 +116,106 @@ export const apiFileSystem: FileSystem = {
         console.log('[APIFileSystem.writeFile] 11. Input path:', path);
         console.log('[APIFileSystem.writeFile] 12. Base:', base);
         console.log('[APIFileSystem.writeFile] 13. Resolved fp:', fp);
-        let buffer: Buffer;
-        if (content instanceof File) {
-            buffer = Buffer.from(await content.arrayBuffer());
-        } else if (typeof content === 'string') {
-            buffer = Buffer.from(content);
-        } else {
-            buffer = Buffer.from(content);
+
+        const CHUNK_SIZE = 8 * 1024 * 1024; // 8MB
+        const toBuffer = async (c: string | ArrayBuffer | File): Promise<Buffer> => {
+            if (c instanceof File) return Buffer.from(await c.arrayBuffer());
+            if (typeof c === 'string') return Buffer.from(c);
+            return Buffer.from(c);
+        };
+
+        // If content is File and large, stream in chunks without reading all into memory
+        if (content instanceof File && content.size > CHUNK_SIZE) {
+            const uploadId = Math.random().toString(36).slice(2);
+            const totalChunks = Math.ceil(content.size / CHUNK_SIZE);
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, content.size);
+                const part = content.slice(start, end);
+                const partBuf = Buffer.from(await part.arrayBuffer());
+                const res = await fetch(`/api/storage/upload-chunk?uploadId=${encodeURIComponent(uploadId)}&index=${i}&total=${totalChunks}`, {
+                    method: 'POST',
+                    body: partBuf,
+                    headers: {
+                        'Content-Length': partBuf.length.toString(),
+                    },
+                });
+                if (!res.ok) {
+                    const msg = await res.text().catch(() => res.statusText);
+                    throw new Error(`Failed to upload chunk ${i}/${totalChunks}: ${res.status} ${msg}`);
+                }
+            }
+            const commit = await fetch(`/api/storage/commit-upload?uploadId=${encodeURIComponent(uploadId)}&filePath=${encodeURIComponent(fp)}&expectedSize=${content.size}&overwrite=1`, {
+                method: 'POST',
+            });
+            if (!commit.ok) {
+                const msg = await commit.text().catch(() => commit.statusText);
+                throw new Error(`Failed to commit upload: ${commit.status} ${msg}`);
+            }
+            const json = await commit.json().catch(() => ({} as any));
+            if (json?.size !== undefined && json.size !== content.size) {
+                console.error('[APIFileSystem.writeFile] ✗ Commit size mismatch: expected', content.size, 'got', json.size);
+                throw new Error('Commit reported size mismatch');
+            }
+            return;
         }
+
+        // For non-File or smaller content, use single PUT
+        const buffer = await toBuffer(content);
+        if (buffer.length > CHUNK_SIZE) {
+            // Chunk large ArrayBuffer/string too
+            const uploadId = Math.random().toString(36).slice(2);
+            const totalChunks = Math.ceil(buffer.length / CHUNK_SIZE);
+            for (let i = 0; i < totalChunks; i++) {
+                const start = i * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, buffer.length);
+                const partBuf = buffer.subarray(start, end);
+                const res = await fetch(`/api/storage/upload-chunk?uploadId=${encodeURIComponent(uploadId)}&index=${i}&total=${totalChunks}`, {
+                    method: 'POST',
+                    body: partBuf,
+                    headers: {
+                        'Content-Length': partBuf.length.toString(),
+                    },
+                });
+                if (!res.ok) {
+                    const msg = await res.text().catch(() => res.statusText);
+                    throw new Error(`Failed to upload chunk ${i}/${totalChunks}: ${res.status} ${msg}`);
+                }
+            }
+            const commit = await fetch(`/api/storage/commit-upload?uploadId=${encodeURIComponent(uploadId)}&filePath=${encodeURIComponent(fp)}&expectedSize=${buffer.length}&overwrite=1`, {
+                method: 'POST',
+            });
+            if (!commit.ok) {
+                const msg = await commit.text().catch(() => commit.statusText);
+                throw new Error(`Failed to commit upload: ${commit.status} ${msg}`);
+            }
+            const json = await commit.json().catch(() => ({} as any));
+            if (json?.size !== undefined && json.size !== buffer.length) {
+                console.error('[APIFileSystem.writeFile] ✗ Commit size mismatch: expected', buffer.length, 'got', json.size);
+                throw new Error('Commit reported size mismatch');
+            }
+            return;
+        }
+
         console.log('[APIFileSystem.writeFile] 14. Calling PUT /api/storage/file with filePath:', fp);
         const res = await fetch(`/api/storage/file?filePath=${encodeURIComponent(fp)}`, {
             method: 'PUT',
             body: buffer,
+            headers: {
+                'Content-Length': buffer.length.toString(),
+            },
         });
-        if (!res.ok) throw new Error('Failed to write file');
+        if (!res.ok) {
+            const msg = await res.text().catch(() => res.statusText);
+            throw new Error(`Failed to write file: ${res.status} ${msg}`);
+        }
+        try {
+            const json = await res.json();
+            if (json?.size !== undefined && json.size !== buffer.length) {
+                console.error('[APIFileSystem.writeFile] ✗ Server size mismatch: expected', buffer.length, 'got', json.size);
+                throw new Error('Server reported size mismatch');
+            }
+        } catch { }
     },
     async removeFile(path: string, base: BaseDir) {
         const { fp } = this.resolvePath(path, base);

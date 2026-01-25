@@ -4,6 +4,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { STORAGE_ROOT, ensureRoots, isLocalStorageEnabled } from '../_lib/localFs';
 import { extractCover } from '../_lib/coverExtractor';
+import { extractBookMetadata, saveBookMetadataInfo } from '../_lib/bookMetadataExtractor';
 
 const SUPPORTED_EXTS = ['.epub', '.mobi', '.azw', '.azw3', '.fb2', '.cbz', '.pdf', '.txt'];
 const METADATA_DIR = '.readest';
@@ -312,6 +313,20 @@ export async function POST(_req: NextRequest) {
                 } else {
                     console.warn('[ScanAndImport] ⚠️ No cover found for:', newBook['title']);
                     coversFailed++;
+                }
+
+                // 提取并保存书籍元数据（用于快速加载）
+                try {
+                    const metadata = await extractBookMetadata(
+                        bookFilePath,
+                        newBook['hash'] as string,
+                        newBook['format'] as string,
+                    );
+                    await saveBookMetadataInfo(metadataFolderPath, metadata);
+                    console.log('[ScanAndImport] ✓ Extracted metadata for:', newBook['title']);
+                } catch (error) {
+                    console.warn('[ScanAndImport] ⚠️ Failed to extract metadata for:', newBook['title'], error);
+                    // 不影响整体流程
                 }
             } catch (error) {
                 console.error('[ScanAndImport] ✗ Failed to process metadata for:', newBook['title'], error);

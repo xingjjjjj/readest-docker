@@ -5,10 +5,18 @@ import {
     resolveLocalPath,
     readFileBuffer,
     writeFileBuffer,
+    ensureParentDir,
 } from '../_lib/localFs';
-import { createReadStream } from 'fs';
-import { stat } from 'fs/promises';
+import { createReadStream, createWriteStream, openSync } from 'fs';
+import { stat, open } from 'fs/promises';
 import { createHash } from 'crypto';
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+
+// Force Node.js runtime to allow streaming writes and larger payloads
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const maxDuration = 300;
 
 /**
  * Generate ETag from file stats
@@ -19,6 +27,40 @@ function generateETag(size: number, mtime: number): string {
         .digest('hex')
         .slice(0, 8);
     return `"${hash}"`;
+}
+
+/**
+ * Parse HTTP Range header
+ * Examples: "bytes=0-1023", "bytes=1024-", "bytes=0-1023,2048-3071"
+ */
+function parseRangeHeader(rangeHeader: string, fileSize: number): Array<{ start: number; end: number }> | null {
+    if (!rangeHeader.startsWith('bytes=')) return null;
+
+    const ranges = rangeHeader.slice(6).split(',').map(r => r.trim());
+    const parsedRanges: Array<{ start: number; end: number }> = [];
+
+    for (const range of ranges) {
+        const [startStr, endStr] = range.split('-');
+        let start = parseInt(startStr || '0');
+        let end = parseInt(endStr || String(fileSize - 1));
+
+        // Handle suffix-byte-range like "bytes=-1024" (last 1024 bytes)
+        if (startStr === '' && endStr !== '') {
+            start = Math.max(0, fileSize - end);
+            end = fileSize - 1;
+        }
+        // Handle open-ended range like "bytes=1024-"
+        else if (endStr === '') {
+            end = fileSize - 1;
+        }
+
+        // Validate range
+        if (start >= 0 && start <= end && end < fileSize) {
+            parsedRanges.push({ start, end });
+        }
+    }
+
+    return parsedRanges.length > 0 ? parsedRanges : null;
 }
 
 export async function GET(req: NextRequest) {
@@ -43,13 +85,58 @@ export async function GET(req: NextRequest) {
         const fileSizeMB = stats.size / (1024 * 1024);
         console.log('[Storage File GET] File size:', fileSizeMB.toFixed(2), 'MB');
 
-        // 对于大文件（> 50MB），使用流式传输
-        const USE_STREAMING_THRESHOLD = 50 * 1024 * 1024; // 50MB
-
         const filename = relPath.split('/').pop() || 'file';
         const encodedFilename = encodeURIComponent(filename);
 
-        // 不使用缓存，确保始终返回最新文件内容
+        // Check for Range header (HTTP 206 Partial Content)
+        const rangeHeader = req.headers.get('range');
+        const ranges = rangeHeader ? parseRangeHeader(rangeHeader, stats.size) : null;
+
+        if (ranges && ranges.length === 1 && ranges[0]) {
+            // Single range request - stream 206 Partial Content
+            const { start, end } = ranges[0];
+            const contentLength = end - start + 1;
+            const contentRangeMB = (contentLength / (1024 * 1024)).toFixed(2);
+            console.log(`[Storage File GET] Range request: bytes ${start}-${end} (${contentRangeMB} MB out of ${fileSizeMB} MB total)`);
+
+            const nodeStream = createReadStream(fullPath, { start, end });
+            const webStream = new ReadableStream({
+                start(controller) {
+                    nodeStream.on('data', (chunk) => {
+                        const uint8Array = Buffer.isBuffer(chunk)
+                            ? new Uint8Array(chunk)
+                            : new TextEncoder().encode(String(chunk));
+                        controller.enqueue(uint8Array);
+                    });
+                    nodeStream.on('end', () => controller.close());
+                    nodeStream.on('error', (error) => {
+                        console.error('[Storage File GET] Stream error:', error);
+                        controller.error(error);
+                    });
+                },
+                cancel() {
+                    nodeStream.destroy();
+                }
+            });
+
+            return new NextResponse(webStream, {
+                status: 206,
+                headers: {
+                    'Content-Type': 'application/octet-stream',
+                    'Content-Disposition': `attachment; filename*=UTF-8''${encodedFilename}`,
+                    'Content-Length': contentLength.toString(),
+                    'Content-Range': `bytes ${start}-${end}/${stats.size}`,
+                    'Accept-Ranges': 'bytes',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0',
+                },
+            });
+        }
+
+        // Full file request or unsupported multi-range request
+        const USE_STREAMING_THRESHOLD = 50 * 1024 * 1024; // 50MB
+
         if (stats.size > USE_STREAMING_THRESHOLD) {
             console.log('[Storage File GET] Using streaming for large file');
 
@@ -82,6 +169,7 @@ export async function GET(req: NextRequest) {
                     'Content-Type': 'application/octet-stream',
                     'Content-Disposition': `attachment; filename*=UTF-8''${encodedFilename}`,
                     'Content-Length': stats.size.toString(),
+                    'Accept-Ranges': 'bytes',
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Pragma': 'no-cache',
                     'Expires': '0',
@@ -96,6 +184,7 @@ export async function GET(req: NextRequest) {
                     'Content-Type': 'application/octet-stream',
                     'Content-Disposition': `attachment; filename*=UTF-8''${encodedFilename}`,
                     'Content-Length': buffer.length.toString(),
+                    'Accept-Ranges': 'bytes',
                     'Cache-Control': 'no-cache, no-store, must-revalidate',
                     'Pragma': 'no-cache',
                     'Expires': '0',
@@ -126,11 +215,57 @@ export async function PUT(req: NextRequest) {
         console.log('[Storage File PUT] 15. Input filePath:', filePath);
         console.log('[Storage File PUT] 16. Resolved fullPath:', fullPath);
         console.log('[Storage File PUT] 17. Relative path:', relPath);
-        const buffer = Buffer.from(await req.arrayBuffer());
-        console.log('[Storage File PUT] 18. File size:', buffer.length, 'bytes');
-        await writeFileBuffer(fullPath, buffer);
-        console.log('[Storage File PUT] 19. ✓ File written successfully to:', fullPath);
-        return NextResponse.json({ ok: true });
+
+        const contentLengthHeader = req.headers.get('content-length');
+        const contentLength = contentLengthHeader ? Number(contentLengthHeader) : undefined;
+        const MAX_IN_MEMORY = 20 * 1024 * 1024; // 20MB threshold for buffering
+
+        // Stream to disk when payload is large or length unknown
+        if (!req.body) {
+            return NextResponse.json({ error: 'Request body is empty' }, { status: 400 });
+        }
+
+        if (contentLength !== undefined && contentLength === 0) {
+            return NextResponse.json({ error: 'Content-Length is 0' }, { status: 400 });
+        }
+
+        let writtenBytes = 0;
+
+        if (contentLength === undefined || contentLength > MAX_IN_MEMORY) {
+            console.log('[Storage File PUT] 18a. Streaming upload. Content-Length:', contentLengthHeader);
+            await ensureParentDir(fullPath);
+
+            // Count bytes while streaming to detect truncated uploads
+            const counter = new Transform({
+                transform(chunk, _enc, cb) {
+                    writtenBytes += chunk.length;
+                    cb(null, chunk);
+                },
+            });
+
+            await pipeline(Readable.fromWeb(req.body as any), counter, createWriteStream(fullPath));
+            console.log('[Storage File PUT] 19a. ✓ Streamed to:', fullPath, 'size:', writtenBytes);
+        } else {
+            const buffer = Buffer.from(await req.arrayBuffer());
+            writtenBytes = buffer.length;
+            console.log('[Storage File PUT] 18b. Buffered upload size:', writtenBytes, 'bytes');
+            await writeFileBuffer(fullPath, buffer);
+            console.log('[Storage File PUT] 19b. ✓ Buffered write to:', fullPath);
+        }
+
+        if (contentLength !== undefined && writtenBytes !== contentLength) {
+            console.error('[Storage File PUT] ✗ Size mismatch! expected:', contentLength, 'written:', writtenBytes);
+            await writeFileBuffer(fullPath, Buffer.alloc(0));
+            return NextResponse.json({ error: 'Size mismatch while writing file' }, { status: 500 });
+        }
+
+        if (writtenBytes === 0) {
+            console.error('[Storage File PUT] ✗ Zero-byte upload detected for', fullPath);
+            await writeFileBuffer(fullPath, Buffer.alloc(0));
+            return NextResponse.json({ error: 'Zero-byte upload detected' }, { status: 400 });
+        }
+
+        return NextResponse.json({ ok: true, size: writtenBytes });
     } catch (error: any) {
         console.error('[Storage File PUT] Error:', error?.message);
         return NextResponse.json({ error: error?.message || 'Failed to write file' }, { status: 500 });

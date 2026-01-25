@@ -180,6 +180,13 @@ const FoliateViewer: React.FC<{
     docLoaded.current = true;
     const detail = (event as CustomEvent).detail;
     console.log('doc index loaded:', detail.index);
+    // 预加载相邻章节，提升翻页体验
+    const loader = bookData?.loader;
+    if (loader && typeof detail.index === 'number') {
+      loader.preloadChapters(detail.index, 3).catch((err) => {
+        console.warn('Preload adjacent chapters failed:', err);
+      });
+    }
     if (detail.doc) {
       const writingDir = viewRef.current?.renderer.setStyles && getDirection(detail.doc);
       const viewSettings = getViewSettings(bookKey)!;

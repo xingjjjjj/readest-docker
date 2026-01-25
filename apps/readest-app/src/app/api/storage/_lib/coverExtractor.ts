@@ -35,6 +35,7 @@ async function extractEpubCover(filePath: string): Promise<Buffer | null> {
         if (!opfMatch) return null;
 
         const opfPath = opfMatch[1];
+        if (!opfPath) return null;
 
         // 3. 解压 OPF 文件
         try {
@@ -55,7 +56,7 @@ async function extractEpubCover(filePath: string): Promise<Buffer | null> {
         if (coverMetaMatch) {
             const coverId = coverMetaMatch[1];
             const itemMatch = opfXml.match(new RegExp(`<item[^>]*id=["']${coverId}["'][^>]*href=["']([^"']+)["']`, 'i'));
-            if (itemMatch) {
+            if (itemMatch && itemMatch[1]) {
                 coverImagePath = path.join(opfDir, decodeURIComponent(itemMatch[1])).replace(/\\/g, '/');
             }
         }
@@ -63,7 +64,7 @@ async function extractEpubCover(filePath: string): Promise<Buffer | null> {
         // 方法 2: 查找 properties="cover-image"
         if (!coverImagePath) {
             const coverImageMatch = opfXml.match(/<item[^>]*properties=["']cover-image["'][^>]*href=["']([^"']+)["']/i);
-            if (coverImageMatch) {
+            if (coverImageMatch && coverImageMatch[1]) {
                 coverImagePath = path.join(opfDir, decodeURIComponent(coverImageMatch[1])).replace(/\\/g, '/');
             }
         }

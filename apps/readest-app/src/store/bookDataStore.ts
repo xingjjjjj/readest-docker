@@ -5,6 +5,8 @@ import { EnvConfigType } from '@/services/environment';
 import { BookDoc } from '@/libs/document';
 import { useLibraryStore } from './libraryStore';
 
+import { OptimizedBookLoader } from '@/services/optimizedBookLoader';
+
 interface BookData {
   /* Persistent data shared with different views of the same book */
   id: string;
@@ -13,6 +15,7 @@ interface BookData {
   config: BookConfig | null;
   bookDoc: BookDoc | null;
   isFixedLayout: boolean;
+  loader?: OptimizedBookLoader | null;
 }
 
 interface BookDataState {

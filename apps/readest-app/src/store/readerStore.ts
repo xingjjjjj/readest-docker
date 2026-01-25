@@ -17,6 +17,7 @@ import { updateToc } from '@/utils/toc';
 import { formatTitle, getMetadataHash, getPrimaryLanguage } from '@/utils/book';
 import { getBaseFilename } from '@/utils/path';
 import { SUPPORTED_LANGNAMES } from '@/services/constants';
+import { openBookOptimized, OptimizedBookLoader } from '@/services/optimizedBookLoader';
 import { useSettingsStore } from './settingsStore';
 import { useBookDataStore } from './bookDataStore';
 import { useLibraryStore } from './libraryStore';
@@ -153,12 +154,30 @@ export const useReaderStore = create<ReaderStore>((set, get) => ({
       }
       let bookDoc = bookData?.bookDoc;
       let file = bookData?.file;
+      let loader: OptimizedBookLoader | null = (bookData as any)?.loader ?? null;
+
       if (!bookDoc || !file || reload) {
-        const content = (await appService.loadBookContent(book)) as BookContent;
-        file = content.file;
-        console.log('Loading book', key);
-        const doc = await new DocumentLoader(file).open();
-        bookDoc = doc.book;
+        try {
+          console.log('Loading book (optimized)', key);
+          const { document, loader: optLoader } = await openBookOptimized(
+            book,
+            appService,
+            {
+              spineIndex: book.progress?.[0] ? book.progress[0] - 1 : 0,
+            },
+          );
+          bookDoc = document;
+          loader = optLoader;
+          // optimized loader会内部加载文件，但未暴露 file；保持旧file引用以兼容
+          file = bookData?.file ?? null;
+        } catch (err) {
+          console.warn('Optimized load failed, fallback to legacy load', err);
+          const content = (await appService.loadBookContent(book)) as BookContent;
+          file = content.file;
+          const doc = await new DocumentLoader(file).open();
+          bookDoc = doc.book;
+          loader = null;
+        }
       }
       const config = await appService.loadBookConfig(book, settings);
       await updateToc(
@@ -167,7 +186,7 @@ export const useReaderStore = create<ReaderStore>((set, get) => ({
         config.viewSettings?.convertChineseVariant ?? 'none',
       );
       if (!bookDoc.metadata.title) {
-        bookDoc.metadata.title = getBaseFilename(file.name);
+        bookDoc.metadata.title = file ? getBaseFilename(file.name) : 'Unknown';
       }
       book.sourceTitle = formatTitle(bookDoc.metadata.title);
       // Correct language codes mistakenly set with language names
@@ -188,7 +207,7 @@ export const useReaderStore = create<ReaderStore>((set, get) => ({
       useBookDataStore.setState((state) => ({
         booksData: {
           ...state.booksData,
-          [id]: { id, book, file, config, bookDoc, isFixedLayout },
+          [id]: { id, book, file, config, bookDoc, isFixedLayout, loader },
         },
       }));
       const configViewSettings = config.viewSettings!;
@@ -227,7 +246,10 @@ export const useReaderStore = create<ReaderStore>((set, get) => ({
             isPrimary: false,
             loading: false,
             inited: false,
-            error: 'Failed to load book.',
+            error:
+              error instanceof Error
+                ? error.message || 'Failed to load book.'
+                : 'Failed to load book.',
             progress: null,
             ribbonVisible: false,
             ttsEnabled: false,
