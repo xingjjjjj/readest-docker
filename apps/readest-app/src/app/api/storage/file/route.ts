@@ -88,6 +88,30 @@ export async function GET(req: NextRequest) {
         const filename = relPath.split('/').pop() || 'file';
         const encodedFilename = encodeURIComponent(filename);
 
+        // 生成 ETag 用于缓存验证
+        const etag = `"${stats.size}-${stats.mtimeMs}"`;
+
+        // 根据文件类型决定缓存策略
+        // 配置文件（.json）：较短缓存 + must-revalidate（每次都验证 ETag）
+        // 静态资源（图片、书籍）：中期缓存 + immutable
+        const isConfigFile = relPath.endsWith('.json') || relPath.includes('/.readest/');
+        const cacheControl = isConfigFile
+            ? 'public, max-age=60, must-revalidate'  // 配置文件：1分钟缓存，必须重新验证
+            : 'public, max-age=604800, immutable';   // 静态资源：7天缓存，不可变 (7*24*60*60=604800)
+
+        // 检查 If-None-Match 头，如果 ETag 匹配则返回 304
+        const ifNoneMatch = req.headers.get('if-none-match');
+        if (ifNoneMatch === etag) {
+            console.log('[Storage File GET] ETag match, returning 304 Not Modified');
+            return new NextResponse(null, {
+                status: 304,
+                headers: {
+                    'ETag': etag,
+                    'Cache-Control': cacheControl,
+                },
+            });
+        }
+
         // Check for Range header (HTTP 206 Partial Content)
         const rangeHeader = req.headers.get('range');
         const ranges = rangeHeader ? parseRangeHeader(rangeHeader, stats.size) : null;
@@ -127,9 +151,8 @@ export async function GET(req: NextRequest) {
                     'Content-Length': contentLength.toString(),
                     'Content-Range': `bytes ${start}-${end}/${stats.size}`,
                     'Accept-Ranges': 'bytes',
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache',
-                    'Expires': '0',
+                    'ETag': etag,
+                    'Cache-Control': cacheControl,
                 },
             });
         }
@@ -170,9 +193,8 @@ export async function GET(req: NextRequest) {
                     'Content-Disposition': `attachment; filename*=UTF-8''${encodedFilename}`,
                     'Content-Length': stats.size.toString(),
                     'Accept-Ranges': 'bytes',
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache',
-                    'Expires': '0',
+                    'ETag': etag,
+                    'Cache-Control': cacheControl,
                 },
             });
         } else {
@@ -185,9 +207,8 @@ export async function GET(req: NextRequest) {
                     'Content-Disposition': `attachment; filename*=UTF-8''${encodedFilename}`,
                     'Content-Length': buffer.length.toString(),
                     'Accept-Ranges': 'bytes',
-                    'Cache-Control': 'no-cache, no-store, must-revalidate',
-                    'Pragma': 'no-cache',
-                    'Expires': '0',
+                    'ETag': etag,
+                    'Cache-Control': cacheControl,
                 },
             });
         }

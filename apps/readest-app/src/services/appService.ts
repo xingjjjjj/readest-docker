@@ -264,20 +264,16 @@ export class BaseAppService implements AppService {
     // This correctly handles both flat (relativePath) and legacy (hash-based) paths
     const coverPath = getCoverFilename(book);
 
-    // 在 web 平台使用缓存的 Blob URL
+    // 在 web 平台直接返回稳定的文件路径 URL，利用浏览器原生缓存
+    // 避免每次生成新的 Blob URL 导致重复请求
     if (this.appPlatform === 'web') {
       try {
         const coverUrl = this.fs.getURL(this.fs.resolvePath(coverPath, 'Books').fp) ||
           `${this.localBooksDir}/${coverPath}`;
 
-        // 使用缓存获取 Blob URL，缓存 30 天
-        return await cachedFetchAsUrl(coverUrl, {
-          cacheStrategy: 'cache-first',
-          cacheTTL: 30 * 24 * 60 * 60 * 1000, // 30 天
-        }).catch(() => {
-          // 如果缓存失败，回退到原始方式
-          return `${this.localBooksDir}/${coverPath}`;
-        });
+        // 直接返回稳定的 URL，让浏览器和后端的 HTTP 缓存机制处理
+        // 后端已设置 ETag 和 Cache-Control，可以有效避免重复请求
+        return coverUrl;
       } catch {
         return `${this.localBooksDir}/${coverPath}`;
       }
@@ -321,7 +317,40 @@ export class BaseAppService implements AppService {
     };
   }
 
+  private settingsLoadPromise: Promise<SystemSettings> | null = null;
+  private settingsLoadTime: number = 0;
+  private readonly SETTINGS_CACHE_TTL = 5000; // 5 秒内的重复请求使用缓存
+  private settingsCache: SystemSettings | null = null;
+
   async loadSettings(): Promise<SystemSettings> {
+    const now = Date.now();
+
+    // 如果存在正在进行的请求，则等待其完成
+    if (this.settingsLoadPromise) {
+      console.log('[loadSettings] 对象已存在进行中的请求，使用现有Promise');
+      return this.settingsLoadPromise;
+    }
+
+    // 如果上次加载是最近 5 秒内，且缓存有效，不重新加载
+    if (now - this.settingsLoadTime < this.SETTINGS_CACHE_TTL && this.settingsCache) {
+      console.log('[loadSettings] 使用缓存的设置 (缓存有效期内)');
+      return this.settingsCache;
+    }
+
+    console.log('[loadSettings] 开始加载新的设置');
+    this.settingsLoadPromise = this._loadSettingsInternal();
+
+    try {
+      const result = await this.settingsLoadPromise;
+      this.settingsLoadTime = Date.now();
+      this.settingsCache = result;
+      return result;
+    } finally {
+      this.settingsLoadPromise = null;
+    }
+  }
+
+  private async _loadSettingsInternal(): Promise<SystemSettings> {
     const defaultSettings: SystemSettings = {
       ...DEFAULT_SYSTEM_SETTINGS,
       ...(this.isMobile ? DEFAULT_MOBILE_SYSTEM_SETTINGS : {}),
@@ -1051,11 +1080,16 @@ export class BaseAppService implements AppService {
   }
 
   async generateCoverImageUrl(book: Book): Promise<string> {
-    await this.ensureCoverExists(book);
-
-    return this.appPlatform === 'web'
-      ? await this.getCoverImageBlobUrl(book)
-      : this.getCoverImageUrl(book);
+    // Web 平台直接返回稳定的 URL，无需每次生成 Blob URL
+    if (this.appPlatform === 'web') {
+      const coverPath = getCoverFilename(book);
+      const coverUrl = this.fs.getURL(this.fs.resolvePath(coverPath, 'Books').fp);
+      return coverUrl || `${this.localBooksDir}/${coverPath}`;
+    } else {
+      // 非 Web 平台使用原有逻辑
+      await this.ensureCoverExists(book);
+      return this.getCoverImageUrl(book);
+    }
   }
 
   private async ensureCoverExists(book: Book): Promise<void> {
@@ -1131,7 +1165,41 @@ export class BaseAppService implements AppService {
     }
   }
 
+  private libraryLoadPromise: Promise<Book[]> | null = null;
+  private libraryLoadTime: number = 0;
+  private readonly LIBRARY_CACHE_TTL = 5000; // 5 秒内的重复请求使用缓存
+
   async loadLibraryBooks(): Promise<Book[]> {
+    const now = Date.now();
+
+    // 如果存在正在进行的请求，则等待其完成
+    if (this.libraryLoadPromise) {
+      console.log('[loadLibraryBooks] 对象已存在进行中的请求，使用现有Promise');
+      return this.libraryLoadPromise;
+    }
+
+    // 如果上次加载是最近 5 秒内，且缓存有效，不重新载载
+    if (now - this.libraryLoadTime < this.LIBRARY_CACHE_TTL && this._libraryCache) {
+      console.log('[loadLibraryBooks] 使用缓存的书籍 (缓存有效抱歳):', this._libraryCache.length);
+      return this._libraryCache;
+    }
+
+    console.log('[loadLibraryBooks] 开始加载新的书籍');
+    this.libraryLoadPromise = this._loadLibraryBooksInternal();
+
+    try {
+      const result = await this.libraryLoadPromise;
+      this.libraryLoadTime = Date.now();
+      this._libraryCache = result;
+      return result;
+    } finally {
+      this.libraryLoadPromise = null;
+    }
+  }
+
+  private _libraryCache: Book[] | null = null;
+
+  private async _loadLibraryBooksInternal(): Promise<Book[]> {
     const libraryFilename = getLibraryFilename();
 
     if (!(await this.fs.exists('', 'Books'))) {
@@ -1139,8 +1207,9 @@ export class BaseAppService implements AppService {
     }
 
     const books = await this.safeLoadJSON<Book[]>(libraryFilename, 'Books', []);
-    console.log(`[loadLibraryBooks] 从 ${libraryFilename} 加载了 ${books.length} 本书`);
+    console.log(`[loadLibraryBooks] \u4ece ${libraryFilename} \u52a0\u8f7d\u4e86 ${books.length} \u672c\u4e66`);
 
+    // \u751f\u6210\u7a33\u5b9a\u7684 coverImageUrl\uff08\u73b0\u5728\u662f\u8f7b\u91cf\u7ea7\u64cd\u4f5c\uff0c\u53ea\u662f\u5b57\u7b26\u4e32\u62fc\u63a5\uff09
     await Promise.all(
       books.map(async (book) => {
         book.coverImageUrl = await this.generateCoverImageUrl(book);
@@ -1149,8 +1218,13 @@ export class BaseAppService implements AppService {
       }),
     );
 
-    console.log(`[loadLibraryBooks] 返回 ${books.length} 本书`);
+    console.log(`[loadLibraryBooks] \u8fd4\u56de ${books.length} \u672c\u4e66`);
     return books;
+  }
+
+  async loadLibraryBooks_OLD(): Promise<Book[]> {
+    // 这是旧方法，已被新的防重复请求版本替代
+    throw new Error('Use loadLibraryBooks() instead');
   }
 
   async saveLibraryBooks(books: Book[]): Promise<void> {

@@ -363,17 +363,21 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
 
   useEffect(() => {
     if (demoBooks.length > 0 && libraryLoaded) {
-      const newLibrary = [...libraryBooks];
+      const { library } = useLibraryStore.getState();
+      const booksToUpdate: Book[] = [];
+      const existingHashes = new Set(library.map(b => b.hash));
+
       for (const book of demoBooks) {
-        const idx = newLibrary.findIndex((b) => b.hash === book.hash);
-        if (idx === -1) {
-          newLibrary.push(book);
-        } else {
-          newLibrary[idx] = book;
+        // 只添加新书或更新变化的书，避免触发所有书的重新渲染
+        if (!existingHashes.has(book.hash)) {
+          booksToUpdate.push(book);
         }
       }
-      setLibrary(newLibrary);
-      appService?.saveLibraryBooks(newLibrary);
+
+      if (booksToUpdate.length > 0) {
+        // 使用 updateBooks 进行增量更新，而非完全替换 library
+        updateBooks(envConfig, booksToUpdate);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [demoBooks, libraryLoaded]);
