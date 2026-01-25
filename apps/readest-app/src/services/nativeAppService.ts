@@ -397,7 +397,7 @@ export const nativeFileSystem: FileSystem = {
 const DIST_CHANNEL = (process.env['NEXT_PUBLIC_DIST_CHANNEL'] || 'readest') as DistChannel;
 
 export class NativeAppService extends BaseAppService {
-  fs = nativeFileSystem;
+  override fs = nativeFileSystem;
   override appPlatform = 'tauri' as AppPlatform;
   override isAppDataSandbox = false;
   override isMobile = false;
@@ -512,7 +512,7 @@ export class NativeAppService extends BaseAppService {
     return this.fs.resolvePath(fp, base);
   }
 
-  async setCustomRootDir(customRootDir: string) {
+  override async setCustomRootDir(customRootDir: string) {
     this.fs.resolvePath = getPathResolver({
       customRootDir,
       isPortable: this.isPortableApp,
@@ -521,7 +521,7 @@ export class NativeAppService extends BaseAppService {
     await this.prepareBooksDir();
   }
 
-  async selectDirectory(): Promise<string> {
+  override async selectDirectory(): Promise<string> {
     const selected = await openDialog({
       directory: true,
       multiple: false,
@@ -530,7 +530,7 @@ export class NativeAppService extends BaseAppService {
     return selected as string;
   }
 
-  async selectFiles(name: string, extensions: string[]): Promise<string[]> {
+  override async selectFiles(name: string, extensions: string[]): Promise<string[]> {
     const selected = await openDialog({
       multiple: true,
       filters: [{ name, extensions }],

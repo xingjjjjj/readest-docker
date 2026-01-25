@@ -57,6 +57,11 @@ const nextConfig = {
         module: /hooks\/useTheme\.ts/,
         message: /use.*Hook/,
       });
+      
+      // Enable tree-shaking for better bundle optimization
+      config.optimization = config.optimization || {};
+      config.optimization.usedExports = true;
+      config.optimization.sideEffects = true;
     }
     return config;
   },
