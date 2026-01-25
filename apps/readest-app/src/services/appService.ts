@@ -32,6 +32,12 @@ import {
 } from '@/utils/book';
 import { md5, partialMD5, md5Fingerprint } from '@/utils/md5';
 import { getBaseFilename, getFilename } from '@/utils/path';
+import {
+  compressImageToArrayBuffer,
+  shouldCompress,
+  formatFileSize,
+  getCompressionInfo,
+} from '@/utils/imageCompression';
 import { BookDoc, DocumentLoader, EXTS } from '@/libs/document';
 import {
   DEFAULT_BOOK_LAYOUT,
@@ -1093,7 +1099,32 @@ export class BaseAppService implements AppService {
         }
       }
 
-      await this.fs.writeFile(coverPath, 'Books', await coverBlob.arrayBuffer());
+      // 压缩封面图片
+      let finalBlob: ArrayBuffer;
+      const originalSize = coverBlob.size;
+
+      if (shouldCompress(coverBlob)) {
+        try {
+          finalBlob = await compressImageToArrayBuffer(coverBlob, {
+            maxWidth: 400,
+            maxHeight: 600,
+            format: 'image/webp',
+            quality: 0.8,
+          });
+          const info = getCompressionInfo(originalSize, finalBlob.byteLength);
+          console.log(
+            `[Cover] 压缩封面: ${formatFileSize(originalSize)} → ${formatFileSize(finalBlob.byteLength)} (节省 ${info.savedPercent})`
+          );
+        } catch (e) {
+          console.warn('[Cover] 压缩失败，使用原始图片:', e);
+          finalBlob = await coverBlob.arrayBuffer();
+        }
+      } else {
+        finalBlob = await coverBlob.arrayBuffer();
+        console.log(`[Cover] 封面已经很小 (${formatFileSize(originalSize)})，跳过压缩`);
+      }
+
+      await this.fs.writeFile(coverPath, 'Books', finalBlob);
       console.log('[Cover] Regenerated cover saved:', coverPath);
     } catch (error) {
       console.warn('[Cover] Failed to regenerate cover for', book.title, error);
@@ -1242,7 +1273,34 @@ export class BaseAppService implements AppService {
       await this.fs.removeFile(getCoverFilename(book), 'Books');
     } else if (imageUrl || imageFile) {
       const arrayBuffer = await this.imageToArrayBuffer(imageUrl, imageFile);
-      await this.fs.writeFile(getCoverFilename(book), 'Books', arrayBuffer);
+
+      // 压缩用户上传的封面
+      let finalBuffer: ArrayBuffer;
+      const originalSize = arrayBuffer.byteLength;
+
+      if (shouldCompress(new Blob([arrayBuffer]))) {
+        try {
+          const blob = new Blob([arrayBuffer]);
+          finalBuffer = await compressImageToArrayBuffer(blob, {
+            maxWidth: 400,
+            maxHeight: 600,
+            format: 'image/webp',
+            quality: 0.8,
+          });
+          const info = getCompressionInfo(originalSize, finalBuffer.byteLength);
+          console.log(
+            `[Cover] 用户上传封面压缩: ${formatFileSize(originalSize)} → ${formatFileSize(finalBuffer.byteLength)} (节省 ${info.savedPercent})`
+          );
+        } catch (e) {
+          console.warn('[Cover] 压缩失败，使用原始图片:', e);
+          finalBuffer = arrayBuffer;
+        }
+      } else {
+        finalBuffer = arrayBuffer;
+        console.log(`[Cover] 上传封面已经很小 (${formatFileSize(originalSize)})，跳过压缩`);
+      }
+
+      await this.fs.writeFile(getCoverFilename(book), 'Books', finalBuffer);
     }
   }
 
