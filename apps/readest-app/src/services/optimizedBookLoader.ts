@@ -96,10 +96,13 @@ export class OptimizedBookLoader {
     }> {
         try {
             // 1. 加载文件
-            const file = await this.loadFile();
+            const { file, pdfRangeSource } = await this.loadFile();
 
             // 2. 解析文档
-            const docLoader = new DocumentLoader(file);
+            const docLoader = new DocumentLoader(
+                file ?? new File([], 'dummy.pdf'),
+                pdfRangeSource ? { pdfRangeSource } : undefined
+            );
             const { book: doc } = await docLoader.open();
             this.loadedDocument = doc;
 
@@ -293,20 +296,40 @@ export class OptimizedBookLoader {
     /**
      * 加载文件（支持分块加载）
      */
-    private async loadFile(): Promise<File> {
+    private async loadFile(): Promise<{ file?: File; pdfRangeSource?: { size: number; rangeFetcher: (begin: number, end: number) => Promise<ArrayBuffer> } }> {
         try {
             // 获取文件路径
             const fp = this.getBookFilePath();
+            const isPDF = this.book.format?.toUpperCase?.() === 'PDF' || fp.toLowerCase().endsWith('.pdf');
 
             if (this.strategy.useChunkedLoader) {
                 // 使用分块加载器
                 if (!this.chunkedLoader) {
                     this.chunkedLoader = new ChunkedFileLoader(fp);
                 }
-                return await this.chunkedLoader.getCompleteFile(this.book.title);
+
+                if (isPDF) {
+                    const info = await this.chunkedLoader.getFileInfo();
+                    const rangeFetcher = async (begin: number, end: number) => {
+                        // 注意：PDF.js 的 end 为“右开区间”(exclusive)
+                        if (begin >= info.size) {
+                            return new ArrayBuffer(0);
+                        }
+                        const actualEndExclusive = Math.min(end, info.size);
+                        if (actualEndExclusive <= begin) {
+                            return new ArrayBuffer(0);
+                        }
+                        // getRange 需要 inclusive end
+                        return await this.chunkedLoader!.getRange(begin, actualEndExclusive - 1);
+                    };
+                    return { pdfRangeSource: { size: info.size, rangeFetcher } };
+                }
+
+                const file = await this.chunkedLoader.getCompleteFile(this.book.title);
+                return { file };
             } else {
-                // 使用传统方法加载整个文件
-                return await this.appService.openFile(fp, 'Books');
+                const file = await this.appService.openFile(fp, 'Books');
+                return { file };
             }
         } catch (error) {
             console.error('[OptimizedLoader] Error loading file:', error);

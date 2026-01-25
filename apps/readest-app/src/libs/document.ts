@@ -6,6 +6,11 @@ export const CFI = epubcfi;
 
 export type DocumentFile = File;
 
+export type PdfRangeSource = {
+  size: number;
+  rangeFetcher: (begin: number, end: number) => Promise<ArrayBuffer>;
+};
+
 export type Location = {
   current: number;
   next: number;
@@ -98,17 +103,23 @@ export const MIMETYPES: Record<BookFormat, string[]> = {
 
 export class DocumentLoader {
   private file: File;
+  private pdfRangeSource?: PdfRangeSource;
 
-  constructor(file: File) {
+  constructor(file: File, options?: { pdfRangeSource?: PdfRangeSource }) {
     this.file = file;
+    this.pdfRangeSource = options?.pdfRangeSource;
   }
 
   private async isZip(): Promise<boolean> {
+    if (this.pdfRangeSource) return false;
+    if (!this.file || !this.file.size) return false;
     const arr = new Uint8Array(await this.file.slice(0, 4).arrayBuffer());
     return arr[0] === 0x50 && arr[1] === 0x4b && arr[2] === 0x03 && arr[3] === 0x04;
   }
 
   private async isPDF(): Promise<boolean> {
+    if (this.pdfRangeSource) return true;
+    if (!this.file || !this.file.size) return false;
     const arr = new Uint8Array(await this.file.slice(0, 5).arrayBuffer());
     return (
       arr[0] === 0x25 && arr[1] === 0x50 && arr[2] === 0x44 && arr[3] === 0x46 && arr[4] === 0x2d
@@ -206,6 +217,14 @@ export class DocumentLoader {
   public async open(): Promise<{ book: BookDoc; format: BookFormat }> {
     let book = null;
     let format: BookFormat = 'EPUB';
+
+    // 如果有 pdfRangeSource，直接走 PDF 流式加载，跳过文件检查
+    if (this.pdfRangeSource) {
+      const { makePDF } = await import('foliate-js/pdf.js');
+      book = await makePDF(this.pdfRangeSource as any);
+      return { book: book as BookDoc, format: 'PDF' };
+    }
+
     if (!this.file.size) {
       throw new Error('File is empty');
     }

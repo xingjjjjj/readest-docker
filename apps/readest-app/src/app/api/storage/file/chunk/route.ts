@@ -81,8 +81,14 @@ export async function GET(req: NextRequest) {
         }
 
         const start = parseInt(match[1], 10);
-        const end = match[2] ? parseInt(match[2], 10) : size - 1;
-        if (start > end || start >= size || end >= size) {
+        let end = match[2] ? parseInt(match[2], 10) : size - 1;
+
+        // 限制 end 不超过文件大小
+        if (end >= size) {
+            end = size - 1;
+        }
+
+        if (start > end || start >= size) {
             return NextResponse.json(
                 { error: 'Range not satisfiable' },
                 { status: 416, headers: { 'Content-Range': `bytes */${size}` } }
