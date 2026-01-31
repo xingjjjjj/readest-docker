@@ -7,7 +7,7 @@ import { FaSearch } from 'react-icons/fa';
 import { PiPlus } from 'react-icons/pi';
 import { PiSelectionAll, PiSelectionAllFill } from 'react-icons/pi';
 import { PiDotsThreeCircle } from 'react-icons/pi';
-import { MdOutlineMenu } from 'react-icons/md';
+import { MdOutlineMenu, MdOutlineLibraryBooks } from 'react-icons/md';
 import { IoMdCloseCircle } from 'react-icons/io';
 
 import { useEnv } from '@/context/EnvContext';
@@ -147,6 +147,15 @@ const LibraryHeader: React.FC<LibraryHeaderProps> = ({
                 <IoMdCloseCircle className='h-4 w-4' />
               </button>
             )}
+            <span className='bg-base-content/50 mx-2 h-4 w-[0.5px]'></span>
+            <button
+              onClick={() => router.push('/annotations')}
+              className='exclude-title-bar-mousedown text-base-content/60 hover:text-base-content flex h-6 w-6 items-center justify-center transition-colors'
+              aria-label={_('All Annotations')}
+              title={_('All Annotations')}
+            >
+              <MdOutlineLibraryBooks className='h-5 w-5' />
+            </button>
             <span className='bg-base-content/50 mx-2 h-4 w-[0.5px]'></span>
             <Dropdown
               label={_('Import Books')}
