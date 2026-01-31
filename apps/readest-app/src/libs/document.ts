@@ -11,6 +11,30 @@ export type PdfRangeSource = {
   rangeFetcher: (begin: number, end: number) => Promise<ArrayBuffer>;
 };
 
+/**
+ * EPUB 范围加载源
+ * 支持按需加载 ZIP 内容而无需解压整个文件
+ */
+export type EpubRangeSource = {
+  size: number;
+  // 获取指定字节范围的数据
+  rangeFetcher: (begin: number, end: number) => Promise<ArrayBuffer>;
+  // 获取 ZIP central directory 信息（用于列出文件）
+  getCentralDirectory: () => Promise<ArrayBuffer>;
+};
+
+/**
+ * MOBI 范围加载源
+ * 支持按 record 分块加载 MOBI 文件
+ */
+export type MobiRangeSource = {
+  size: number;
+  // 获取指定字节范围的数据
+  rangeFetcher: (begin: number, end: number) => Promise<ArrayBuffer>;
+  // 获取 MOBI header 信息用于确定 record 结构
+  getHeader: () => Promise<ArrayBuffer>;
+};
+
 export type Location = {
   current: number;
   next: number;
@@ -104,10 +128,21 @@ export const MIMETYPES: Record<BookFormat, string[]> = {
 export class DocumentLoader {
   private file: File;
   private pdfRangeSource?: PdfRangeSource;
+  private epubRangeSource?: EpubRangeSource;
+  private mobiRangeSource?: MobiRangeSource;
 
-  constructor(file: File, options?: { pdfRangeSource?: PdfRangeSource }) {
+  constructor(
+    file: File,
+    options?: {
+      pdfRangeSource?: PdfRangeSource;
+      epubRangeSource?: EpubRangeSource;
+      mobiRangeSource?: MobiRangeSource;
+    }
+  ) {
     this.file = file;
     this.pdfRangeSource = options?.pdfRangeSource;
+    this.epubRangeSource = options?.epubRangeSource;
+    this.mobiRangeSource = options?.mobiRangeSource;
   }
 
   private async isZip(): Promise<boolean> {
@@ -233,6 +268,92 @@ export class DocumentLoader {
       book = await makePDF(pdfFile as any);
       console.log('[DocumentLoader] ✅ PDF loaded successfully');
       return { book: book as BookDoc, format: 'PDF' };
+    }
+
+    // 如果有 epubRangeSource，走 EPUB 流式加载
+    if (this.epubRangeSource) {
+      console.log('[DocumentLoader] 🚀 Using epubRangeSource for streaming EPUB');
+      console.log('[DocumentLoader] EPUB size:', this.epubRangeSource.size);
+
+      const { configure, ZipReader, Reader, TextWriter, BlobWriter } = await import(
+        '@zip.js/zip.js'
+      );
+      configure({ useWebWorkers: true });
+
+      const source = this.epubRangeSource;
+
+      class RangeReader extends Reader<null> {
+        constructor() {
+          super(null as any);
+        }
+
+        override async init() {
+          this.size = source!.size;
+        }
+
+        override async readUint8Array(index: number, length: number): Promise<Uint8Array> {
+          if (length <= 0) return new Uint8Array();
+          const begin = index;
+          const end = index + length - 1;
+          const buffer = await source!.rangeFetcher(begin, end);
+          return new Uint8Array(buffer);
+        }
+      }
+
+      const reader = new ZipReader(new RangeReader() as any);
+      const entries = await reader.getEntries();
+      const map = new Map(entries.map((entry) => [entry.filename, entry]));
+
+      const load = (f: (entry: any, type?: string) => Promise<string | Blob> | null) =>
+        (name: string, ...args: [string?]) =>
+          map.has(name) ? f(map.get(name)!, ...args) : null;
+
+      const loadText = load((entry: any) =>
+        entry.getData ? entry.getData(new TextWriter()) : null,
+      );
+      const loadBlob = load((entry: any, type?: string) =>
+        entry.getData ? entry.getData(new BlobWriter(type!)) : null,
+      );
+      const getSize = (name: string) => map.get(name)?.uncompressedSize ?? 0;
+
+      const loader = { entries, loadText, loadBlob, getSize, getComment: async () => null, sha1: undefined };
+
+      const { EPUB } = await import('foliate-js/epub.js');
+      book = await new EPUB(loader).init();
+      format = 'EPUB';
+      console.log('[DocumentLoader] ✅ EPUB loaded successfully via Range');
+      return { book: book as unknown as BookDoc, format };
+    }
+
+    // 如果有 mobiRangeSource，走 MOBI 流式加载
+    if (this.mobiRangeSource) {
+      console.log('[DocumentLoader] 🚀 Using mobiRangeSource for streaming MOBI');
+      console.log('[DocumentLoader] MOBI size:', this.mobiRangeSource.size);
+
+      const mobiFile = {
+        size: this.mobiRangeSource.size,
+        slice: (begin: number, end: number) => ({
+          arrayBuffer: async () => this.mobiRangeSource!.rangeFetcher(begin, end),
+        }),
+      };
+
+      const fflate = await import('foliate-js/vendor/fflate.js');
+      const { MOBI } = await import('foliate-js/mobi.js');
+      book = await new MOBI({ unzlib: fflate.unzlibSync }).open(mobiFile as any);
+
+      const ext = this.file.name.split('.').pop()?.toLowerCase();
+      switch (ext) {
+        case 'azw':
+          format = 'AZW';
+          break;
+        case 'azw3':
+          format = 'AZW3';
+          break;
+        default:
+          format = 'MOBI';
+      }
+      console.log('[DocumentLoader] ✅ MOBI loaded successfully via Range');
+      return { book: book as BookDoc, format };
     }
 
     if (!this.file.size) {

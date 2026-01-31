@@ -96,12 +96,16 @@ export class OptimizedBookLoader {
     }> {
         try {
             // 1. 加载文件
-            const { file, pdfRangeSource } = await this.loadFile();
+            const { file, pdfRangeSource, epubRangeSource, mobiRangeSource } = await this.loadFile();
 
             // 2. 解析文档
             const docLoader = new DocumentLoader(
                 file ?? new File([], 'dummy.pdf'),
-                pdfRangeSource ? { pdfRangeSource } : undefined
+                {
+                    pdfRangeSource,
+                    epubRangeSource,
+                    mobiRangeSource,
+                }
             );
             const { book: doc } = await docLoader.open();
             this.loadedDocument = doc;
@@ -114,11 +118,13 @@ export class OptimizedBookLoader {
             }
 
             // 4. 后台预加载相邻章节
-            // 注意：PDF 流式加载时禁用预加载，因为 PDF.js 会按需请求
-            if (this.strategy.enableBackgroundPreload && !pdfRangeSource) {
+            // 注意：PDF/EPUB/MOBI 流式加载时禁用预加载，因为这些格式会按需请求数据
+            const isStreamingFormat = pdfRangeSource || epubRangeSource || mobiRangeSource;
+            if (this.strategy.enableBackgroundPreload && !isStreamingFormat) {
                 this.startBackgroundPreload(startPosition?.spineIndex ?? 0);
-            } else if (pdfRangeSource) {
-                console.log('[OptimizedLoader] 🚫 Background preload disabled for PDF streaming');
+            } else if (isStreamingFormat) {
+                const format = pdfRangeSource ? 'PDF' : epubRangeSource ? 'EPUB' : 'MOBI';
+                console.log(`[OptimizedLoader] 🚫 Background preload disabled for ${format} streaming`);
             }
 
             console.log(`[OptimizedLoader] Document opened: ${this.book.title}`);
@@ -298,12 +304,21 @@ export class OptimizedBookLoader {
 
     /**
      * 加载文件（支持分块加载）
+     * 支持 PDF、EPUB、MOBI 等格式的 Range 流式加载
      */
-    private async loadFile(): Promise<{ file?: File; pdfRangeSource?: { size: number; rangeFetcher: (begin: number, end: number) => Promise<ArrayBuffer> } }> {
+    private async loadFile(): Promise<{
+        file?: File;
+        pdfRangeSource?: { size: number; rangeFetcher: (begin: number, end: number) => Promise<ArrayBuffer> };
+        epubRangeSource?: { size: number; rangeFetcher: (begin: number, end: number) => Promise<ArrayBuffer>; getCentralDirectory: () => Promise<ArrayBuffer> };
+        mobiRangeSource?: { size: number; rangeFetcher: (begin: number, end: number) => Promise<ArrayBuffer>; getHeader: () => Promise<ArrayBuffer> };
+    }> {
         try {
             // 获取文件路径
             const fp = this.getBookFilePath();
-            const isPDF = this.book.format?.toUpperCase?.() === 'PDF' || fp.toLowerCase().endsWith('.pdf');
+            const format = this.book.format?.toUpperCase?.() || '';
+            const isPDF = format === 'PDF' || fp.toLowerCase().endsWith('.pdf');
+            const isEPUB = format === 'EPUB' || fp.toLowerCase().endsWith('.epub');
+            const isMOBI = ['MOBI', 'AZW', 'AZW3'].includes(format) || /\.(mobi|azw|azw3)$/i.test(fp);
 
             if (this.strategy.useChunkedLoader) {
                 // 使用分块加载器
@@ -311,8 +326,9 @@ export class OptimizedBookLoader {
                     this.chunkedLoader = new ChunkedFileLoader(fp);
                 }
 
+                const info = await this.chunkedLoader.getFileInfo();
+
                 if (isPDF) {
-                    const info = await this.chunkedLoader.getFileInfo();
                     console.log(`[OptimizedLoader] 📄 PDF streaming enabled: ${(info.size / 1024 / 1024).toFixed(1)} MB`);
 
                     const rangeFetcher = async (begin: number, end: number) => {
@@ -329,8 +345,59 @@ export class OptimizedBookLoader {
                     };
 
                     return { pdfRangeSource: { size: info.size, rangeFetcher } };
+                } else if (isEPUB) {
+                    console.log(`[OptimizedLoader] 📗 EPUB streaming enabled: ${(info.size / 1024 / 1024).toFixed(1)} MB`);
+
+                    const rangeFetcher = async (begin: number, end: number) => {
+                        // EPUB ZIP 格式：end 为 inclusive
+                        if (begin < 0 || begin >= info.size || end <= begin) {
+                            console.warn(`[OptimizedLoader] Invalid range: [${begin}, ${end}]`);
+                            return new ArrayBuffer(0);
+                        }
+
+                        const actualEnd = Math.min(end, info.size - 1);
+                        return await this.chunkedLoader!.getRange(begin, actualEnd);
+                    };
+
+                    // EPUB 需要 central directory 来列出文件
+                    const getCentralDirectory = async () => {
+                        // ZIP central directory 通常在文件末尾
+                        // 先读取最后 22 字节找到 EOCD，然后读取 central directory
+                        const minSize = Math.max(22, Math.min(8192, info.size));
+                        return await this.chunkedLoader!.getRange(
+                            Math.max(0, info.size - minSize),
+                            info.size - 1
+                        );
+                    };
+
+                    return {
+                        epubRangeSource: { size: info.size, rangeFetcher, getCentralDirectory }
+                    };
+                } else if (isMOBI) {
+                    console.log(`[OptimizedLoader] 📕 MOBI streaming enabled: ${(info.size / 1024 / 1024).toFixed(1)} MB`);
+
+                    const rangeFetcher = async (begin: number, end: number) => {
+                        // MOBI 是二进制格式：end 为 inclusive
+                        if (begin < 0 || begin >= info.size || end <= begin) {
+                            console.warn(`[OptimizedLoader] Invalid range: [${begin}, ${end}]`);
+                            return new ArrayBuffer(0);
+                        }
+
+                        const actualEnd = Math.min(end, info.size - 1);
+                        return await this.chunkedLoader!.getRange(begin, actualEnd);
+                    };
+
+                    // MOBI header 通常在文件开头 232 字节内
+                    const getHeader = async () => {
+                        return await this.chunkedLoader!.getRange(0, Math.min(512, info.size - 1));
+                    };
+
+                    return {
+                        mobiRangeSource: { size: info.size, rangeFetcher, getHeader }
+                    };
                 }
 
+                // 其他格式仍然完整加载
                 const file = await this.chunkedLoader.getCompleteFile(this.book.title);
                 return { file };
             } else {

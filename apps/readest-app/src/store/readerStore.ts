@@ -122,6 +122,10 @@ export const useReaderStore = create<ReaderStore>((set, get) => ({
     isPrimary = true,
     reload = false,
   ) => {
+    const existing = get().viewStates[key];
+    if (!reload && (existing?.loading || existing?.inited)) {
+      return;
+    }
     const booksData = useBookDataStore.getState().booksData;
     const bookData = booksData[id];
     set((state) => ({
