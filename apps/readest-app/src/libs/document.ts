@@ -156,7 +156,7 @@ export class DocumentLoader {
       '@zip.js/zip.js'
     );
     type Entry = import('@zip.js/zip.js').Entry;
-    configure({ useWebWorkers: false });
+    configure({ useWebWorkers: true });
     const reader = new ZipReader(new BlobReader(this.file));
 
     // Guard against truncated/invalid ZIP (common when upload/copy failed)
@@ -220,8 +220,18 @@ export class DocumentLoader {
 
     // 如果有 pdfRangeSource，直接走 PDF 流式加载，跳过文件检查
     if (this.pdfRangeSource) {
+      console.log('[DocumentLoader] 🚀 Using pdfRangeSource for streaming PDF');
+      console.log('[DocumentLoader] PDF size:', this.pdfRangeSource.size);
       const { makePDF } = await import('foliate-js/pdf.js');
-      book = await makePDF(this.pdfRangeSource as any);
+      // 创建一个兼容 PDF.js 的对象，包含 .slice() 方法
+      const pdfFile = {
+        size: this.pdfRangeSource.size,
+        slice: (begin: number, end: number) => ({
+          arrayBuffer: async () => this.pdfRangeSource!.rangeFetcher(begin, end),
+        }),
+      };
+      book = await makePDF(pdfFile as any);
+      console.log('[DocumentLoader] ✅ PDF loaded successfully');
       return { book: book as BookDoc, format: 'PDF' };
     }
 

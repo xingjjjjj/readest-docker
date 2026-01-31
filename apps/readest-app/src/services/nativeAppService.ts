@@ -538,7 +538,7 @@ export class NativeAppService extends BaseAppService {
     return Array.isArray(selected) ? selected : selected ? [selected] : [];
   }
 
-  async saveFile(
+  override async saveFile(
     filename: string,
     content: string | ArrayBuffer,
     filepath: string,

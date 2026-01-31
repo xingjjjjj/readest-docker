@@ -88,13 +88,17 @@ export class ChunkedFileLoader {
                 }
             );
 
+            // 只在非预期响应时打印日志
+            if (response.status === 200) {
+                console.warn(`[ChunkedFileLoader] ⚠️ Got 200 instead of 206 - server may not support Range!`);
+            }
+
             if (!response.ok && response.status !== 206) {
                 throw new Error(`Failed to fetch range: ${response.status}`);
             }
 
             const buffer = await response.arrayBuffer();
-            const loaded = buffer.byteLength;
-            this.totalLoaded += loaded;
+            this.totalLoaded += buffer.byteLength;
             this.emitProgress();
 
             return buffer;
@@ -132,9 +136,12 @@ export class ChunkedFileLoader {
             this.chunks.set(chunkIndex, buffer);
             this.loadingChunks.delete(chunkIndex);
 
-            console.log(
-                `[ChunkedFileLoader] Loaded chunk ${chunkIndex}: ${buffer.byteLength} bytes`
-            );
+            // 只在加载前10个chunk时打印日志
+            if (chunkIndex < 10) {
+                console.log(
+                    `[ChunkedFileLoader] Loaded chunk ${chunkIndex}: ${buffer.byteLength} bytes`
+                );
+            }
 
             return buffer;
         })();

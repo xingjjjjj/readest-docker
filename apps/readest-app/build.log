@@ -1,0 +1,32 @@
+
+> @readest/readest-app@0.9.97 build /app/readest/apps/readest-app
+> dotenv -e .env.tauri -- next build
+
+ ⚠ Specified "headers" will not automatically work with "output: export". See more info here: https://nextjs.org/docs/messages/export-no-custom-routes
+   ▲ Next.js 16.0.10 (Turbopack)
+   - Environments: .env.local, .env
+
+   Creating an optimized production build ...
+ ⚠ Specified "headers" will not automatically work with "output: export". See more info here: https://nextjs.org/docs/messages/export-no-custom-routes
+
+🌼   daisyUI 4.12.24
+├─ ✔︎ 24 themes added		https://daisyui.com/docs/themes
+╰─ ❤︎ Support daisyUI project:	https://opencollective.com/daisyui
+
+╰─ ★ Star daisyUI on GitHub	https://github.com/saadeghi/daisyui
+ ✓ Compiled successfully in 53s
+   Running TypeScript ...
+Failed to compile.
+
+./src/services/webAppService.ts:327:9
+Type error: This member must have an 'override' modifier because it overrides a member in the base class 'BaseAppService'.
+
+[0m [90m 325 |[39m   }
+ [90m 326 |[39m
+[31m[1m>[22m[39m[90m 327 |[39m   [36masync[39m setCustomRootDir() {
+ [90m     |[39m         [31m[1m^[22m[39m
+ [90m 328 |[39m     [90m// No-op in web environment[39m
+ [90m 329 |[39m   }
+ [90m 330 |[39m[0m
+Next.js build worker exited with code: 1 and signal: null
+ ELIFECYCLE  Command failed with exit code 1.

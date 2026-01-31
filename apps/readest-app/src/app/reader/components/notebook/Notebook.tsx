@@ -29,7 +29,7 @@ import SearchBar from './SearchBar';
 const MIN_NOTEBOOK_WIDTH = 0.15;
 const MAX_NOTEBOOK_WIDTH = 0.45;
 
-const Notebook: React.FC = ({}) => {
+const Notebook: React.FC = ({ }) => {
   const _ = useTranslation();
   const { updateAppTheme, safeAreaInsets } = useThemeStore();
   const { envConfig, appService } = useEnv();
@@ -212,7 +212,7 @@ const Notebook: React.FC = ({}) => {
     return null;
   }
   const { bookDoc } = bookData;
-  const languageDir = getBookDirFromLanguage(bookDoc.metadata.language);
+  const languageDir = getBookDirFromLanguage(bookDoc.metadata?.language);
 
   const hasSearchResults = filteredAnnotationNotes.length > 0 || filteredExcerptNotes.length > 0;
   const hasAnyNotes = annotationNotes.length > 0 || excerptNotes.length > 0;

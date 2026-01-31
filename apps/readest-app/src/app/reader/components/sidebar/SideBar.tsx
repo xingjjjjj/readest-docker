@@ -163,7 +163,7 @@ const SideBar: React.FC<{
     handleSideBarResize(`${Math.round(newWidth * 10000) / 100}%`);
   };
 
-  const handleVerticalDragKeyDown = () => {};
+  const handleVerticalDragKeyDown = () => { };
 
   const { handleDragStart: handleVerticalDragStart } = useDrag(
     handleVerticalDragMove,
@@ -229,7 +229,7 @@ const SideBar: React.FC<{
     return null;
   }
   const { book, bookDoc } = bookData;
-  const languageDir = getBookDirFromLanguage(bookDoc.metadata.language);
+  const languageDir = getBookDirFromLanguage(bookDoc.metadata?.language);
 
   return isSideBarVisible ? (
     <>

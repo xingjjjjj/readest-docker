@@ -114,8 +114,11 @@ export class OptimizedBookLoader {
             }
 
             // 4. 后台预加载相邻章节
-            if (this.strategy.enableBackgroundPreload) {
+            // 注意：PDF 流式加载时禁用预加载，因为 PDF.js 会按需请求
+            if (this.strategy.enableBackgroundPreload && !pdfRangeSource) {
                 this.startBackgroundPreload(startPosition?.spineIndex ?? 0);
+            } else if (pdfRangeSource) {
+                console.log('[OptimizedLoader] 🚫 Background preload disabled for PDF streaming');
             }
 
             console.log(`[OptimizedLoader] Document opened: ${this.book.title}`);
@@ -310,18 +313,21 @@ export class OptimizedBookLoader {
 
                 if (isPDF) {
                     const info = await this.chunkedLoader.getFileInfo();
+                    console.log(`[OptimizedLoader] 📄 PDF streaming enabled: ${(info.size / 1024 / 1024).toFixed(1)} MB`);
+
                     const rangeFetcher = async (begin: number, end: number) => {
-                        // 注意：PDF.js 的 end 为“右开区间”(exclusive)
-                        if (begin >= info.size) {
+                        // 注意：PDF.js 的 end 为"右开区间"(exclusive)
+                        // 验证范围
+                        if (begin < 0 || begin >= info.size || end <= begin) {
+                            console.warn(`[OptimizedLoader] Invalid range: [${begin}, ${end})`);
                             return new ArrayBuffer(0);
                         }
+
+                        // 调整 end 到文件大小内，getRange 需要 inclusive end
                         const actualEndExclusive = Math.min(end, info.size);
-                        if (actualEndExclusive <= begin) {
-                            return new ArrayBuffer(0);
-                        }
-                        // getRange 需要 inclusive end
                         return await this.chunkedLoader!.getRange(begin, actualEndExclusive - 1);
                     };
+
                     return { pdfRangeSource: { size: info.size, rangeFetcher } };
                 }
 
@@ -389,8 +395,18 @@ export class OptimizedBookLoader {
      * 获取书籍文件路径
      */
     private getBookFilePath(): string {
-        // 假设已经有getLocalBookFilename类似的函数
-        return this.book.filePath || `${this.book.hash}/book.${this.book.format.toLowerCase()}`;
+        // 优先使用 filePath，其次使用 title.format，最后使用 hash/book.format
+        if (this.book.filePath) {
+            return this.book.filePath;
+        }
+
+        // 如果有 title，使用 title + 扩展名
+        if (this.book.title) {
+            return `${this.book.title}.${this.book.format.toLowerCase()}`;
+        }
+
+        // 兜底方案：hash/book.format
+        return `${this.book.hash}/book.${this.book.format.toLowerCase()}`;
     }
 
     /**

@@ -1,0 +1,159 @@
+
+> @readest/readest-app@0.9.97 start-web /app/readest/apps/readest-app
+> dotenv -e .env.web -- next start
+
+   ▲ Next.js 16.0.10
+   - Local:         http://localhost:3000
+   - Network:       http://192.168.1.191:3000
+
+ ✓ Starting...
+ ✓ Ready in 316ms
+Language changed to en
+
+> @readest/readest-app@0.9.97 start-web /app/readest/apps/readest-app
+> dotenv -e .env.web -- next start
+
+   ▲ Next.js 16.0.10
+   - Local:         http://localhost:3000
+   - Network:       http://192.168.1.191:3000
+
+ ✓ Starting...
+ ✓ Ready in 586ms
+Language changed to en
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/settings.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/settings.json , Relative: .readest/settings.json
+[Storage File GET] Reading from: /app/readest/books/.readest/settings.json
+[Storage File GET] File size: 0.00 MB
+[readFileBuffer] Reading file: /app/readest/books/.readest/settings.json, size: 0.00 MB
+[readFileBuffer] ✓ Successfully read 0.00 MB
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/library.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/library.json , Relative: .readest/library.json
+[Storage File GET] Reading from: /app/readest/books/.readest/library.json
+[Storage File GET] File size: 0.01 MB
+[readFileBuffer] Reading file: /app/readest/books/.readest/library.json, size: 0.01 MB
+[readFileBuffer] ✓ Successfully read 0.01 MB
+
+> @readest/readest-app@0.9.97 start-web /app/readest/apps/readest-app
+> dotenv -e .env.web -- next start
+
+   ▲ Next.js 16.0.10
+   - Local:         http://localhost:3000
+   - Network:       http://192.168.1.191:3000
+
+ ✓ Starting...
+ ✓ Ready in 313ms
+Language changed to en
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/settings.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/settings.json , Relative: .readest/settings.json
+[Storage File GET] Reading from: /app/readest/books/.readest/settings.json
+[Storage File GET] File size: 0.00 MB
+[Storage File GET] ETag match, returning 304 Not Modified
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/library.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/library.json , Relative: .readest/library.json
+[Storage File GET] Reading from: /app/readest/books/.readest/library.json
+[Storage File GET] File size: 0.01 MB
+[Storage File GET] ETag match, returning 304 Not Modified
+
+> @readest/readest-app@0.9.97 start-web /app/readest/apps/readest-app
+> dotenv -e .env.web -- next start
+
+   ▲ Next.js 16.0.10
+   - Local:         http://localhost:3000
+   - Network:       http://192.168.1.191:3000
+
+ ✓ Starting...
+ ✓ Ready in 676ms
+Language changed to en
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/settings.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/settings.json , Relative: .readest/settings.json
+[Storage File GET] Reading from: /app/readest/books/.readest/settings.json
+[Storage File GET] File size: 0.00 MB
+[Storage File GET] ETag match, returning 304 Not Modified
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/library.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/library.json , Relative: .readest/library.json
+[Storage File GET] Reading from: /app/readest/books/.readest/library.json
+[Storage File GET] File size: 0.01 MB
+[Storage File GET] ETag match, returning 304 Not Modified
+[LocalFS] ✓ Using flat storage, cleanKey: 年轻干部晋升指南/config.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/年轻干部晋升指南/config.json , Relative: 年轻干部晋升指南/config.json
+[Storage File GET] Reading from: /app/readest/books/年轻干部晋升指南/config.json
+[Storage File GET] File size: 0.00 MB
+[readFileBuffer] Reading file: /app/readest/books/年轻干部晋升指南/config.json, size: 0.00 MB
+[readFileBuffer] ✓ Successfully read 0.00 MB
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/settings.json.bak
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/settings.json.bak , Relative: .readest/settings.json.bak
+[Storage File PUT] 15. Input filePath: .readest/settings.json.bak
+[Storage File PUT] 16. Resolved fullPath: /app/readest/books/.readest/settings.json.bak
+[Storage File PUT] 17. Relative path: .readest/settings.json.bak
+[Storage File PUT] 18b. Buffered upload size: 4703 bytes
+[Storage File PUT] 19b. ✓ Buffered write to: /app/readest/books/.readest/settings.json.bak
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/settings.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/settings.json , Relative: .readest/settings.json
+[Storage File PUT] 15. Input filePath: .readest/settings.json
+[Storage File PUT] 16. Resolved fullPath: /app/readest/books/.readest/settings.json
+[Storage File PUT] 17. Relative path: .readest/settings.json
+[Storage File PUT] 18b. Buffered upload size: 4703 bytes
+[Storage File PUT] 19b. ✓ Buffered write to: /app/readest/books/.readest/settings.json
+[LocalFS] ✓ Using flat storage, cleanKey: 年轻干部晋升指南/config.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/年轻干部晋升指南/config.json , Relative: 年轻干部晋升指南/config.json
+[Storage File PUT] 15. Input filePath: 年轻干部晋升指南/config.json
+[Storage File PUT] 16. Resolved fullPath: /app/readest/books/年轻干部晋升指南/config.json
+[Storage File PUT] 17. Relative path: 年轻干部晋升指南/config.json
+[Storage File PUT] 18b. Buffered upload size: 517 bytes
+[Storage File PUT] 19b. ✓ Buffered write to: /app/readest/books/年轻干部晋升指南/config.json
+[LocalFS] ✓ Using flat storage, cleanKey: 年轻干部晋升指南/config.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/年轻干部晋升指南/config.json , Relative: 年轻干部晋升指南/config.json
+[Storage File PUT] 15. Input filePath: 年轻干部晋升指南/config.json
+[Storage File PUT] 16. Resolved fullPath: /app/readest/books/年轻干部晋升指南/config.json
+[Storage File PUT] 17. Relative path: 年轻干部晋升指南/config.json
+[Storage File PUT] 18b. Buffered upload size: 517 bytes
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/library.json.bak
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/library.json.bak , Relative: .readest/library.json.bak
+[Storage File PUT] 15. Input filePath: .readest/library.json.bak
+[Storage File PUT] 16. Resolved fullPath: /app/readest/books/.readest/library.json.bak
+[Storage File PUT] 17. Relative path: .readest/library.json.bak
+[Storage File PUT] 18b. Buffered upload size: 12057 bytes
+[Storage File PUT] 19b. ✓ Buffered write to: /app/readest/books/年轻干部晋升指南/config.json
+[Storage File PUT] 19b. ✓ Buffered write to: /app/readest/books/.readest/library.json.bak
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/settings.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/settings.json , Relative: .readest/settings.json
+[Storage File GET] Reading from: /app/readest/books/.readest/settings.json
+[Storage File GET] File size: 0.00 MB
+[readFileBuffer] Reading file: /app/readest/books/.readest/settings.json, size: 0.00 MB
+[readFileBuffer] ✓ Successfully read 0.00 MB
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/settings.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/settings.json , Relative: .readest/settings.json
+[Storage File GET] Reading from: /app/readest/books/.readest/settings.json
+[Storage File GET] File size: 0.00 MB
+[readFileBuffer] Reading file: /app/readest/books/.readest/settings.json, size: 0.00 MB
+[readFileBuffer] ✓ Successfully read 0.00 MB
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/settings.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/settings.json , Relative: .readest/settings.json
+[Storage File GET] Reading from: /app/readest/books/.readest/settings.json
+[Storage File GET] File size: 0.00 MB
+[readFileBuffer] Reading file: /app/readest/books/.readest/settings.json, size: 0.00 MB
+[readFileBuffer] ✓ Successfully read 0.00 MB
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/settings.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/settings.json , Relative: .readest/settings.json
+[Storage File GET] Reading from: /app/readest/books/.readest/settings.json
+[Storage File GET] File size: 0.00 MB
+[readFileBuffer] Reading file: /app/readest/books/.readest/settings.json, size: 0.00 MB
+[readFileBuffer] ✓ Successfully read 0.00 MB
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/settings.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/settings.json , Relative: .readest/settings.json
+[Storage File GET] Reading from: /app/readest/books/.readest/settings.json
+[Storage File GET] File size: 0.00 MB
+[readFileBuffer] Reading file: /app/readest/books/.readest/settings.json, size: 0.00 MB
+[readFileBuffer] ✓ Successfully read 0.00 MB
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/settings.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/settings.json , Relative: .readest/settings.json
+[Storage File GET] Reading from: /app/readest/books/.readest/settings.json
+[Storage File GET] File size: 0.00 MB
+[readFileBuffer] Reading file: /app/readest/books/.readest/settings.json, size: 0.00 MB
+[readFileBuffer] ✓ Successfully read 0.00 MB
+[LocalFS] ✓ Using flat storage, cleanKey: .readest/settings.json
+[LocalFS] ✓ Final paths - Full: /app/readest/books/.readest/settings.json , Relative: .readest/settings.json
+[Storage File GET] Reading from: /app/readest/books/.readest/settings.json
+[Storage File GET] File size: 0.00 MB
+[readFileBuffer] Reading file: /app/readest/books/.readest/settings.json, size: 0.00 MB
+[readFileBuffer] ✓ Successfully read 0.00 MB

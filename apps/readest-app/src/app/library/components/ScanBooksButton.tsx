@@ -43,6 +43,14 @@ export const ScanBooksButton: React.FC = () => {
             console.log('[ScanBooks] ✓ Loaded', updatedLibrary.length, 'books');
             setLibrary(updatedLibrary);
 
+            // 扫描后补齐缺失封面（复用导入时的封面提取逻辑）
+            try {
+                const coverResult = await appService.regenerateMissingCovers(updatedLibrary);
+                console.log('[ScanBooks] ✓ Cover recovery:', coverResult);
+            } catch (coverError) {
+                console.warn('[ScanBooks] Cover recovery failed:', coverError);
+            }
+
             // 构建提示信息
             const messages: string[] = [];
 

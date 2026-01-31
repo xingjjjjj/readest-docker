@@ -324,19 +324,19 @@ export class WebAppService extends BaseAppService {
     return this.fs.resolvePath(fp, base);
   }
 
-  async setCustomRootDir() {
+  override async setCustomRootDir() {
     // No-op in web environment
   }
 
-  async selectDirectory(): Promise<string> {
+  override async selectDirectory(): Promise<string> {
     throw new Error('selectDirectory is not supported in browser');
   }
 
-  async selectFiles(): Promise<string[]> {
+  override async selectFiles(): Promise<string[]> {
     throw new Error('selectFiles is not supported in browser');
   }
 
-  async saveFile(filename: string, content: string | ArrayBuffer, mimeType?: string): Promise<boolean> {
+  override async saveFile(filename: string, content: string | ArrayBuffer, mimeType?: string): Promise<boolean> {
     try {
       const blob = new Blob([content], { type: mimeType || 'application/octet-stream' });
       const url = URL.createObjectURL(blob);

@@ -119,7 +119,7 @@ async function compressWithCanvas(
             cleanup();
         };
         const originalOnerror = img.onerror;
-        img.onerror = function (ev: Event) {
+        img.onerror = function (ev: Event | string) {
             if (originalOnerror) originalOnerror.call(this, ev);
             cleanup();
         };

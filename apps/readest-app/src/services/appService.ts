@@ -38,7 +38,7 @@ import {
   formatFileSize,
   getCompressionInfo,
 } from '@/utils/imageCompression';
-import { BookDoc, DocumentLoader, EXTS } from '@/libs/document';
+import { BookDoc, BookMetadata, DocumentLoader, EXTS } from '@/libs/document';
 import {
   DEFAULT_BOOK_LAYOUT,
   DEFAULT_BOOK_STYLE,
@@ -521,6 +521,15 @@ export class BaseAppService implements AppService {
         if (!loadedBook) {
           throw new Error('Unsupported or corrupted book file');
         }
+
+        // 确保 metadata 存在
+        if (!loadedBook.metadata) {
+          loadedBook.metadata = {
+            title: getBaseFilename(filename),
+            author: '',
+          } as BookMetadata;
+        }
+
         const metadataTitle = formatTitle(loadedBook.metadata.title);
         if (!metadataTitle || !metadataTitle.trim() || metadataTitle === filename) {
           loadedBook.metadata.title = getBaseFilename(filename);
@@ -1090,6 +1099,27 @@ export class BaseAppService implements AppService {
       await this.ensureCoverExists(book);
       return this.getCoverImageUrl(book);
     }
+  }
+
+  async regenerateMissingCovers(books: Book[]): Promise<{ recovered: number; skipped: number }> {
+    let recovered = 0;
+    let skipped = 0;
+    for (const book of books) {
+      try {
+        const coverPath = getCoverFilename(book);
+        const exists = await this.fs.exists(coverPath, 'Books');
+        if (exists) {
+          skipped++;
+          continue;
+        }
+        await this.ensureCoverExists(book);
+        const existsAfter = await this.fs.exists(coverPath, 'Books');
+        if (existsAfter) recovered++;
+      } catch {
+        skipped++;
+      }
+    }
+    return { recovered, skipped };
   }
 
   private async ensureCoverExists(book: Book): Promise<void> {

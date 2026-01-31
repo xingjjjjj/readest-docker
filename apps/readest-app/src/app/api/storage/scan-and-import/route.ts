@@ -380,6 +380,44 @@ export async function POST(_req: NextRequest) {
             console.log('[ScanAndImport] ✓ Created', configsCreated, 'missing config.json files');
         }
 
+        // Step 6d: 为已有书籍补全缺失封面
+        console.log('[ScanAndImport] Checking missing covers for all books...');
+        let coversRecovered = 0;
+        let coversStillMissing = 0;
+
+        for (const book of updatedLibrary) {
+            if (!book.relativePath) continue;
+
+            const metadataFolderName = book.relativePath.replace(/\.[^.]+$/, '');
+            const metadataFolderPath = path.join(STORAGE_ROOT, metadataFolderName);
+            const coverPath = path.join(metadataFolderPath, 'cover.png');
+
+            const coverExists = await fs.stat(coverPath).then(() => true).catch(() => false);
+            if (coverExists) continue;
+
+            try {
+                const bookFilePath = path.join(STORAGE_ROOT, book.relativePath);
+                const coverBuffer = await extractCover(bookFilePath);
+                if (coverBuffer) {
+                    await fs.writeFile(coverPath, coverBuffer);
+                    coversRecovered++;
+                    console.log('[ScanAndImport] ✓ Recovered cover for:', book['title'] || book.relativePath);
+                } else {
+                    coversStillMissing++;
+                }
+            } catch (error) {
+                coversStillMissing++;
+                console.warn('[ScanAndImport] ⚠️ Failed to recover cover for:', book['title'] || book.relativePath, error);
+            }
+        }
+
+        if (coversRecovered > 0 || coversStillMissing > 0) {
+            console.log('[ScanAndImport] Missing cover recovery summary:', {
+                recovered: coversRecovered,
+                stillMissing: coversStillMissing,
+            });
+        }
+
         // Step 7: 直接保存更新的库到 library.json
         // 这是关键优化：后端直接更新，前端无需额外处理
         await saveLibraryJSON(updatedLibrary);

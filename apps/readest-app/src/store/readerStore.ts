@@ -12,7 +12,7 @@ import {
 import { Insets } from '@/types/misc';
 import { EnvConfigType } from '@/services/environment';
 import { FoliateView } from '@/types/view';
-import { DocumentLoader, TOCItem } from '@/libs/document';
+import { BookMetadata, DocumentLoader, TOCItem } from '@/libs/document';
 import { updateToc } from '@/utils/toc';
 import { formatTitle, getMetadataHash, getPrimaryLanguage } from '@/utils/book';
 import { getBaseFilename } from '@/utils/path';
@@ -171,14 +171,30 @@ export const useReaderStore = create<ReaderStore>((set, get) => ({
           // optimized loader会内部加载文件，但未暴露 file；保持旧file引用以兼容
           file = bookData?.file ?? null;
         } catch (err) {
-          console.warn('Optimized load failed, fallback to legacy load', err);
+          console.error('❌ [Reader] Optimized load FAILED:', err);
+          console.error('[Reader] Error message:', (err as Error)?.message);
+          console.error('[Reader] Error stack:', (err as Error)?.stack);
+          console.warn('⚠️ [Reader] Falling back to legacy load');
+          console.warn('⚠️ [Reader] THIS WILL DOWNLOAD THE COMPLETE FILE!');
           const content = (await appService.loadBookContent(book)) as BookContent;
           file = content.file;
+          const fileSizeMB = (file.size / 1024 / 1024).toFixed(2);
+          console.log(`[Reader] Legacy load: downloaded complete file (${fileSizeMB} MB)`);
           const doc = await new DocumentLoader(file).open();
           bookDoc = doc.book;
           loader = null;
         }
       }
+      if (!bookDoc) {
+        throw new Error('Book document not loaded');
+      }
+      if (!bookDoc.metadata) {
+        bookDoc.metadata = {
+          title: book.title || 'Unknown',
+          author: book.author || '',
+        } as BookMetadata;
+      }
+
       const config = await appService.loadBookConfig(book, settings);
       await updateToc(
         bookDoc,

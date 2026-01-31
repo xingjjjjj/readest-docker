@@ -319,7 +319,7 @@ const FoliateViewer: React.FC<{
       const writingMode = viewSettings.writingMode;
       if (writingMode) {
         const settingsDir = getBookDirFromWritingMode(writingMode);
-        const languageDir = getBookDirFromLanguage(bookDoc.metadata.language);
+        const languageDir = getBookDirFromLanguage(bookDoc.metadata?.language);
         if (settingsDir !== 'auto') {
           bookDoc.dir = settingsDir;
         } else if (languageDir !== 'auto') {
