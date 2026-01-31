@@ -112,17 +112,48 @@ const Notebook: React.FC = ({ }) => {
     if (!cfi) return;
 
     const { booknotes: annotations = [] } = config;
+    const style = settings.globalReadSettings.highlightStyle;
+    const color = settings.globalReadSettings.highlightStyles[style];
     const annotation: BookNote = {
       id: uniqueId(),
       type: 'annotation',
       cfi,
+      style,
+      color,
       note,
       text: selection.text,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
-    view?.addAnnotation({ ...annotation, value: `${NOTE_PREFIX}${annotation.cfi}` });
-    annotations.push(annotation);
+
+    // If there's an existing highlight (same CFI) without a note, update it instead
+    // find existing annotation with same CFI regardless of deletedAt so we can revive/update it
+    const existingIndex = annotations.findIndex(
+      (a) => a.type === 'annotation' && a.cfi === cfi && (!a.note || a.note.trim() === ''),
+    );
+    if (existingIndex !== -1) {
+      const existing = annotations[existingIndex]!;
+      // preserve id and timestamps
+      annotation.id = existing.id;
+      annotation.createdAt = existing.createdAt || annotation.createdAt;
+      // clear deletedAt if present (revive)
+      delete (annotation as any).deletedAt;
+      // update the stored annotation entry (keep style fields intact)
+      annotations[existingIndex] = { ...existing, ...annotation };
+
+      // Ensure both style overlay and note overlay exist: update style overlay and
+      // add a note overlay on top of it
+      try {
+        view?.addAnnotation(annotations[existingIndex]);
+        view?.addAnnotation({ ...annotations[existingIndex], value: `${NOTE_PREFIX}${annotations[existingIndex].cfi}` });
+      } catch (e) {
+        // ignore overlay failures
+      }
+    } else {
+      // new annotation
+      view?.addAnnotation({ ...annotation, value: `${NOTE_PREFIX}${annotation.cfi}` });
+      annotations.push(annotation);
+    }
     const updatedConfig = updateBooknotes(sideBarBookKey, annotations);
     if (updatedConfig) {
       saveConfig(envConfig, sideBarBookKey, updatedConfig, settings);

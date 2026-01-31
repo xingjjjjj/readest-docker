@@ -49,7 +49,7 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
   const { isDarkMode } = useThemeStore();
   const { getConfig, saveConfig, getBookData, updateBooknotes } = useBookDataStore();
   const { getProgress, getView, getViewsById, getViewSettings } = useReaderStore();
-  const { setNotebookVisible, setNotebookNewAnnotation } = useNotebookStore();
+  const { setNotebookVisible, setNotebookNewAnnotation, setNotebookEditAnnotation } = useNotebookStore();
   const { listenToNativeTouchEvents } = useDeviceControlStore();
 
   useNotesSync(bookKey);
@@ -310,14 +310,13 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     const hexColor = getHighlightColorHex(settings, color);
     const einkBgColor = isDarkMode ? '#000000' : '#ffffff';
     const einkFgColor = isDarkMode ? '#ffffff' : '#000000';
-    if (annotation.note) {
-      const { defaultView } = doc;
-      const node = range.startContainer;
-      const el = node.nodeType === 1 ? node : node.parentElement;
-      const { writingMode } = defaultView.getComputedStyle(el);
-      draw(Overlayer.bubble, { writingMode });
-    } else if (style === 'highlight') {
-      draw(Overlayer.highlight, { color: isEink ? einkBgColor : hexColor });
+
+    const isNoteOverlay = Boolean((annotation as any).value && (annotation as any).value.startsWith(NOTE_PREFIX));
+
+    // Prepare style options when applicable
+    let styleOptions: any = null;
+    if (style === 'highlight') {
+      styleOptions = { color: isEink ? einkBgColor : hexColor };
     } else if (['underline', 'squiggly'].includes(style as string)) {
       const { defaultView } = doc;
       const node = range.startContainer;
@@ -331,11 +330,70 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       const padding = viewSettings.vertical
         ? (lineHeightValue - fontSizeValue) / 2 - strokeWidth + verticalCompensation
         : (lineHeightValue - fontSizeValue) / 2 - strokeWidth + horizontalCompensation;
-      draw(Overlayer[style as keyof typeof Overlayer], {
-        writingMode,
-        color: isEink ? einkFgColor : hexColor,
-        padding,
-      });
+      styleOptions = { writingMode, color: isEink ? einkFgColor : hexColor, padding };
+    }
+
+    // If this draw call is for a NOTE overlay, draw only the bubble (so style overlay
+    // can be a separate overlay and handle style interactions). If the annotation
+    // popup is visible for this CFI, hide the bubble to avoid duplicate UI (popup
+    // will serve as the UI).
+    if (isNoteOverlay) {
+      const { defaultView } = doc;
+      const node = range.startContainer;
+      const el = node.nodeType === 1 ? node : node.parentElement;
+      const { writingMode } = defaultView.getComputedStyle(el);
+      if (showAnnotationNotes && selection?.cfi === (annotation.cfi as string)) {
+        // Render an empty group (hide bubble) when the note popup is shown for this CFI
+        draw(() => document.createElementNS('http://www.w3.org/2000/svg', 'g'));
+        return;
+      }
+      // Draw bubble only
+      draw(Overlayer.bubble, { writingMode });
+      return;
+    }
+
+    // Otherwise this is the style overlay
+    if (styleOptions) {
+      // If the note popup is visible for this CFI, hide the style overlay to avoid
+      // duplicate UI (we want only one visible at a time when the note panel is open).
+      if (showAnnotationNotes && selection?.cfi === (annotation.cfi as string)) {
+        draw(() => document.createElementNS('http://www.w3.org/2000/svg', 'g'));
+        return;
+      }
+
+      // If the highlight options panel is shown for this CFI, add an outline to
+      // visually indicate the editing state.
+      if (highlightOptionsVisible && selection?.cfi === (annotation.cfi as string)) {
+        draw((rects: any[]) => {
+          const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+          const base = (Overlayer as any)[style](rects, styleOptions);
+          g.appendChild(base);
+          if (style === 'highlight') {
+            const outline = Overlayer.outline(rects, { color: isEink ? einkBgColor : hexColor, width: 2 });
+            g.appendChild(outline);
+          } else if (style === 'underline' || style === 'squiggly') {
+            const topStyle = (Overlayer as any)[style](rects, styleOptions);
+            g.appendChild(topStyle);
+          }
+          return g;
+        });
+      } else {
+        if (style === 'highlight') {
+          draw(Overlayer.highlight, styleOptions);
+        } else {
+          draw(Overlayer[style as keyof typeof Overlayer], styleOptions);
+        }
+      }
+      return;
+    }
+
+    // Fallback: if there's a note without style, draw only the bubble
+    if (annotation.note && !styleOptions) {
+      const { defaultView } = doc;
+      const node = range.startContainer;
+      const el = node.nodeType === 1 ? node : node.parentElement;
+      const { writingMode } = defaultView.getComputedStyle(el);
+      draw(Overlayer.bubble, { writingMode });
     }
   };
 
@@ -359,16 +417,19 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       annotated: true,
       text: text ?? '',
       note: note ?? '',
-      rect: isNote ? detail.rect : undefined,
+      rect: detail.rect,
       cfi,
       range,
       index,
     };
     if (isNote) {
+      // Clicking the bubble should show the note UI only (hide style editor)
       setShowAnnotationNotes(true);
-      setHighlightOptionsVisible(false);
+      setAnnotationNotes(annotations.filter((item) => item.note && item.note.trim().length > 0));
       setEditingAnnotation(null);
+      setHighlightOptionsVisible(false);
     } else {
+      // Clicking the style overlay should open the style editor (hide note UI)
       setShowAnnotationNotes(false);
       setAnnotationNotes([]);
       if (style && color) {
@@ -377,6 +438,7 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       }
       if (style && range) {
         setEditingAnnotation(annotation);
+        setHighlightOptionsVisible(true);
       }
     }
     setSelection(selection);
@@ -519,10 +581,25 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
         isCfiInLocation(item.cfi, location),
     );
     try {
-      Promise.all(annotations.map((annotation) => view?.addAnnotation(annotation)));
-      Promise.all(
-        notes.map((note) => view?.addAnnotation({ ...note, value: `${NOTE_PREFIX}${note.cfi}` })),
-      );
+      // Add each booknote once. If it has a note text, add it as a NOTE (so show-annotation
+      // can detect it); otherwise add as a normal style annotation. This avoids adding
+      // two overlays for the same cfi which causes hit-test and rendering conflicts.
+      for (const item of booknotes.filter(
+        (item) =>
+          !item.deletedAt && item.type === 'annotation' && isCfiInLocation(item.cfi, location),
+      )) {
+        // If an item has both style and a note, add two overlays: first the style
+        // overlay (so style is hit-testable across most of the text), then the
+        // note overlay (bubble) on top so clicking the bubble yields the note.
+        if (item.note && item.note.trim().length > 0 && item.style) {
+          view?.addAnnotation(item);
+          view?.addAnnotation({ ...item, value: `${NOTE_PREFIX}${item.cfi}` });
+        } else if (item.note && item.note.trim().length > 0) {
+          view?.addAnnotation({ ...item, value: `${NOTE_PREFIX}${item.cfi}` });
+        } else if (item.style) {
+          view?.addAnnotation(item);
+        }
+      }
     } catch (e) {
       console.warn(e);
     }
@@ -538,6 +615,21 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     const notes = annotations.filter((item) => item.note && item.note.trim().length > 0);
     setAnnotationNotes(notes);
   }, [selection?.cfi, showAnnotationNotes, config.booknotes]);
+
+  // When the 'showAnnotationNotes' state changes for a particular CFI, force a
+  // redraw of the NOTE overlay(s) for that CFI so the draw callback (which
+  // conditionally hides the bubble when the popup is visible) takes effect.
+  useEffect(() => {
+    if (!selection?.cfi) return;
+    const notes = config.booknotes?.filter(
+      (item) => item.type === 'annotation' && !item.deletedAt && item.note && item.cfi === selection.cfi,
+    );
+    if (!notes || notes.length === 0) return;
+    const views = getViewsById(bookKey.split('-')[0]!);
+    for (const item of notes) {
+      views.forEach((view) => view?.addAnnotation({ ...item, value: `${NOTE_PREFIX}${item.cfi}` }));
+    }
+  }, [showAnnotationNotes, selection?.cfi, config.booknotes, progress]);
 
   const handleShowAnnotPopup = () => {
     if (!appService?.isMobile) {
@@ -652,9 +744,18 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     if (!selection || !selection.text) return;
     const { sectionHref: href } = progress;
     selection.href = href;
-    handleHighlight(true);
+    // If there's already an annotation for this CFI, open it for edit instead of creating new
+    const config = getConfig(bookKey)!;
+    const { booknotes: annotations = [] } = config;
+    const existing = annotations.find(
+      (a) => a.type === 'annotation' && !a.deletedAt && a.cfi === selection.cfi,
+    );
     setNotebookVisible(true);
-    setNotebookNewAnnotation(selection);
+    if (existing) {
+      setNotebookEditAnnotation(existing);
+    } else {
+      setNotebookNewAnnotation(selection);
+    }
     handleDismissPopup();
   };
 
@@ -866,7 +967,7 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
           disabled: bookData.book?.format !== 'EPUB',
         };
       default:
-        return { tooltipText: '', Icon, onClick: () => {} };
+        return { tooltipText: '', Icon, onClick: () => { } };
     }
   });
 
