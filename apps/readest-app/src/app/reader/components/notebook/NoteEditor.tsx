@@ -98,7 +98,7 @@ const NoteEditor: React.FC<NoteEditorProps> = ({ onSave, onEdit }) => {
     onEscape: handleEscape,
   });
 
-  const canSave = Boolean(note.trim());
+  const canSave = Boolean(note.trim()) || Boolean(notebookEditAnnotation);
 
   return (
     <div className='content booknote-item note-editor-container bg-base-100 mt-2 rounded-md p-2'>

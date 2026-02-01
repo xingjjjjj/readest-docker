@@ -47,8 +47,8 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
   const { envConfig, appService } = useEnv();
   const { settings } = useSettingsStore();
   const { isDarkMode } = useThemeStore();
-  const { getConfig, saveConfig, getBookData, updateBooknotes } = useBookDataStore();
-  const [centralBooknotes, setCentralBooknotes] = useState<BookNote[]>([]);
+  const { getConfig, getBookData, updateBooknotes } = useBookDataStore();
+  const config = useBookDataStore((state) => state.getConfig(bookKey));
   const { getProgress, getView, getViewsById, getViewSettings } = useReaderStore();
   const { setNotebookVisible, setNotebookNewAnnotation, setNotebookEditAnnotation } = useNotebookStore();
   const { listenToNativeTouchEvents } = useDeviceControlStore();
@@ -56,7 +56,6 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
   useNotesSync(bookKey);
 
   const osPlatform = getOSPlatform();
-  const config = getConfig(bookKey)!;
   const progress = getProgress(bookKey)!;
   const bookData = getBookData(bookKey)!;
   const view = getView(bookKey);
@@ -166,31 +165,6 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     setSelectedStyle(settings.globalReadSettings.highlightStyle);
   }, [settings.globalReadSettings.highlightStyle]);
 
-  // Load centralized notes for this book and refresh on external updates
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      if (!bookKey) return;
-      const bookHash = bookKey.split('-')[0]!;
-      try {
-        const notes = await (await import('@/services/notesService')).getNotesForBook(envConfig, bookHash);
-        if (!cancelled) setCentralBooknotes(notes || []);
-      } catch (e) {
-        console.warn('Failed to load central notes for', bookKey, e);
-      }
-    };
-    load();
-    const handler = (payload: any) => {
-      if (!payload || payload.bookHash !== bookKey.split('-')[0]) return;
-      load();
-    };
-    eventDispatcher.on('notes-updated', handler);
-    return () => {
-      cancelled = true;
-      eventDispatcher.off('notes-updated', handler);
-    };
-  }, [bookKey, envConfig]);
-
   useEffect(() => {
     setSelectedColor(settings.globalReadSettings.highlightStyles[selectedStyle]);
   }, [settings.globalReadSettings.highlightStyles, selectedStyle]);
@@ -221,6 +195,8 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     throttle(() => {
       setSelection(null);
       setShowAnnotPopup(false);
+      // Ensure note UI state is fully reset so bubbles reappear when popup closes
+      setShowAnnotationNotes(false);
       setShowWiktionaryPopup(false);
       setShowWikipediaPopup(false);
       setShowDeepLPopup(false);
@@ -368,7 +344,11 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       const node = range.startContainer;
       const el = node.nodeType === 1 ? node : node.parentElement;
       const { writingMode } = defaultView.getComputedStyle(el);
-      if (showAnnotationNotes && selection?.cfi === (annotation.cfi as string)) {
+      // Only hide the bubble when the note *popup* is actually open for this CFI.
+      // Previously we hid it as soon as `showAnnotationNotes` flipped, which caused a
+      // brief flicker because the popup wasn't yet visible. Require `showAnnotPopup`
+      // to avoid that transient disappearance.
+      if (showAnnotationNotes && showAnnotPopup && selection?.cfi === (annotation.cfi as string)) {
         // Render an empty group (hide bubble) when the note popup is shown for this CFI
         draw(() => document.createElementNS('http://www.w3.org/2000/svg', 'g'));
         return;
@@ -382,7 +362,9 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     if (styleOptions) {
       // If the note popup is visible for this CFI, hide the style overlay to avoid
       // duplicate UI (we want only one visible at a time when the note panel is open).
-      if (showAnnotationNotes && selection?.cfi === (annotation.cfi as string)) {
+      // Require the popup (`showAnnotPopup`) to be actually shown to avoid flicker when
+      // `showAnnotationNotes` flips before the popup is mounted.
+      if (showAnnotationNotes && showAnnotPopup && selection?.cfi === (annotation.cfi as string)) {
         draw(() => document.createElementNS('http://www.w3.org/2000/svg', 'g'));
         return;
       }
@@ -426,7 +408,7 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
   const onShowAnnotation = (event: Event) => {
     const detail = (event as CustomEvent).detail;
     const { value, index, range } = detail;
-    const { booknotes = [] } = getConfig(bookKey)!;
+    const booknotes = config?.booknotes || [];
     const isNote = value.startsWith(NOTE_PREFIX);
     const cfi = isNote ? value.replace(NOTE_PREFIX, '') : value;
     const annotations = booknotes.filter(
@@ -496,8 +478,11 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
 
   useEffect(() => {
     eventDispatcher.on('export-annotations', handleExportMarkdown);
+    // Hide annotation popup when notebook editor opens (or any other caller requests it)
+    eventDispatcher.on('hide-annotation-popup', handleDismissPopup);
     return () => {
       eventDispatcher.off('export-annotations', handleExportMarkdown);
+      eventDispatcher.off('hide-annotation-popup', handleDismissPopup);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -587,45 +572,127 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selection, bookKey]);
 
+  // Track which annotations are currently rendered in the views to perform
+  // incremental updates (avoid full clear/readd that causes flicker).
+  const displayedAnnotationsRef = React.useRef<Set<string>>(new Set());
+
+  // Listen to immediate apply/remove events so we can update overlays and
+  // our displayedAnnotationsRef without waiting for async central file reloads.
+  useEffect(() => {
+    const applyHandler = (payload: any) => {
+      try {
+        const { annotation } = payload || {};
+        if (!annotation || annotation.type !== 'annotation' || annotation.deletedAt) return;
+        // Only apply if within current progress location
+        if (!progress) return;
+        if (!isCfiInLocation(annotation.cfi, progress.location)) return;
+        const views = getViewsById(bookKey.split('-')[0]!);
+        // Add style overlay
+        try {
+          views.forEach((v) => v?.addAnnotation(annotation));
+          if (annotation.note && annotation.note.trim()) {
+            views.forEach((v) => v?.addAnnotation({ ...annotation, value: `${NOTE_PREFIX}${annotation.cfi}` }));
+          }
+          displayedAnnotationsRef.current.add(annotation.id);
+        } catch (e) {
+          console.warn('Failed to apply annotation from event', e);
+        }
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    const removeHandler = (payload: any) => {
+      try {
+        const { id } = payload || {};
+        if (!id) return;
+        const views = getViewsById(bookKey.split('-')[0]!);
+        const toRemove = (config?.booknotes || []).find((n) => n.id === id) || ({ id } as any);
+        try {
+          views.forEach((v) => v?.addAnnotation({ ...toRemove, value: `${NOTE_PREFIX}${toRemove.cfi}` }, true));
+          views.forEach((v) => v?.addAnnotation(toRemove, true));
+        } catch (e) {
+          // ignore
+        }
+        displayedAnnotationsRef.current.delete(id);
+      } catch (e) {
+        // ignore
+      }
+    };
+
+    eventDispatcher.on('annotation-applied', applyHandler);
+    eventDispatcher.on('annotation-removed', removeHandler);
+    return () => {
+      eventDispatcher.off('annotation-applied', applyHandler);
+      eventDispatcher.off('annotation-removed', removeHandler);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookKey, progress, config?.booknotes]);
+
   useEffect(() => {
     if (!progress) return;
     const { location } = progress;
-    // Use centralized notes
-    const booknotes = centralBooknotes || [];
-    try {
-      for (const item of booknotes.filter(
-        (item) => !item.deletedAt && item.type === 'annotation' && isCfiInLocation(item.cfi, location),
-      )) {
-        if (item.note && item.note.trim().length > 0 && item.style) {
-          view?.addAnnotation(item);
-          view?.addAnnotation({ ...item, value: `${NOTE_PREFIX}${item.cfi}` });
-        } else if (item.note && item.note.trim().length > 0) {
-          view?.addAnnotation({ ...item, value: `${NOTE_PREFIX}${item.cfi}` });
-        } else if (item.style) {
-          view?.addAnnotation(item);
+
+    const booknotes = config?.booknotes || [];
+    const visible = booknotes.filter(
+      (item) => !item.deletedAt && item.type === 'annotation' && isCfiInLocation(item.cfi, location),
+    );
+    const visibleIds = new Set(visible.map((v) => v.id));
+    const views = getViewsById(bookKey.split('-')[0]!);
+
+    // Remove annotations that are currently displayed but no longer visible
+    for (const id of Array.from(displayedAnnotationsRef.current)) {
+      if (!visibleIds.has(id)) {
+        const toRemove = booknotes.find((n) => n.id === id);
+        if (toRemove) {
+          views.forEach((v) => {
+            try {
+              v?.addAnnotation(toRemove, true);
+              v?.addAnnotation({ ...toRemove, value: `${NOTE_PREFIX}${toRemove.cfi}` }, true);
+            } catch (e) {
+              // ignore
+            }
+          });
         }
+        displayedAnnotationsRef.current.delete(id);
       }
-    } catch (e) {
-      console.warn(e);
+    }
+
+    // Add visible annotations that are not yet displayed
+    for (const item of visible) {
+      if (displayedAnnotationsRef.current.has(item.id)) continue;
+      try {
+        if (item.note && item.note.trim().length > 0 && item.style) {
+          views.forEach((v) => v?.addAnnotation(item));
+          views.forEach((v) => v?.addAnnotation({ ...item, value: `${NOTE_PREFIX}${item.cfi}` }));
+        } else if (item.note && item.note.trim().length > 0) {
+          views.forEach((v) => v?.addAnnotation({ ...item, value: `${NOTE_PREFIX}${item.cfi}` }));
+        } else if (item.style) {
+          views.forEach((v) => v?.addAnnotation(item));
+        }
+        displayedAnnotationsRef.current.add(item.id);
+      } catch (e) {
+        console.warn('Failed to add annotation during relocate update', e);
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [progress, centralBooknotes]);
+  }, [progress, config?.booknotes]);
 
   useEffect(() => {
-    if (!centralBooknotes || !selection?.cfi || !showAnnotationNotes) return;
-    const annotations = centralBooknotes.filter(
+    if (!config?.booknotes || !selection?.cfi || !showAnnotationNotes) return;
+    const annotations = config.booknotes.filter(
       (booknote) => booknote.type === 'annotation' && !booknote.deletedAt && booknote.cfi === selection.cfi,
     );
     const notes = annotations.filter((item) => item.note && item.note.trim().length > 0);
     setAnnotationNotes(notes);
-  }, [selection?.cfi, showAnnotationNotes, centralBooknotes]);
+  }, [selection?.cfi, showAnnotationNotes, config?.booknotes]);
 
   // When the 'showAnnotationNotes' state changes for a particular CFI, force a
   // redraw of the NOTE overlay(s) for that CFI so the draw callback (which
   // conditionally hides the bubble when the popup is visible) takes effect.
   useEffect(() => {
     if (!selection?.cfi) return;
-    const notes = centralBooknotes?.filter(
+    const notes = config?.booknotes?.filter(
       (item) => item.type === 'annotation' && !item.deletedAt && item.note && item.cfi === selection.cfi,
     );
     if (!notes || notes.length === 0) return;
@@ -633,7 +700,7 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     for (const item of notes) {
       views.forEach((view) => view?.addAnnotation({ ...item, value: `${NOTE_PREFIX}${item.cfi}` }));
     }
-  }, [showAnnotationNotes, selection?.cfi, centralBooknotes, progress]);
+  }, [showAnnotationNotes, selection?.cfi, config?.booknotes, progress]);
 
   const handleShowAnnotPopup = () => {
     if (!appService?.isMobile) {
@@ -645,7 +712,7 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     setShowWikipediaPopup(false);
   };
 
-  const handleCopy = async (dismissPopup = true) => {
+  const handleCopy = async (dismissPopup = true, update = false) => {
     if (!selection || !selection.text) return;
     setTimeout(() => {
       // Delay to ensure it won't be overridden by system clipboard actions
@@ -664,7 +731,7 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       timeout: 2000,
     });
 
-    const { booknotes: annotations = [] } = config;
+    const annotations = config?.booknotes ? [...config.booknotes] : [];
     const cfi = view?.getCFI(selection.index, selection.range);
     if (!cfi) return;
     const annotation: BookNote = {
@@ -681,6 +748,11 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       (annotation) =>
         annotation.cfi === cfi && annotation.type === 'excerpt' && !annotation.deletedAt,
     );
+
+    // ensure we have views for this book
+    const bookHash = bookKey.split('-')[0]!;
+    const views = getViewsById(bookHash);
+
     if (existingIndex !== -1) {
       const existing = annotations[existingIndex]!;
       const mergePreserveNote = (existing: any, annotation: any, extra: any = {}) => {
@@ -712,6 +784,12 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
           views.forEach((view) => view?.addAnnotation(merged));
         } else {
           annotations[existingIndex]!.deletedAt = Date.now();
+          // Immediately remove both overlays (style and note bubble) so UI updates
+          const deleted = annotations[existingIndex]!;
+          views.forEach((view) => {
+            view?.addAnnotation(deleted, true);
+            view?.addAnnotation({ ...deleted, value: `${NOTE_PREFIX}${deleted.cfi}` }, true);
+          });
           handleDismissPopup();
         }
       }
@@ -722,9 +800,9 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     }
     const updatedConfig = updateBooknotes(bookKey, annotations);
     if (updatedConfig) {
-      const bookHash = bookKey.split('-')[0]!;
+      const bookTitle = getBookData(bookKey)?.book?.title;
       import('@/services/notesService')
-        .then((m) => m.saveNotesForBook(envConfig, bookHash, annotations, config?.title, config?.metaHash))
+        .then((m) => m.saveNotesForBook(envConfig, bookHash, annotations, bookTitle, config?.metaHash))
         .then(() => eventDispatcher.dispatch('notes-updated', { bookHash }))
         .catch((e) => console.error('Failed to persist excerpt notes to central file', e));
     }
@@ -758,10 +836,8 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     const bookHash = bookKey.split('-')[0]!;
     const notesService = await import('@/services/notesService');
 
-    // Use central file as authoritative source when updating style to prevent race conditions
-    let annotations: BookNote[] = update
-      ? await notesService.getNotesForBook(envConfig, bookHash)
-      : config.booknotes ?? [];
+    // Use in-memory booknotes as the single render source
+    let annotations: BookNote[] = config?.booknotes ? [...config.booknotes] : [];
 
     const existingIndex = annotations.findIndex(
       (ann) => ann.cfi === cfi && ann.type === 'annotation' && !ann.deletedAt,
@@ -799,6 +875,12 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
           views.forEach((view) => view?.addAnnotation(merged));
         } else {
           annotations[existingIndex]!.deletedAt = Date.now();
+          // Immediately remove both overlays (style and note bubble) so UI updates
+          const deleted = annotations[existingIndex]!;
+          views.forEach((view) => {
+            view?.addAnnotation(deleted, true);
+            view?.addAnnotation({ ...deleted, value: `${NOTE_PREFIX}${deleted.cfi}` }, true);
+          });
           handleDismissPopup();
         }
       }
@@ -810,7 +892,8 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     }
 
     try {
-      await notesService.saveNotesForBook(envConfig, bookHash, annotations, getConfig(bookKey)?.title, getConfig(bookKey)?.metaHash);
+      const bookTitle = getBookData(bookKey)?.book?.title;
+      await notesService.saveNotesForBook(envConfig, bookHash, annotations, bookTitle, getConfig(bookKey)?.metaHash);
       updateBooknotes(bookKey, annotations);
       eventDispatcher.dispatch('notes-updated', { bookHash });
     } catch (e) {
@@ -823,11 +906,13 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     const { sectionHref: href } = progress;
     selection.href = href;
     // If there's already an annotation for this CFI, open it for edit instead of creating new
-    const config = getConfig(bookKey)!;
-    const { booknotes: annotations = [] } = config;
+    const config = getConfig(bookKey);
+    const annotations = config?.booknotes ? [...config.booknotes] : [];
     const existing = annotations.find(
       (a) => a.type === 'annotation' && !a.deletedAt && a.cfi === selection.cfi,
     );
+    // ensure any floating annotation popup is hidden so notebook editor is interactive
+    eventDispatcher.dispatch('hide-annotation-popup');
     setNotebookVisible(true);
     if (existing) {
       setNotebookEditAnnotation(existing);
@@ -937,7 +1022,7 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     if (!bookDoc || !book || !bookDoc.toc) return;
 
     const config = getConfig(bookKey)!;
-    const { booknotes: allNotes = [] } = config;
+    const allNotes = config?.booknotes ?? [];
     const booknotes = allNotes.filter((note) => !note.deletedAt);
     if (booknotes.length === 0) {
       eventDispatcher.dispatch('toast', {

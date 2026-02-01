@@ -4,8 +4,21 @@ import { EnvConfigType, isTauriAppPlatform } from '@/services/environment';
 import { BOOK_UNGROUPED_NAME } from '@/services/constants';
 import { md5Fingerprint } from '@/utils/md5';
 
+interface NotesFileData {
+  version: number;
+  updatedAt: number;
+  books: {
+    [bookHash: string]: {
+      title?: string;
+      metaHash?: string;
+      notes: any[];
+    };
+  };
+}
+
 interface LibraryState {
   library: Book[]; // might contain deleted books
+  notesData: NotesFileData | null; // 缓存的 note.json 数据
   isSyncing: boolean;
   syncProgress: number;
   checkOpenWithBooks: boolean;
@@ -32,10 +45,14 @@ interface LibraryState {
   getGroupName: (id: string) => string | undefined;
   getParentPath: (path: string) => string | undefined;
   getGroupsByParent: (parentPath?: string) => BookGroupType[];
+  setNotesData: (data: NotesFileData | null) => void;
+  getNotesData: () => NotesFileData | null;
+  loadNotesData: (envConfig: EnvConfigType) => Promise<void>;
 }
 
 export const useLibraryStore = create<LibraryState>((set, get) => ({
   library: [],
+  notesData: null,
   isSyncing: false,
   syncProgress: 0,
   currentBookshelf: [],
@@ -99,6 +116,27 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       }
       return { selectedBooks: newSelection };
     });
+  },
+
+  setNotesData: (data: NotesFileData | null) => {
+    set({ notesData: data });
+  },
+
+  getNotesData: () => {
+    return get().notesData;
+  },
+
+  loadNotesData: async (envConfig: EnvConfigType) => {
+    try {
+      console.log('[LibraryStore] loadNotesData: starting...');
+      const notesService = await import('@/services/notesService');
+      const data = await notesService.loadAllNotes(envConfig);
+      console.log('[LibraryStore] loadNotesData: loaded', data?.books ? Object.keys(data.books).length : 0, 'books');
+      set({ notesData: data });
+    } catch (error) {
+      console.error('[LibraryStore] Failed to load notes data:', error);
+      set({ notesData: null });
+    }
   },
 
   refreshGroups: () => {

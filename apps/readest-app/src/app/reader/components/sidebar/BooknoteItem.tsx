@@ -23,13 +23,15 @@ interface BooknoteItemProps {
   bookKey: string;
   item: BookNote;
   onClick?: () => void;
+  onUpdate?: (notes: BookNote[]) => void;
 }
 
-const BooknoteItem: React.FC<BooknoteItemProps> = ({ bookKey, item, onClick }) => {
+const BooknoteItem: React.FC<BooknoteItemProps> = ({ bookKey, item, onClick, onUpdate }) => {
   const _ = useTranslation();
   const { envConfig } = useEnv();
   const { settings } = useSettingsStore();
-  const { getConfig, saveConfig, updateBooknotes } = useBookDataStore();
+  const { getConfig, updateBooknotes } = useBookDataStore();
+  const config = useBookDataStore((state) => state.getConfig(bookKey));
   const { getProgress, getView, getViewsById } = useReaderStore();
   const { setNotebookEditAnnotation, setNotebookVisible } = useNotebookStore();
 
@@ -57,26 +59,42 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({ bookKey, item, onClick }) =
     if (!bookKey) return;
     const bookHash = bookKey.split('-')[0]!;
     const views = getViewsById(bookHash);
-    // mark as deleted in centralized notes file
     try {
-      const notes = await (await import('@/services/notesService')).getNotesForBook(envConfig, bookHash);
+      const notes = [...(config?.booknotes ?? [])];
       for (const item of notes) {
         if (item.id === note.id) {
           item.deletedAt = Date.now();
-          views.forEach((view) =>
-            view?.addAnnotation({ ...item, value: `${NOTE_PREFIX}${item.cfi}` }, true),
-          );
+          // remove both note bubble and style overlays immediately
+          views.forEach((view) => {
+            view?.addAnnotation({ ...item, value: `${NOTE_PREFIX}${item.cfi}` }, true);
+            view?.addAnnotation(item, true);
+          });
         }
       }
-      await (await import('@/services/notesService')).saveNotesForBook(envConfig, bookHash, notes, getConfig(bookKey)?.title, getConfig(bookKey)?.metaHash);
       updateBooknotes(bookKey, notes);
+      await (await import('@/services/notesService')).saveNotesForBook(
+        envConfig,
+        bookHash,
+        notes,
+        getConfig(bookKey)?.title,
+        getConfig(bookKey)?.metaHash,
+      );
       eventDispatcher.dispatch('notes-updated', { bookHash });
+      // Notify reader to remove overlays immediately for this deleted note
+      eventDispatcher.dispatch('annotation-removed', { bookHash, id: note.id });
     } catch (e) {
       console.error('Failed to delete note in central file', e);
+      eventDispatcher.dispatch('toast', {
+        type: 'error',
+        message: _('Failed to delete note'),
+        timeout: 3000,
+      });
     }
   };
 
   const editNote = (note: BookNote) => {
+    // hide floating annotation popup if present so notebook editor receives clicks
+    eventDispatcher.dispatch('hide-annotation-popup');
     setNotebookVisible(true);
     setNotebookEditAnnotation(note);
   };
@@ -91,16 +109,27 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({ bookKey, item, onClick }) =
     if (!bookKey || !editorDraft) return;
     const bookHash = bookKey.split('-')[0]!;
     try {
-      const notes = await (await import('@/services/notesService')).getNotesForBook(envConfig, bookHash);
+      const notes = [...(config?.booknotes ?? [])];
       const existingIndex = notes.findIndex((annotation) => item.id === annotation.id);
       if (existingIndex === -1) return;
       notes[existingIndex]!.updatedAt = Date.now();
       notes[existingIndex]!.text = editorDraft;
-      await (await import('@/services/notesService')).saveNotesForBook(envConfig, bookHash, notes, getConfig(bookKey)?.title, getConfig(bookKey)?.metaHash);
       updateBooknotes(bookKey, notes);
+      await (await import('@/services/notesService')).saveNotesForBook(
+        envConfig,
+        bookHash,
+        notes,
+        getConfig(bookKey)?.title,
+        getConfig(bookKey)?.metaHash,
+      );
       eventDispatcher.dispatch('notes-updated', { bookHash });
     } catch (e) {
       console.error('Failed to save bookmark text to central notes file', e);
+      eventDispatcher.dispatch('toast', {
+        type: 'error',
+        message: _('Failed to save bookmark'),
+        timeout: 3000,
+      });
     }
   };
 

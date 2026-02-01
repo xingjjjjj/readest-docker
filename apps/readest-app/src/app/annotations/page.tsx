@@ -7,6 +7,7 @@ import { useEnv } from '@/context/EnvContext';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useThemeStore } from '@/store/themeStore';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useBookDataStore } from '@/store/bookDataStore';
 import { Book, BookNote } from '@/types/book';
 import { navigateToReader } from '@/utils/nav';
 import { eventDispatcher } from '@/utils/event';
@@ -25,6 +26,7 @@ const AnnotationsPage: React.FC = () => {
     const { envConfig, appService } = useEnv();
     const { library } = useLibraryStore();
     const { safeAreaInsets } = useThemeStore();
+    const { getConfig } = useBookDataStore();
     const [booksWithNotes, setBooksWithNotes] = useState<BookWithNotes[]>([]);
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'annotation' | 'excerpt'>('all');
@@ -33,36 +35,91 @@ const AnnotationsPage: React.FC = () => {
 
     useEffect(() => {
         const loadAnnotations = async () => {
-            if (!appService) return;
+            console.log('[Annotations] loadAnnotations triggered');
+
+            if (!appService || !envConfig) {
+                console.log('[Annotations] appService or envConfig not ready');
+                setLoading(false);
+                return;
+            }
+
             setLoading(true);
 
             try {
+                console.log('[Annotations] Reading notes from JSON file directly...');
+
+                // 直接读取 note.json，不依赖 library 加载
+                const notesService = await import('@/services/notesService');
+                const allNotes = await notesService.loadAllNotes(envConfig);
+
+                console.log('[Annotations] Loaded notes:', allNotes?.books ? Object.keys(allNotes.books).length : 0, 'books');
+
+                if (!allNotes || !allNotes.books) {
+                    console.log('[Annotations] No notes data available');
+                    setLoading(false);
+                    return;
+                }
+
+                // 从 library 获取书籍信息（可能还在加载中）
+                const currentLibrary = library || [];
+                console.log('[Annotations] Current library:', currentLibrary.length, 'books');
+
                 const booksData: BookWithNotes[] = [];
 
-                for (const book of library) {
-                    if (book.deletedAt) continue;
+                // 遍历 notes.json 中的所有书籍
+                for (const [bookHash, bookEntry] of Object.entries(allNotes.books)) {
+                    const notes = (bookEntry.notes || []).filter(
+                        (note: BookNote) => !note.deletedAt && (note.note || note.text),
+                    );
 
-                    try {
-                        const notesService = await import('@/services/notesService');
-                        const notes = (await notesService.getNotesForBook(envConfig, book.hash)).filter(
-                            (note: BookNote) => !note.deletedAt && (note.note || note.text),
-                        );
+                    if (notes.length === 0) continue;
 
-                        if (notes.length > 0) {
-                            booksData.push({
-                                ...book,
+                    // 尝试从 library 中找到对应的书籍
+                    let book = currentLibrary.find((b) => b.hash === bookHash);
+
+                    // 如果 library 中没找到，使用 notes.json 中存储的信息创建一个临时 book 对象
+                    if (!book) {
+                        console.log(`[Annotations] Book ${bookHash} not in library, using notes metadata`);
+                        book = {
+                            hash: bookHash,
+                            title: bookEntry.title || 'Unknown Book',
+                            author: '',
+                            format: 'unknown',
+                            relativePath: '',
+                            createdAt: Date.now(),
+                            updatedAt: Date.now(),
+                            progress: 0,
+                        } as Book;
+                    }
+
+                    if (!book.deletedAt) {
+                        console.log(`[Annotations] Book ${book.title}: found ${notes.length} notes`);
+
+                        // 确保 note.json 中的 title 字段被正确保存（如果从 library 获取到书名）
+                        if (book.title !== 'Unknown Book' && book.title !== bookEntry.title) {
+                            // 异步更新 note.json 中的书名（不影响当前显示）
+                            notesService.saveNotesForBook(
+                                envConfig,
+                                bookHash,
                                 notes,
-                                config,
-                            });
+                                book.title,  // 使用 library 中的书名
+                                bookEntry.metaHash,
+                            ).catch((e) => console.warn(`[Annotations] Failed to update title for ${bookHash}:`, e));
                         }
-                    } catch (error) {
-                        console.warn(`Failed to load config for book: ${book.title}`, error);
+
+                        const config = getConfig(`${book.hash}-0`);
+                        booksData.push({
+                            ...book,
+                            notes,
+                            config,
+                        });
                     }
                 }
 
+                console.log('[Annotations] Final booksData:', booksData.length, 'books with notes');
                 setBooksWithNotes(booksData);
             } catch (error) {
-                console.error('Failed to load annotations:', error);
+                console.error('[Annotations] Failed to load annotations:', error);
                 eventDispatcher.dispatch('toast', {
                     type: 'error',
                     message: _('Failed to load annotations'),
@@ -74,7 +131,7 @@ const AnnotationsPage: React.FC = () => {
         };
 
         loadAnnotations();
-    }, [library, appService, _, envConfig]);
+    }, [appService, envConfig, library]);
 
     const filteredNotes = useMemo(() => {
         let allNotes: Array<{

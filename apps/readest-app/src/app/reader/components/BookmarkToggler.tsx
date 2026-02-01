@@ -23,10 +23,10 @@ const BookmarkToggler: React.FC<BookmarkTogglerProps> = ({ bookKey }) => {
   const _ = useTranslation();
   const { envConfig } = useEnv();
   const { settings } = useSettingsStore();
-  const { getConfig, saveConfig, getBookData, updateBooknotes } = useBookDataStore();
+  const { getConfig, getBookData, updateBooknotes } = useBookDataStore();
+  const config = useBookDataStore((state) => state.getConfig(bookKey));
   const { getProgress, getViewState, setBookmarkRibbonVisibility } = useReaderStore();
   const [isBookmarked, setIsBookmarked] = useState(false);
-  const config = getConfig(bookKey);
   const progress = getProgress(bookKey);
 
   const toggleBookmark = async () => {
@@ -106,32 +106,14 @@ const BookmarkToggler: React.FC<BookmarkTogglerProps> = ({ bookKey }) => {
   }, [bookKey]);
 
   useEffect(() => {
-    const check = async () => {
-      const { location: cfi } = progress || {};
-      if (!cfi || !bookKey) return;
-      try {
-        const bookHash = bookKey.split('-')[0]!;
-        const notes = await (await import('@/services/notesService')).getNotesForBook(envConfig, bookHash);
-        const locationBookmarked = (notes || [])
-          .filter((booknote) => booknote.type === 'bookmark' && !booknote.deletedAt)
-          .some((item) => isCfiInLocation(item.cfi, cfi));
-        setIsBookmarked(locationBookmarked);
-        setBookmarkRibbonVisibility(bookKey, locationBookmarked);
-      } catch (e) {
-        console.warn('Failed to check centralized bookmarks for', bookKey, e);
-      }
-    };
-    check();
-    const handler = (payload: any) => {
-      if (!payload || payload.bookHash !== (bookKey && bookKey.split('-')[0])) return;
-      check();
-    };
-    eventDispatcher.on('notes-updated', handler);
-    return () => {
-      eventDispatcher.off('notes-updated', handler);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config, progress]);
+    const { location: cfi } = progress || {};
+    if (!cfi || !bookKey) return;
+    const locationBookmarked = (config?.booknotes ?? [])
+      .filter((booknote) => booknote.type === 'bookmark' && !booknote.deletedAt)
+      .some((item) => isCfiInLocation(item.cfi, cfi));
+    setIsBookmarked(locationBookmarked);
+    setBookmarkRibbonVisibility(bookKey, locationBookmarked);
+  }, [config?.booknotes, progress, bookKey, setBookmarkRibbonVisibility]);
 
   return (
     <Button

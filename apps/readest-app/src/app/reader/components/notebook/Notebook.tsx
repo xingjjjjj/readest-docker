@@ -37,13 +37,12 @@ const Notebook: React.FC = ({ }) => {
   const { sideBarBookKey } = useSidebarStore();
   const { notebookWidth, isNotebookVisible, isNotebookPinned } = useNotebookStore();
   const { notebookNewAnnotation, notebookEditAnnotation, setNotebookPin } = useNotebookStore();
-  const { getBookData, getConfig, saveConfig, updateBooknotes } = useBookDataStore();
+  const { getBookData, getConfig, updateBooknotes } = useBookDataStore();
+  const config = useBookDataStore((state) => state.getConfig(sideBarBookKey));
   const { getView, getViewSettings } = useReaderStore();
   const { getNotebookWidth, setNotebookWidth, setNotebookVisible, toggleNotebookPin } =
     useNotebookStore();
   const { setNotebookNewAnnotation, setNotebookEditAnnotation } = useNotebookStore();
-
-  const [bookNotesAll, setBookNotesAll] = useState<BookNote[]>([]);
 
   const [isSearchBarVisible, setIsSearchBarVisible] = useState(false);
   const [searchResults, setSearchResults] = useState<BookNote[] | null>(null);
@@ -108,13 +107,11 @@ const Notebook: React.FC = ({ }) => {
   const handleSaveNote = async (selection: TextSelection, note: string) => {
     if (!sideBarBookKey) return;
     const view = getView(sideBarBookKey);
-    const config = getConfig(sideBarBookKey)!;
-
     const cfi = view?.getCFI(selection.index, selection.range);
     if (!cfi) return;
 
     // operate on the centralized notes state
-    const annotations = [...bookNotesAll];
+    const annotations = [...(config?.booknotes ?? [])];
 
     const style = settings.globalReadSettings.highlightStyle;
     const color = settings.globalReadSettings.highlightStyles[style];
@@ -122,8 +119,6 @@ const Notebook: React.FC = ({ }) => {
       id: uniqueId(),
       type: 'annotation',
       cfi,
-      style,
-      color,
       note,
       text: selection.text,
       createdAt: Date.now(),
@@ -137,6 +132,8 @@ const Notebook: React.FC = ({ }) => {
       const existing = annotations[existingIndex]!;
       annotation.id = existing.id;
       annotation.createdAt = existing.createdAt || annotation.createdAt;
+      annotation.style = existing.style;
+      annotation.color = existing.color;
       delete (annotation as any).deletedAt;
       annotations[existingIndex] = { ...existing, ...annotation };
       try {
@@ -146,6 +143,8 @@ const Notebook: React.FC = ({ }) => {
         // ignore
       }
     } else {
+      annotation.style = style;
+      annotation.color = color;
       view?.addAnnotation({ ...annotation, value: `${NOTE_PREFIX}${annotation.cfi}` });
       annotations.push(annotation);
     }
@@ -154,11 +153,19 @@ const Notebook: React.FC = ({ }) => {
     updateBooknotes(sideBarBookKey, annotations);
     try {
       const bookHash = sideBarBookKey.split('-')[0]!;
-      await (await import('@/services/notesService')).saveNotesForBook(envCfg, bookHash, annotations, config?.title, config?.metaHash);
-      setBookNotesAll(annotations);
+      const bookTitle = getBookData(sideBarBookKey)?.book?.title;
+      await (await import('@/services/notesService')).saveNotesForBook(envCfg, bookHash, annotations, bookTitle, config?.metaHash);
       eventDispatcher.dispatch('notes-updated', { bookHash });
+      // Ensure reader immediately re-applies this annotation (preserve style)
+      const applied = annotations[existingIndex] ?? annotation;
+      eventDispatcher.dispatch('annotation-applied', { bookHash, annotation: applied });
     } catch (e) {
       console.error('Failed to persist notes to central file', e);
+      eventDispatcher.dispatch('toast', {
+        type: 'error',
+        message: _('Failed to save note'),
+        timeout: 3000,
+      });
     }
 
     setNotebookNewAnnotation(null);
@@ -168,7 +175,7 @@ const Notebook: React.FC = ({ }) => {
     if (!sideBarBookKey) return;
     const view = getView(sideBarBookKey);
     const config = getConfig(sideBarBookKey)!;
-    const annotations = [...bookNotesAll];
+    const annotations = [...(config?.booknotes ?? [])];
     const existingIndex = annotations.findIndex((item) => item.id === note.id);
     if (existingIndex === -1) return;
     if (isDelete) {
@@ -179,15 +186,44 @@ const Notebook: React.FC = ({ }) => {
     const existing = annotations[existingIndex]!;
     const merged = { ...existing, ...note, updatedAt: note.updatedAt || Date.now() };
     annotations[existingIndex] = merged;
-    view?.addAnnotation({ ...merged, value: `${NOTE_PREFIX}${merged.cfi}` }, true);
+    // Update overlays immediately: remove only on delete, otherwise reapply
+    try {
+      if (isDelete) {
+        view?.addAnnotation({ ...merged, value: `${NOTE_PREFIX}${merged.cfi}` }, true);
+        view?.addAnnotation(merged, true);
+      } else {
+        if (merged.style) {
+          view?.addAnnotation(merged);
+        }
+        if (merged.note && merged.note.trim()) {
+          view?.addAnnotation({ ...merged, value: `${NOTE_PREFIX}${merged.cfi}` });
+        } else {
+          // ensure note bubble removed if note cleared
+          view?.addAnnotation({ ...merged, value: `${NOTE_PREFIX}${merged.cfi}` }, true);
+        }
+      }
+    } catch (e) {
+      // ignore overlay errors
+    }
     updateBooknotes(sideBarBookKey, annotations);
     try {
       const bookHash = sideBarBookKey.split('-')[0]!;
-      await (await import('@/services/notesService')).saveNotesForBook(envCfg, bookHash, annotations, config?.title, config?.metaHash);
-      setBookNotesAll(annotations);
+      const bookTitle = getBookData(sideBarBookKey)?.book?.title;
+      await (await import('@/services/notesService')).saveNotesForBook(envCfg, bookHash, annotations, bookTitle, config?.metaHash);
       eventDispatcher.dispatch('notes-updated', { bookHash });
+      // notify reader to re-apply or remove overlays accordingly
+      if (isDelete) {
+        eventDispatcher.dispatch('annotation-removed', { bookHash, id: merged.id });
+      } else {
+        eventDispatcher.dispatch('annotation-applied', { bookHash, annotation: merged });
+      }
     } catch (e) {
       console.error('Failed to persist notes to central file', e);
+      eventDispatcher.dispatch('toast', {
+        type: 'error',
+        message: isDelete ? _('Failed to delete note') : _('Failed to update note'),
+        timeout: 3000,
+      });
     }
     setNotebookEditAnnotation(null);
   };
@@ -212,31 +248,10 @@ const Notebook: React.FC = ({ }) => {
 
   const { handleDragStart, handleDragKeyDown } = useDrag(onDragMove, onDragKeyDown);
 
-  const config = getConfig(sideBarBookKey);
-
-  // Use centralized notes storage instead of per-book config
-  useEffect(() => {
-    const load = async () => {
-      if (!sideBarBookKey) {
-        setBookNotesAll([]);
-        return;
-      }
-      const bookHash = sideBarBookKey.split('-')[0]!;
-      try {
-        const notes = await (await import('@/services/notesService')).getNotesForBook(envCfg, bookHash);
-        setBookNotesAll(notes || []);
-      } catch (e) {
-        console.warn('Failed to load notes for book', bookHash, e);
-        setBookNotesAll([]);
-      }
-    };
-    load();
-  }, [sideBarBookKey, envCfg]);
-
-  const annotationNotes = bookNotesAll
+  const annotationNotes = (config?.booknotes ?? [])
     .filter((note) => note.type === 'annotation' && note.note && !note.deletedAt)
     .sort((a, b) => b.createdAt - a.createdAt);
-  const excerptNotes = bookNotesAll
+  const excerptNotes = (config?.booknotes ?? [])
     .filter((note) => note.type === 'excerpt' && note.text && !note.deletedAt)
     .sort((a, b) => a.createdAt - b.createdAt);
 
@@ -365,8 +380,8 @@ const Notebook: React.FC = ({ }) => {
             )}
           </div>
           <ul className=''>
-            {filteredExcerptNotes.map((item, index) => (
-              <li key={`${index}-${item.id}`} className='my-2'>
+            {filteredExcerptNotes.map((item) => (
+              <li key={item.id} className='my-2'>
                 <div
                   role='button'
                   tabIndex={0}
@@ -424,8 +439,8 @@ const Notebook: React.FC = ({ }) => {
             <NoteEditor onSave={handleSaveNote} onEdit={(item) => handleEditNote(item, false)} />
           )}
           <ul>
-            {filteredAnnotationNotes.map((item, index) => (
-              <BooknoteItem key={`${index}-${item.cfi}`} bookKey={sideBarBookKey} item={item} />
+            {filteredAnnotationNotes.map((item) => (
+              <BooknoteItem key={item.id} bookKey={sideBarBookKey} item={item} />
             ))}
           </ul>
         </div>

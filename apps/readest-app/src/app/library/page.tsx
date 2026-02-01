@@ -91,6 +91,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     checkLastOpenBooks,
     setCheckOpenWithBooks,
     setCheckLastOpenBooks,
+    loadNotesData,
   } = useLibraryStore();
   const _ = useTranslation();
   const { selectFiles } = useFileSelector(appService, _);
@@ -186,8 +187,12 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     const library = await appService.loadLibraryBooks();
     setSettings(settings);
     setLibrary(library);
+    // 加载 notes 数据到内存
+    console.log('[LibraryPage] handleRefreshLibrary: calling loadNotesData');
+    await loadNotesData(envConfig);
+    console.log('[LibraryPage] handleRefreshLibrary: loadNotesData completed');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [envConfig, appService]);
+  }, [envConfig, appService, loadNotesData]);
 
   useEffect(() => {
     if (appService?.hasWindow) {
@@ -331,6 +336,10 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       setCheckLastOpenBooks(opened);
 
       setLibrary(library);
+      // 加载 notes 数据到内存
+      console.log('[LibraryPage] Initial load: calling loadNotesData');
+      await loadNotesData(envConfig);
+      console.log('[LibraryPage] Initial load: loadNotesData completed');
       setLibraryLoaded(true);
       if (loadingTimeout) clearTimeout(loadingTimeout);
       setLoading(false);

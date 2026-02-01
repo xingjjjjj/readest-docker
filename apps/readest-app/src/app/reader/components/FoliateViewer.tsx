@@ -15,6 +15,8 @@ import { useParallelViewStore } from '@/store/parallelViewStore';
 import { useMouseEvent, useTouchEvent } from '../hooks/useIframeEvents';
 import { usePagination } from '../hooks/usePagination';
 import { useFoliateEvents } from '../hooks/useFoliateEvents';
+import { throttle } from '@/utils/throttle';
+import { eventDispatcher } from '@/utils/event';
 import { useProgressSync } from '../hooks/useProgressSync';
 import { useProgressAutoSave } from '../hooks/useProgressAutoSave';
 import { useBackgroundTexture } from '@/hooks/useBackgroundTexture';
@@ -235,31 +237,26 @@ const FoliateViewer: React.FC<{
         manageSyntaxHighlighting(detail.doc, viewSettings);
       }
 
-      setTimeout(async () => {
-        try {
-          const notesService = await import('@/services/notesService');
-          const bookHash = bookKey.split('-')[0]!;
-          const notes = await notesService.getNotesForBook(envConfig, bookHash);
-          const annotationsWithStyle = (notes || []).filter(
-            (item) => !item.deletedAt && item.type === 'annotation' && item.style,
-          );
-          annotationsWithStyle.forEach((annotation) => {
-            viewRef.current?.addAnnotation(annotation);
-            if (annotation.note && annotation.note.trim()) {
-              viewRef.current?.addAnnotation({ ...annotation, value: `${NOTE_PREFIX}${annotation.cfi}` });
-            }
-          });
-
-          // ensure annotations that only have a note (no style) still render their note bubble
-          const annotationsWithNoteOnly = (notes || []).filter(
-            (item) => !item.deletedAt && item.type === 'annotation' && !item.style && item.note && item.note.trim(),
-          );
-          annotationsWithNoteOnly.forEach((annotation) => {
+      setTimeout(() => {
+        const cfg = getConfig(bookKey);
+        const notes = cfg?.booknotes ?? [];
+        const annotationsWithStyle = notes.filter(
+          (item) => !item.deletedAt && item.type === 'annotation' && item.style,
+        );
+        annotationsWithStyle.forEach((annotation) => {
+          viewRef.current?.addAnnotation(annotation);
+          if (annotation.note && annotation.note.trim()) {
             viewRef.current?.addAnnotation({ ...annotation, value: `${NOTE_PREFIX}${annotation.cfi}` });
-          });
-        } catch (err) {
-          console.warn('Failed to load annotation overlays from notes file', err);
-        }
+          }
+        });
+
+        // ensure annotations that only have a note (no style) still render their note bubble
+        const annotationsWithNoteOnly = notes.filter(
+          (item) => !item.deletedAt && item.type === 'annotation' && !item.style && item.note && item.note.trim(),
+        );
+        annotationsWithNoteOnly.forEach((annotation) => {
+          viewRef.current?.addAnnotation({ ...annotation, value: `${NOTE_PREFIX}${annotation.cfi}` });
+        });
       }, 100);
 
       if (!detail.doc.isEventListenersAdded) {
@@ -296,6 +293,18 @@ const FoliateViewer: React.FC<{
     }
   };
 
+  const reapplyAnnotationsRef = useRef<any>(null);
+  if (!reapplyAnnotationsRef.current) {
+    reapplyAnnotationsRef.current = throttle(async () => {
+      try {
+        const bookHash = bookKey.split('-')[0]!;
+        eventDispatcher.dispatch('notes-updated', { bookHash });
+      } catch (e) {
+        // ignore
+      }
+    }, 150);
+  }
+
   const docRelocateHandler = (event: Event) => {
     const detail = (event as CustomEvent).detail;
     if (detail.reason !== 'scroll' && detail.reason !== 'page') return;
@@ -311,6 +320,9 @@ const FoliateViewer: React.FC<{
         }
       });
     }
+
+    // Schedule a throttled re-application of annotations for the new renderer state
+    reapplyAnnotationsRef.current();
   };
 
   const { handlePageFlip, handleContinuousScroll } = usePagination(bookKey, viewRef, containerRef);
@@ -379,7 +391,13 @@ const FoliateViewer: React.FC<{
           const toMigrate = oldNotes.filter((n) => n && !n.deletedAt && !(notes || []).some((m) => m.id === n.id));
           if (toMigrate.length) {
             const merged = [...(notes || []), ...toMigrate];
-            await notesService.saveNotesForBook(envConfig, bookHash, merged, cfg?.title, cfg?.metaHash);
+            await notesService.saveNotesForBook(
+              envConfig,
+              bookHash,
+              merged,
+              bookData?.book?.title,
+              bookData?.book?.metaHash,
+            );
             updateBooknotes(bookKey, merged);
             try {
               // saveConfig will strip booknotes before writing per-book config

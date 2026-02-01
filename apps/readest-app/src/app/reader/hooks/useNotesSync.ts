@@ -93,7 +93,12 @@ export const useNotesSync = (bookKey: string) => {
           const notesService = await import('@/services/notesService');
           const bookHash = book?.hash;
           if (bookHash) {
-            await notesService.saveNotesForBook(envConfig, bookHash, mergedNotes, book?.title, book?.metaHash);
+            await notesService.saveNotesForBook(envConfig, bookHash, mergedNotes, book?.title, book?.metaHash); try {
+              const { eventDispatcher } = await import('@/utils/event');
+              eventDispatcher.dispatch('notes-updated', { bookHash });
+            } catch (e) {
+              // ignore
+            }
           }
         } catch (e) {
           console.error('Failed to persist merged synced notes to central file', e);

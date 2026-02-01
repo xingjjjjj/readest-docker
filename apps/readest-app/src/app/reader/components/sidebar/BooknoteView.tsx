@@ -6,48 +6,16 @@ import { findTocItemBS } from '@/utils/toc';
 import { TOCItem } from '@/libs/document';
 import { BooknoteGroup, BookNoteType } from '@/types/book';
 import BooknoteItem from './BooknoteItem';
-import { useEnv } from '@/context/EnvContext';
-import { eventDispatcher } from '@/utils/event';
 
 const BooknoteView: React.FC<{
   type: BookNoteType;
   bookKey: string;
   toc: TOCItem[];
 }> = ({ type, bookKey, toc }) => {
-  const { getConfig } = useBookDataStore();
+  const config = useBookDataStore((state) => state.getConfig(bookKey));
   const { setActiveBooknoteType, setBooknoteResults } = useSidebarStore();
-  const config = getConfig(bookKey)!;
 
-  const [booknotesAll, setBooknotesAll] = React.useState<any[]>([]);
-
-  const { envConfig } = useEnv();
-
-  React.useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      if (!bookKey) return;
-      const bookHash = bookKey.split('-')[0]!;
-      try {
-        const notes = await (await import('@/services/notesService')).getNotesForBook(envConfig, bookHash);
-        if (!cancelled) setBooknotesAll(notes || []);
-      } catch (e) {
-        console.warn('Failed to load central notes for BooknoteView', e);
-        if (!cancelled) setBooknotesAll([]);
-      }
-    };
-    load();
-    const handler = (payload: any) => {
-      if (!payload || payload.bookHash !== bookKey.split('-')[0]) return;
-      load();
-    };
-    eventDispatcher.on('notes-updated', handler);
-    return () => {
-      cancelled = true;
-      eventDispatcher.off('notes-updated', handler);
-    };
-  }, [bookKey, envConfig]);
-
-  const booknotes = booknotesAll.filter((note) => note.type === type && !note.deletedAt);
+  const booknotes = (config?.booknotes ?? []).filter((note) => note.type === type && !note.deletedAt);
 
   const booknoteGroups: { [href: string]: BooknoteGroup } = {};
   for (const booknote of booknotes) {
@@ -86,13 +54,8 @@ const BooknoteView: React.FC<{
           <li key={group.href} className='p-2'>
             <h3 className='content font-size-base line-clamp-1 font-normal'>{group.label}</h3>
             <ul>
-              {group.booknotes.map((item, index) => (
-                <BooknoteItem
-                  key={`${index}-${item.cfi}`}
-                  bookKey={bookKey}
-                  item={item}
-                  onClick={handleBrowseBookNotes}
-                />
+              {group.booknotes.map((item) => (
+                <BooknoteItem key={item.id} bookKey={bookKey} item={item} onClick={handleBrowseBookNotes} />
               ))}
             </ul>
           </li>

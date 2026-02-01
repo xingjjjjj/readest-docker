@@ -26,8 +26,34 @@ export const loadAllNotes = async (envConfig: EnvConfigType): Promise<NotesFile>
     try {
         if (!(await appService.fs.exists(fn, 'Books'))) return DEFAULT_NOTES_FILE;
         const str = (await appService.fs.readFile(fn, 'Books', 'text')) as string;
-        const parsed = JSON.parse(str) as NotesFile;
-        return parsed;
+        try {
+            const parsed = JSON.parse(str) as NotesFile;
+            return parsed;
+        } catch (parseError) {
+            // JSON parsing failed - try to recover by extracting the last valid JSON object
+            console.warn('[notesService] JSON parse failed, attempting recovery:', parseError);
+            try {
+                // Try to find the last complete JSON object by looking for the pattern: }, "updatedAt": number}
+                const match = str.match(/}\s*,\s*"updatedAt":\s*\d+\s*}/);
+                if (match) {
+                    const validJson = str.substring(0, match.index! + match[0].length);
+                    const recovered = JSON.parse(validJson) as NotesFile;
+                    console.warn('[notesService] Successfully recovered partial data');
+                    // Save the recovered version to clean up the file
+                    try {
+                        await saveAllNotes(envConfig, recovered);
+                        console.warn('[notesService] Saved recovered data back to file');
+                    } catch (saveErr) {
+                        console.warn('[notesService] Could not save recovered data:', saveErr);
+                    }
+                    return recovered;
+                }
+                console.warn('[notesService] Could not find valid JSON structure for recovery');
+            } catch (recoveryError) {
+                console.warn('[notesService] Recovery attempt failed:', recoveryError);
+            }
+            return DEFAULT_NOTES_FILE;
+        }
     } catch (e) {
         console.warn('[notesService] failed to load notes file:', e);
         return DEFAULT_NOTES_FILE;
