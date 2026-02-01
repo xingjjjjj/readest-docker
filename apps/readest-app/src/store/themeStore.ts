@@ -153,13 +153,14 @@ export const loadDataTheme = () => {
 
   const themeMode = localStorage.getItem('themeMode');
   const themeColor = localStorage.getItem('themeColor');
+
   if (themeMode && themeColor) {
     const systemIsDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const isDarkMode = themeMode === 'dark' || (themeMode === 'auto' && systemIsDarkMode);
-    document.documentElement.setAttribute(
-      'data-theme',
-      `${themeColor}-${isDarkMode ? 'dark' : 'light'}`,
-    );
+    const theme = `${themeColor}-${isDarkMode ? 'dark' : 'light'}`;
+    document.documentElement.setAttribute('data-theme', theme);
+    // 确保主题立即应用，防止闪烁
+    document.documentElement.classList.remove('loading-theme');
   }
 };
 

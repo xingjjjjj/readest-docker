@@ -99,27 +99,39 @@ const AnnotationsHeader: React.FC<AnnotationsHeaderProps> = ({
                             </div>
                         }
                     >
-                        <ul className='menu bg-base-100 rounded-box w-40 p-2 shadow'>
+                        <ul className='menu bg-base-100 rounded-box w-40 p-2 shadow z-50'>
                             <li>
                                 <button
+                                    type='button'
                                     onClick={() => onFilterChange('all')}
-                                    className={filterType === 'all' ? 'active' : ''}
+                                    className={clsx(
+                                        'text-sm cursor-pointer',
+                                        filterType === 'all' ? 'active bg-primary text-primary-content font-semibold' : 'hover:bg-base-200'
+                                    )}
                                 >
                                     {_('All')} ({totalCount})
                                 </button>
                             </li>
                             <li>
                                 <button
+                                    type='button'
                                     onClick={() => onFilterChange('annotation')}
-                                    className={filterType === 'annotation' ? 'active' : ''}
+                                    className={clsx(
+                                        'text-sm cursor-pointer',
+                                        filterType === 'annotation' ? 'active bg-primary text-primary-content font-semibold' : 'hover:bg-base-200'
+                                    )}
                                 >
                                     {_('Annotations')} ({annotationCount})
                                 </button>
                             </li>
                             <li>
                                 <button
+                                    type='button'
                                     onClick={() => onFilterChange('excerpt')}
-                                    className={filterType === 'excerpt' ? 'active' : ''}
+                                    className={clsx(
+                                        'text-sm cursor-pointer',
+                                        filterType === 'excerpt' ? 'active bg-primary text-primary-content font-semibold' : 'hover:bg-base-200'
+                                    )}
                                 >
                                     {_('Excerpts')} ({excerptCount})
                                 </button>
@@ -127,37 +139,33 @@ const AnnotationsHeader: React.FC<AnnotationsHeaderProps> = ({
                         </ul>
                     </Dropdown>
 
-                    {/* 排序按钮 */}
-                    <Dropdown
-                        label={_('Sort')}
-                        className='exclude-title-bar-mousedown dropdown-bottom dropdown-end'
-                        buttonClassName='btn btn-ghost h-8 min-h-8 px-3'
-                        toggleButton={
-                            <div className='flex items-center gap-1'>
-                                <MdSort size={iconSize18} />
-                                <span className='text-xs'>{sortBy === 'date' ? _('Date') : _('Book')}</span>
-                            </div>
-                        }
-                    >
-                        <ul className='menu bg-base-100 rounded-box w-36 p-2 shadow'>
-                            <li>
-                                <button
-                                    onClick={() => onSortChange('date')}
-                                    className={sortBy === 'date' ? 'active' : ''}
-                                >
-                                    {_('By Date')}
-                                </button>
-                            </li>
-                            <li>
-                                <button
-                                    onClick={() => onSortChange('book')}
-                                    className={sortBy === 'book' ? 'active' : ''}
-                                >
-                                    {_('By Book')}
-                                </button>
-                            </li>
-                        </ul>
-                    </Dropdown>
+                    {/* 排序开关 */}
+                    <div className='exclude-title-bar-mousedown flex items-center rounded-full bg-base-200/70 p-0.5'>
+                        <button
+                            type='button'
+                            onClick={() => onSortChange('date')}
+                            className={clsx(
+                                'h-8 px-3 text-xs font-medium rounded-full transition-colors',
+                                sortBy === 'date'
+                                    ? 'bg-primary text-primary-content shadow-sm'
+                                    : 'text-base-content/70 hover:text-base-content'
+                            )}
+                        >
+                            {_('By Date')}
+                        </button>
+                        <button
+                            type='button'
+                            onClick={() => onSortChange('book')}
+                            className={clsx(
+                                'h-8 px-3 text-xs font-medium rounded-full transition-colors',
+                                sortBy === 'book'
+                                    ? 'bg-primary text-primary-content shadow-sm'
+                                    : 'text-base-content/70 hover:text-base-content'
+                            )}
+                        >
+                            {_('By Book')}
+                        </button>
+                    </div>
 
                     {windowButtonVisible && (
                         <WindowButtons

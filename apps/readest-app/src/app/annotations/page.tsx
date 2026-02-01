@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
+import { useRouter } from 'next/navigation';
 import { useEnv } from '@/context/EnvContext';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useThemeStore } from '@/store/themeStore';
@@ -12,7 +12,7 @@ import { Book, BookNote } from '@/types/book';
 import { navigateToReader } from '@/utils/nav';
 import { eventDispatcher } from '@/utils/event';
 import AnnotationsHeader from './components/AnnotationsHeader';
-import AnnotationCard from './components/AnnotationCard';
+import CompactListView from './components/CompactListView';
 import { OverlayScrollbarsComponent } from 'overlayscrollbars-react';
 
 interface BookWithNotes extends Book {
@@ -31,7 +31,22 @@ const AnnotationsPage: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [filterType, setFilterType] = useState<'all' | 'annotation' | 'excerpt'>('all');
     const [sortBy, setSortBy] = useState<'date' | 'book'>('date');
+    const [selectedBookHash, setSelectedBookHash] = useState<'all' | string>('all');
     const [loading, setLoading] = useState(true);
+
+    // 确保进入页面时主题已正确应用
+    useEffect(() => {
+        if (typeof document !== 'undefined' && typeof localStorage !== 'undefined') {
+            const themeMode = localStorage.getItem('themeMode');
+            const themeColor = localStorage.getItem('themeColor');
+            if (themeMode && themeColor) {
+                const systemIsDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const isDarkMode = themeMode === 'dark' || (themeMode === 'auto' && systemIsDarkMode);
+                const theme = `${themeColor}-${isDarkMode ? 'dark' : 'light'}`;
+                document.documentElement.setAttribute('data-theme', theme);
+            }
+        }
+    }, []);
 
     useEffect(() => {
         const loadAnnotations = async () => {
@@ -173,6 +188,37 @@ const AnnotationsPage: React.FC = () => {
         return allNotes;
     }, [booksWithNotes, searchQuery, filterType, sortBy]);
 
+    const bookFilters = useMemo(() => {
+        const map = new Map<string, { hash: string; title: string; count: number }>();
+        filteredNotes.forEach(({ book }) => {
+            const existing = map.get(book.hash);
+            if (existing) {
+                existing.count += 1;
+            } else {
+                map.set(book.hash, { hash: book.hash, title: book.title, count: 1 });
+            }
+        });
+        return Array.from(map.values()).sort((a, b) => b.count - a.count);
+    }, [filteredNotes]);
+
+    const displayNotes = useMemo(() => {
+        if (sortBy !== 'book' || selectedBookHash === 'all') return filteredNotes;
+        return filteredNotes.filter(({ book }) => book.hash === selectedBookHash);
+    }, [filteredNotes, sortBy, selectedBookHash]);
+
+    useEffect(() => {
+        if (sortBy !== 'book') {
+            setSelectedBookHash('all');
+        }
+    }, [sortBy]);
+
+    useEffect(() => {
+        if (sortBy === 'book' && selectedBookHash !== 'all') {
+            const exists = bookFilters.some((b) => b.hash === selectedBookHash);
+            if (!exists) setSelectedBookHash('all');
+        }
+    }, [sortBy, selectedBookHash, bookFilters]);
+
     const handleNavigateToNote = (book: Book, note: BookNote) => {
         const params = new URLSearchParams();
         if (note.cfi) {
@@ -232,9 +278,113 @@ const AnnotationsPage: React.FC = () => {
         }
     };
 
-    const totalCount = filteredNotes.length;
-    const annotationCount = filteredNotes.filter((item) => item.note.type === 'annotation').length;
-    const excerptCount = filteredNotes.filter((item) => item.note.type === 'excerpt').length;
+    const totalCount = displayNotes.length;
+    const annotationCount = displayNotes.filter((item) => item.note.type === 'annotation').length;
+    const excerptCount = displayNotes.filter((item) => item.note.type === 'excerpt').length;
+
+    const renderContent = () => {
+        if (loading) {
+            return (
+                <div className='flex h-64 items-center justify-center'>
+                    <span className='loading loading-spinner loading-lg'></span>
+                </div>
+            );
+        }
+
+        if (displayNotes.length === 0) {
+            return (
+                <div className='flex h-64 flex-col items-center justify-center text-center'>
+                    <p className='text-base-content/60 text-lg'>
+                        {searchQuery || filterType !== 'all'
+                            ? _('No annotations found')
+                            : _('No annotations yet')}
+                    </p>
+                    <p className='text-base-content/40 mt-2 text-sm'>
+                        {_('Start reading and highlight text to create annotations')}
+                    </p>
+                </div>
+            );
+        }
+
+        const listContent = (
+            <CompactListView
+                items={displayNotes}
+                onNavigate={handleNavigateToNote}
+                sortBy={sortBy}
+            />
+        );
+
+        if (sortBy !== 'book') return listContent;
+
+        return (
+            <div className='flex flex-col gap-4'>
+                {/* 小屏书籍筛选栏 */}
+                <div className='md:hidden flex items-center gap-1.5 overflow-x-auto pb-2'>
+                    <button
+                        type='button'
+                        onClick={() => setSelectedBookHash('all')}
+                        className={clsx(
+                            'btn btn-xs whitespace-nowrap font-medium',
+                            selectedBookHash === 'all' ? 'btn-primary' : 'btn-ghost'
+                        )}
+                    >
+                        {_('All')} ({filteredNotes.length})
+                    </button>
+                    {bookFilters.map((book) => (
+                        <button
+                            key={book.hash}
+                            type='button'
+                            onClick={() => setSelectedBookHash(book.hash)}
+                            className={clsx(
+                                'btn btn-xs whitespace-nowrap font-medium',
+                                selectedBookHash === book.hash ? 'btn-primary' : 'btn-ghost'
+                            )}
+                        >
+                            <span className='truncate max-w-xs'>{book.title}</span>
+                            <span className='text-xs opacity-80'>({book.count})</span>
+                        </button>
+                    ))}
+                </div>
+
+                <div className='flex gap-4 justify-center'>
+                    {/* 大屏书籍筛选栏 */}
+                    <aside className='hidden md:block w-56 flex-shrink-0'>
+                        <div className='sticky top-4 space-y-2'>
+                            <button
+                                type='button'
+                                onClick={() => setSelectedBookHash('all')}
+                                className={clsx(
+                                    'btn btn-sm w-full justify-start h-auto py-2',
+                                    selectedBookHash === 'all' ? 'btn-primary' : 'btn-ghost'
+                                )}
+                            >
+                                {_('All')} ({filteredNotes.length})
+                            </button>
+                            {bookFilters.map((book) => (
+                                <button
+                                    key={book.hash}
+                                    type='button'
+                                    onClick={() => setSelectedBookHash(book.hash)}
+                                    className={clsx(
+                                        'btn btn-sm w-full justify-between items-center flex-nowrap h-auto py-2 px-3',
+                                        selectedBookHash === book.hash ? 'btn-primary' : 'btn-ghost'
+                                    )}
+                                >
+                                    <span className='flex items-center gap-2 min-w-0 flex-1'>
+                                        <span className='h-2 w-2 flex-shrink-0 rounded-full bg-primary/60' />
+                                        <span className='truncate'>{book.title}</span>
+                                    </span>
+                                    <span className='ml-2 flex-shrink-0 text-xs opacity-70 whitespace-nowrap'>({book.count})</span>
+                                </button>
+                            ))}
+                        </div>
+                    </aside>
+
+                    <div className='flex-1 min-w-0 max-w-4xl w-full'>{listContent}</div>
+                </div>
+            </div>
+        );
+    };
 
     return (
         <div className='flex h-screen w-full flex-col'>
@@ -259,39 +409,15 @@ const AnnotationsPage: React.FC = () => {
                 }}
             >
                 <div
-                    className='mx-auto max-w-5xl px-4 py-6'
+                    className={clsx(
+                        'mx-auto w-full px-4 py-6',
+                        sortBy === 'book' ? 'max-w-6xl' : 'max-w-5xl'
+                    )}
                     style={{
                         paddingBottom: `${(safeAreaInsets?.bottom || 0) + 24}px`,
                     }}
                 >
-                    {loading ? (
-                        <div className='flex h-64 items-center justify-center'>
-                            <span className='loading loading-spinner loading-lg'></span>
-                        </div>
-                    ) : filteredNotes.length === 0 ? (
-                        <div className='flex h-64 flex-col items-center justify-center text-center'>
-                            <p className='text-base-content/60 text-lg'>
-                                {searchQuery || filterType !== 'all'
-                                    ? _('No annotations found')
-                                    : _('No annotations yet')}
-                            </p>
-                            <p className='text-base-content/40 mt-2 text-sm'>
-                                {_('Start reading and highlight text to create annotations')}
-                            </p>
-                        </div>
-                    ) : (
-                        <div className='space-y-4'>
-                            {filteredNotes.map(({ book, note }, index) => (
-                                <AnnotationCard
-                                    key={`${book.hash}-${note.id}-${index}`}
-                                    book={book}
-                                    note={note}
-                                    onNavigate={() => handleNavigateToNote(book, note)}
-                                    onDelete={() => handleDeleteNote(book, note)}
-                                />
-                            ))}
-                        </div>
-                    )}
+                    {renderContent()}
                 </div>
             </OverlayScrollbarsComponent>
         </div>

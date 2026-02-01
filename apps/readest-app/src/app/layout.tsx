@@ -51,6 +51,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang='en'
+      suppressHydrationWarning
+      data-page='default'
       className={process.env['NEXT_PUBLIC_APP_PLATFORM'] === 'tauri' ? 'edge-to-edge' : ''}
     >
       <head>
@@ -78,6 +80,34 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <meta name='twitter:title' content={title} />
         <meta name='twitter:description' content={description} />
         <meta name='twitter:image' content={previewImage} />
+        {/* 主题初始化脚本 - 必须在其他脚本之前执行，以防止主题闪烁 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var root = document.documentElement;
+                  var path = window.location && window.location.pathname ? window.location.pathname : '/';
+                  var page = 'default';
+                  if (path.startsWith('/library')) page = 'library';
+                  if (path.startsWith('/reader')) page = 'reader';
+                  root.setAttribute('data-page', page);
+
+                  if (typeof localStorage !== 'undefined') {
+                    var themeMode = localStorage.getItem('themeMode') || 'auto';
+                    var themeColor = localStorage.getItem('themeColor') || 'default';
+                    var systemIsDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    var isDarkMode = themeMode === 'dark' || (themeMode === 'auto' && systemIsDarkMode);
+                    var theme = themeColor + '-' + (isDarkMode ? 'dark' : 'light');
+                    root.setAttribute('data-theme', theme);
+                  }
+                } catch (e) {
+                  console.warn('Failed to apply initial theme:', e);
+                }
+              })();
+            `,
+          }}
+        />
       </head>
       <body>
         <EnvProvider>

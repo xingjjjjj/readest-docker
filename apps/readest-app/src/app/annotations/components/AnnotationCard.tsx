@@ -16,9 +16,10 @@ interface AnnotationCardProps {
     note: BookNote;
     onNavigate: () => void;
     onDelete: () => void;
+    compact?: boolean;
 }
 
-const AnnotationCard: React.FC<AnnotationCardProps> = ({ book, note, onNavigate, onDelete }) => {
+const AnnotationCard: React.FC<AnnotationCardProps> = ({ book, note, onNavigate, onDelete, compact = false }) => {
     const _ = useTranslation();
     const { settings } = useSettingsStore();
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -65,65 +66,102 @@ const AnnotationCard: React.FC<AnnotationCardProps> = ({ book, note, onNavigate,
     return (
         <div
             className={clsx(
-                'bg-base-100 hover:bg-base-200/50 group relative rounded-lg border p-4 transition-all',
+                'bg-base-100 group relative rounded-xl border transition-all duration-200',
                 'border-base-300/50 cursor-pointer',
+                'hover:shadow-xl hover:scale-[1.01] hover:border-base-300',
+                compact ? 'p-3' : 'p-4',
             )}
             onClick={onNavigate}
+            style={{
+                borderLeftColor: getHighlightColor(),
+                borderLeftWidth: getHighlightColor() ? '4px' : undefined,
+            }}
         >
             {/* 书籍信息 */}
-            <div className='mb-3 flex items-start gap-3'>
-                <div className='flex-shrink-0'>
-                    <BookCover
-                        book={book}
-                        mode='grid'
-                        className='h-16 w-12 rounded shadow-sm'
-                    />
-                </div>
-                <div className='flex-1 min-w-0'>
-                    <div className='flex items-center gap-2'>
-                        <MdBook className='text-base-content/60 flex-shrink-0' size={16} />
-                        <h3 className='text-base-content truncate font-medium'>{book.title}</h3>
+            {!compact && (
+                <div className='mb-3 flex items-start gap-3'>
+                    <div className='flex-shrink-0'>
+                        <BookCover
+                            book={book}
+                            mode='grid'
+                            className='h-16 w-12 rounded shadow-md transition-transform group-hover:scale-105'
+                        />
                     </div>
-                    {book.author && (
-                        <p className='text-base-content/60 mt-1 truncate text-sm'>{book.author}</p>
-                    )}
-                    <div className='mt-1 flex items-center gap-2 text-xs'>
+                    <div className='flex-1 min-w-0'>
+                        <div className='flex items-center gap-2'>
+                            <MdBook className='text-base-content/60 flex-shrink-0' size={16} />
+                            <h3 className='text-base-content truncate font-semibold'>{book.title}</h3>
+                        </div>
+                        {book.author && (
+                            <p className='text-base-content/60 mt-1 truncate text-sm'>{book.author}</p>
+                        )}
+                        <div className='mt-2 flex items-center gap-2 text-xs'>
+                            <span
+                                className={clsx(
+                                    'badge badge-sm',
+                                    note.type === 'annotation' ? 'badge-primary' : 'badge-secondary',
+                                )}
+                            >
+                                {note.type === 'annotation' ? _('Annotation') : _('Excerpt')}
+                            </span>
+                            <span className='text-base-content/50'>
+                                {dayjs(note.updatedAt).format('YYYY-MM-DD HH:mm')}
+                            </span>
+                        </div>
+                    </div>
+
+                    {/* 删除按钮 */}
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete();
+                        }}
+                        className={clsx(
+                            'btn btn-ghost btn-sm opacity-0 group-hover:opacity-100 transition-all duration-200',
+                            showDeleteConfirm && 'btn-error opacity-100 scale-110',
+                        )}
+                        title={showDeleteConfirm ? _('Click again to confirm') : _('Delete')}
+                    >
+                        <MdDelete size={18} />
+                    </button>
+                </div>
+            )}
+
+            {/* 紧凑模式下的简化信息 */}
+            {compact && (
+                <div className='mb-2 flex items-center justify-between'>
+                    <div className='flex items-center gap-2 min-w-0'>
                         <span
                             className={clsx(
-                                'badge badge-sm',
+                                'badge badge-xs',
                                 note.type === 'annotation' ? 'badge-primary' : 'badge-secondary',
                             )}
-                        >
-                            {note.type === 'annotation' ? _('Annotation') : _('Excerpt')}
-                        </span>
-                        <span className='text-base-content/50'>
-                            {dayjs(note.updatedAt).format('YYYY-MM-DD HH:mm')}
+                        />
+                        <span className='text-base-content/50 text-xs truncate'>
+                            {dayjs(note.updatedAt).format('MM/DD HH:mm')}
                         </span>
                     </div>
+                    <button
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete();
+                        }}
+                        className={clsx(
+                            'btn btn-ghost btn-xs opacity-0 group-hover:opacity-100 transition-opacity',
+                            showDeleteConfirm && 'btn-error opacity-100',
+                        )}
+                    >
+                        <MdDelete size={16} />
+                    </button>
                 </div>
-
-                {/* 删除按钮 */}
-                <button
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        handleDelete();
-                    }}
-                    className={clsx(
-                        'btn btn-ghost btn-sm opacity-0 group-hover:opacity-100 transition-opacity',
-                        showDeleteConfirm && 'btn-error opacity-100',
-                    )}
-                    title={showDeleteConfirm ? _('Click again to confirm') : _('Delete')}
-                >
-                    <MdDelete size={18} />
-                </button>
-            </div>
+            )}
 
             {/* 高亮文本 */}
             {note.text && (
-                <div className='mb-3'>
+                <div className={compact ? 'mb-2' : 'mb-3'}>
                     <blockquote
                         className={clsx(
-                            'border-l-4 pl-3 py-1',
+                            'border-l-4 pl-3 py-2 rounded-r-md transition-colors',
                             note.style === 'highlight' ? 'bg-opacity-20' : '',
                             getStyleClass(),
                         )}
@@ -131,20 +169,33 @@ const AnnotationCard: React.FC<AnnotationCardProps> = ({ book, note, onNavigate,
                             borderColor: getHighlightColor(),
                             backgroundColor:
                                 note.style === 'highlight' && getHighlightColor()
-                                    ? `${getHighlightColor()}33`
+                                    ? `${getHighlightColor()}15`
                                     : undefined,
                             textDecorationColor: getHighlightColor(),
                         }}
                     >
-                        <p className='text-base-content/90 text-sm leading-relaxed'>{note.text}</p>
+                        <p className={clsx(
+                            'text-base-content/90 leading-relaxed',
+                            compact ? 'text-sm' : 'text-base'
+                        )}>
+                            {note.text}
+                        </p>
                     </blockquote>
                 </div>
             )}
 
             {/* 笔记内容 */}
             {note.note && (
-                <div className='bg-base-200/50 mt-2 rounded-md p-3'>{renderNoteContent()}</div>
+                <div className={clsx(
+                    'bg-gradient-to-r from-base-200/30 to-base-200/10 rounded-lg p-3',
+                    'border-l-2 border-primary/30'
+                )}>
+                    {renderNoteContent()}
+                </div>
             )}
+
+            {/* 装饰性渐变效果 */}
+            <div className='absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-base-200/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none rounded-xl' />
         </div>
     );
 };
