@@ -48,6 +48,7 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
   const { settings } = useSettingsStore();
   const { isDarkMode } = useThemeStore();
   const { getConfig, saveConfig, getBookData, updateBooknotes } = useBookDataStore();
+  const [centralBooknotes, setCentralBooknotes] = useState<BookNote[]>([]);
   const { getProgress, getView, getViewsById, getViewSettings } = useReaderStore();
   const { setNotebookVisible, setNotebookNewAnnotation, setNotebookEditAnnotation } = useNotebookStore();
   const { listenToNativeTouchEvents } = useDeviceControlStore();
@@ -164,6 +165,31 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
   useEffect(() => {
     setSelectedStyle(settings.globalReadSettings.highlightStyle);
   }, [settings.globalReadSettings.highlightStyle]);
+
+  // Load centralized notes for this book and refresh on external updates
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!bookKey) return;
+      const bookHash = bookKey.split('-')[0]!;
+      try {
+        const notes = await (await import('@/services/notesService')).getNotesForBook(envConfig, bookHash);
+        if (!cancelled) setCentralBooknotes(notes || []);
+      } catch (e) {
+        console.warn('Failed to load central notes for', bookKey, e);
+      }
+    };
+    load();
+    const handler = (payload: any) => {
+      if (!payload || payload.bookHash !== bookKey.split('-')[0]) return;
+      load();
+    };
+    eventDispatcher.on('notes-updated', handler);
+    return () => {
+      cancelled = true;
+      eventDispatcher.off('notes-updated', handler);
+    };
+  }, [bookKey, envConfig]);
 
   useEffect(() => {
     setSelectedColor(settings.globalReadSettings.highlightStyles[selectedStyle]);
@@ -564,33 +590,12 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
   useEffect(() => {
     if (!progress) return;
     const { location } = progress;
-    const { booknotes = [] } = config;
-    const annotations = booknotes.filter(
-      (item) =>
-        !item.deletedAt &&
-        item.type === 'annotation' &&
-        item.style &&
-        isCfiInLocation(item.cfi, location),
-    );
-    const notes = booknotes.filter(
-      (item) =>
-        !item.deletedAt &&
-        item.type === 'annotation' &&
-        item.note &&
-        item.note.trim().length > 0 &&
-        isCfiInLocation(item.cfi, location),
-    );
+    // Use centralized notes
+    const booknotes = centralBooknotes || [];
     try {
-      // Add each booknote once. If it has a note text, add it as a NOTE (so show-annotation
-      // can detect it); otherwise add as a normal style annotation. This avoids adding
-      // two overlays for the same cfi which causes hit-test and rendering conflicts.
       for (const item of booknotes.filter(
-        (item) =>
-          !item.deletedAt && item.type === 'annotation' && isCfiInLocation(item.cfi, location),
+        (item) => !item.deletedAt && item.type === 'annotation' && isCfiInLocation(item.cfi, location),
       )) {
-        // If an item has both style and a note, add two overlays: first the style
-        // overlay (so style is hit-testable across most of the text), then the
-        // note overlay (bubble) on top so clicking the bubble yields the note.
         if (item.note && item.note.trim().length > 0 && item.style) {
           view?.addAnnotation(item);
           view?.addAnnotation({ ...item, value: `${NOTE_PREFIX}${item.cfi}` });
@@ -604,24 +609,23 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       console.warn(e);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [progress]);
+  }, [progress, centralBooknotes]);
 
   useEffect(() => {
-    if (!config.booknotes || !selection?.cfi || !showAnnotationNotes) return;
-    const annotations = config.booknotes.filter(
-      (booknote) =>
-        booknote.type === 'annotation' && !booknote.deletedAt && booknote.cfi === selection.cfi,
+    if (!centralBooknotes || !selection?.cfi || !showAnnotationNotes) return;
+    const annotations = centralBooknotes.filter(
+      (booknote) => booknote.type === 'annotation' && !booknote.deletedAt && booknote.cfi === selection.cfi,
     );
     const notes = annotations.filter((item) => item.note && item.note.trim().length > 0);
     setAnnotationNotes(notes);
-  }, [selection?.cfi, showAnnotationNotes, config.booknotes]);
+  }, [selection?.cfi, showAnnotationNotes, centralBooknotes]);
 
   // When the 'showAnnotationNotes' state changes for a particular CFI, force a
   // redraw of the NOTE overlay(s) for that CFI so the draw callback (which
   // conditionally hides the bubble when the popup is visible) takes effect.
   useEffect(() => {
     if (!selection?.cfi) return;
-    const notes = config.booknotes?.filter(
+    const notes = centralBooknotes?.filter(
       (item) => item.type === 'annotation' && !item.deletedAt && item.note && item.cfi === selection.cfi,
     );
     if (!notes || notes.length === 0) return;
@@ -629,7 +633,7 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     for (const item of notes) {
       views.forEach((view) => view?.addAnnotation({ ...item, value: `${NOTE_PREFIX}${item.cfi}` }));
     }
-  }, [showAnnotationNotes, selection?.cfi, config.booknotes, progress]);
+  }, [showAnnotationNotes, selection?.cfi, centralBooknotes, progress]);
 
   const handleShowAnnotPopup = () => {
     if (!appService?.isMobile) {
@@ -641,7 +645,7 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     setShowWikipediaPopup(false);
   };
 
-  const handleCopy = (dismissPopup = true) => {
+  const handleCopy = async (dismissPopup = true) => {
     if (!selection || !selection.text) return;
     setTimeout(() => {
       // Delay to ensure it won't be overridden by system clipboard actions
@@ -678,27 +682,67 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
         annotation.cfi === cfi && annotation.type === 'excerpt' && !annotation.deletedAt,
     );
     if (existingIndex !== -1) {
-      annotations[existingIndex] = annotation;
+      const existing = annotations[existingIndex]!;
+      const mergePreserveNote = (existing: any, annotation: any, extra: any = {}) => {
+        const merged = { ...existing, ...annotation, ...extra, id: existing.id };
+        // preserve existing.note if incoming annotation has empty note
+        if (annotation.note === '' || annotation.note === undefined || (typeof annotation.note === 'string' && annotation.note.trim() === '')) {
+          merged.note = existing.note;
+        }
+        // preserve createdAt if exists
+        if (!merged.createdAt && existing.createdAt) merged.createdAt = existing.createdAt;
+        return merged;
+      };
+
+      if (!existing.style && !update) {
+        // existing has no style and user attempted to toggle off highlight — ignore
+      } else if (!existing.style && update) {
+        // merging style into a note-only annotation
+        const merged = mergePreserveNote(existing, annotation, { createdAt: existing.createdAt || annotation.createdAt });
+        annotations[existingIndex] = merged;
+        views.forEach((view) => view?.addAnnotation(merged));
+        if (merged.note && merged.note.trim()) {
+          views.forEach((view) => view?.addAnnotation({ ...merged, value: `${NOTE_PREFIX}${merged.cfi}` }));
+        }
+      } else {
+        // existing has style; follow previous toggle/update behaviour
+        if (update) {
+          const merged = mergePreserveNote(existing, annotation, { updatedAt: Date.now() });
+          annotations[existingIndex] = merged;
+          views.forEach((view) => view?.addAnnotation(merged));
+        } else {
+          annotations[existingIndex]!.deletedAt = Date.now();
+          handleDismissPopup();
+        }
+      }
     } else {
       annotations.push(annotation);
+      views.forEach((view) => view?.addAnnotation(annotation));
+      setSelection({ ...selection, cfi, annotated: true });
     }
     const updatedConfig = updateBooknotes(bookKey, annotations);
     if (updatedConfig) {
-      saveConfig(envConfig, bookKey, updatedConfig, settings);
+      const bookHash = bookKey.split('-')[0]!;
+      import('@/services/notesService')
+        .then((m) => m.saveNotesForBook(envConfig, bookHash, annotations, config?.title, config?.metaHash))
+        .then(() => eventDispatcher.dispatch('notes-updated', { bookHash }))
+        .catch((e) => console.error('Failed to persist excerpt notes to central file', e));
     }
     if (!appService?.isMobile) {
       setNotebookVisible(true);
     }
   };
 
-  const handleHighlight = (update = false, highlightStyle?: HighlightStyle) => {
+  const handleHighlight = async (update = false, highlightStyle?: HighlightStyle) => {
     if (!selection || !selection.text) return;
     setHighlightOptionsVisible(true);
-    const { booknotes: annotations = [] } = config;
+
     const cfi = view?.getCFI(selection.index, selection.range);
     if (!cfi) return;
+
     const style = highlightStyle || settings.globalReadSettings.highlightStyle;
     const color = settings.globalReadSettings.highlightStyles[style];
+
     const annotation: BookNote = {
       id: uniqueId(),
       type: 'annotation',
@@ -710,33 +754,67 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     };
+
+    const bookHash = bookKey.split('-')[0]!;
+    const notesService = await import('@/services/notesService');
+
+    // Use central file as authoritative source when updating style to prevent race conditions
+    let annotations: BookNote[] = update
+      ? await notesService.getNotesForBook(envConfig, bookHash)
+      : config.booknotes ?? [];
+
     const existingIndex = annotations.findIndex(
-      (annotation) =>
-        annotation.cfi === cfi &&
-        annotation.type === 'annotation' &&
-        annotation.style &&
-        !annotation.deletedAt,
+      (ann) => ann.cfi === cfi && ann.type === 'annotation' && !ann.deletedAt,
     );
-    const views = getViewsById(bookKey.split('-')[0]!);
+
+    const views = getViewsById(bookHash);
+
+    const mergePreserveNote = (existing: any, annotation: any, extra: any = {}) => {
+      const merged = { ...existing, ...annotation, ...extra, id: existing.id };
+      if (annotation.note === '' || annotation.note === undefined || (typeof annotation.note === 'string' && annotation.note.trim() === '')) {
+        merged.note = existing.note;
+      }
+      if (!merged.createdAt && existing.createdAt) merged.createdAt = existing.createdAt;
+      return merged;
+    };
+
     if (existingIndex !== -1) {
-      views.forEach((view) => view?.addAnnotation(annotation, true));
-      if (update) {
-        annotation.id = annotations[existingIndex]!.id;
-        annotations[existingIndex] = annotation;
-        views.forEach((view) => view?.addAnnotation(annotation));
+      const existing = annotations[existingIndex]!;
+
+      if (!existing.style && !update) {
+        // existing has no style and user attempted to toggle off highlight — ignore
+      } else if (!existing.style && update) {
+        // merging style into a note-only annotation
+        const merged = mergePreserveNote(existing, annotation, { createdAt: existing.createdAt || annotation.createdAt });
+        annotations[existingIndex] = merged;
+        views.forEach((view) => view?.addAnnotation(merged));
+        if (merged.note && merged.note.trim()) {
+          views.forEach((view) => view?.addAnnotation({ ...merged, value: `${NOTE_PREFIX}${merged.cfi}` }));
+        }
       } else {
-        annotations[existingIndex]!.deletedAt = Date.now();
-        handleDismissPopup();
+        // existing has style; follow previous toggle/update behaviour
+        if (update) {
+          const merged = mergePreserveNote(existing, annotation, { updatedAt: Date.now() });
+          annotations[existingIndex] = merged;
+          views.forEach((view) => view?.addAnnotation(merged));
+        } else {
+          annotations[existingIndex]!.deletedAt = Date.now();
+          handleDismissPopup();
+        }
       }
     } else {
+      // create a new annotation
       annotations.push(annotation);
       views.forEach((view) => view?.addAnnotation(annotation));
       setSelection({ ...selection, cfi, annotated: true });
     }
 
-    const updatedConfig = updateBooknotes(bookKey, annotations);
-    if (updatedConfig) {
-      saveConfig(envConfig, bookKey, updatedConfig, settings);
+    try {
+      await notesService.saveNotesForBook(envConfig, bookHash, annotations, getConfig(bookKey)?.title, getConfig(bookKey)?.metaHash);
+      updateBooknotes(bookKey, annotations);
+      eventDispatcher.dispatch('notes-updated', { bookHash });
+    } catch (e) {
+      console.error('Failed to persist highlight notes to central file', e);
     }
   };
 

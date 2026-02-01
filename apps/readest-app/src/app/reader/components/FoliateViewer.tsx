@@ -57,6 +57,7 @@ import { useTextTranslation } from '../hooks/useTextTranslation';
 import { useBookCoverAutoSave } from '../hooks/useAutoSaveBookCover';
 import { useDiscordPresence } from '@/hooks/useDiscordPresence';
 import { manageSyntaxHighlighting } from '@/utils/highlightjs';
+import { NOTE_PREFIX } from '@/types/view';
 import { getViewInsets } from '@/utils/insets';
 import { removeTabIndex } from '@/utils/a11y';
 import { isCJKLang } from '@/utils/lang';
@@ -85,7 +86,7 @@ const FoliateViewer: React.FC<{
   const { getView, setView: setFoliateView, setViewInited, setProgress } = useReaderStore();
   const { getViewState, getViewSettings, setViewSettings } = useReaderStore();
   const { getParallels } = useParallelViewStore();
-  const { getBookData } = useBookDataStore();
+  const { getBookData, updateBooknotes, getConfig, saveConfig } = useBookDataStore();
   const { applyBackgroundTexture } = useBackgroundTexture();
   const { applyEinkMode } = useEinkMode();
   const bookData = getBookData(bookKey);
@@ -234,11 +235,31 @@ const FoliateViewer: React.FC<{
         manageSyntaxHighlighting(detail.doc, viewSettings);
       }
 
-      setTimeout(() => {
-        const booknotes = config.booknotes || [];
-        booknotes
-          .filter((item) => !item.deletedAt && item.type === 'annotation' && item.style)
-          .forEach((annotation) => viewRef.current?.addAnnotation(annotation));
+      setTimeout(async () => {
+        try {
+          const notesService = await import('@/services/notesService');
+          const bookHash = bookKey.split('-')[0]!;
+          const notes = await notesService.getNotesForBook(envConfig, bookHash);
+          const annotationsWithStyle = (notes || []).filter(
+            (item) => !item.deletedAt && item.type === 'annotation' && item.style,
+          );
+          annotationsWithStyle.forEach((annotation) => {
+            viewRef.current?.addAnnotation(annotation);
+            if (annotation.note && annotation.note.trim()) {
+              viewRef.current?.addAnnotation({ ...annotation, value: `${NOTE_PREFIX}${annotation.cfi}` });
+            }
+          });
+
+          // ensure annotations that only have a note (no style) still render their note bubble
+          const annotationsWithNoteOnly = (notes || []).filter(
+            (item) => !item.deletedAt && item.type === 'annotation' && !item.style && item.note && item.note.trim(),
+          );
+          annotationsWithNoteOnly.forEach((annotation) => {
+            viewRef.current?.addAnnotation({ ...annotation, value: `${NOTE_PREFIX}${annotation.cfi}` });
+          });
+        } catch (err) {
+          console.warn('Failed to load annotation overlays from notes file', err);
+        }
       }, 100);
 
       if (!detail.doc.isEventListenersAdded) {
@@ -339,6 +360,46 @@ const FoliateViewer: React.FC<{
       setFoliateView(bookKey, view);
 
       const { book } = view;
+
+      // load centralized notes for this book and populate into in-memory config
+      try {
+        const notesService = await import('@/services/notesService');
+        const bookHash = bookKey.split('-')[0]!;
+        const notes = await notesService.getNotesForBook(envConfig, bookHash);
+
+        // If central notes exists, populate in-memory config
+        if (notes && notes.length) {
+          updateBooknotes(bookKey, notes);
+        }
+
+        // If per-book config still contains notes (legacy), migrate any missing ones into central file
+        try {
+          const cfg = getConfig(bookKey);
+          const oldNotes = cfg?.booknotes ?? [];
+          const toMigrate = oldNotes.filter((n) => n && !n.deletedAt && !(notes || []).some((m) => m.id === n.id));
+          if (toMigrate.length) {
+            const merged = [...(notes || []), ...toMigrate];
+            await notesService.saveNotesForBook(envConfig, bookHash, merged, cfg?.title, cfg?.metaHash);
+            updateBooknotes(bookKey, merged);
+            try {
+              // saveConfig will strip booknotes before writing per-book config
+              await saveConfig(envConfig, bookKey, cfg!, settings);
+            } catch (e) {
+              console.warn('Failed to persist migrated book config (remove old booknotes)', e);
+            }
+            try {
+              const { eventDispatcher } = await import('@/utils/event');
+              eventDispatcher.dispatch('notes-updated', { bookHash });
+            } catch (e) {
+              /* ignore */
+            }
+          }
+        } catch (e) {
+          console.warn('Migration of legacy per-book notes failed for book', bookHash, e);
+        }
+      } catch (err) {
+        console.warn('Failed to load centralized notes for book', bookKey, err);
+      }
 
       book.transformTarget?.addEventListener('load', (event: Event) => {
         const { detail } = event as CustomEvent;

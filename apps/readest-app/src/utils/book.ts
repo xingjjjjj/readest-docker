@@ -47,6 +47,12 @@ export const getConfigFilename = (book: Book) => {
   const pathWithoutExt = book.relativePath.replace(/\.[^.]+$/, '');
   return `${pathWithoutExt}/config.json`;
 };
+
+// Path to centralized notes file
+export const getNotesFilename = () => {
+  // Single file storing notes for all books
+  return '.readest/note.json';
+};
 export const isBookFile = (filename: string) => {
   return Object.values(EXTS).includes(filename.split('.').pop()!);
 };

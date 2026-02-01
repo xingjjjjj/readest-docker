@@ -6,6 +6,8 @@ import { findTocItemBS } from '@/utils/toc';
 import { TOCItem } from '@/libs/document';
 import { BooknoteGroup, BookNoteType } from '@/types/book';
 import BooknoteItem from './BooknoteItem';
+import { useEnv } from '@/context/EnvContext';
+import { eventDispatcher } from '@/utils/event';
 
 const BooknoteView: React.FC<{
   type: BookNoteType;
@@ -16,8 +18,36 @@ const BooknoteView: React.FC<{
   const { setActiveBooknoteType, setBooknoteResults } = useSidebarStore();
   const config = getConfig(bookKey)!;
 
-  const { booknotes: allNotes = [] } = config;
-  const booknotes = allNotes.filter((note) => note.type === type && !note.deletedAt);
+  const [booknotesAll, setBooknotesAll] = React.useState<any[]>([]);
+
+  const { envConfig } = useEnv();
+
+  React.useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      if (!bookKey) return;
+      const bookHash = bookKey.split('-')[0]!;
+      try {
+        const notes = await (await import('@/services/notesService')).getNotesForBook(envConfig, bookHash);
+        if (!cancelled) setBooknotesAll(notes || []);
+      } catch (e) {
+        console.warn('Failed to load central notes for BooknoteView', e);
+        if (!cancelled) setBooknotesAll([]);
+      }
+    };
+    load();
+    const handler = (payload: any) => {
+      if (!payload || payload.bookHash !== bookKey.split('-')[0]) return;
+      load();
+    };
+    eventDispatcher.on('notes-updated', handler);
+    return () => {
+      cancelled = true;
+      eventDispatcher.off('notes-updated', handler);
+    };
+  }, [bookKey, envConfig]);
+
+  const booknotes = booknotesAll.filter((note) => note.type === type && !note.deletedAt);
 
   const booknoteGroups: { [href: string]: BooknoteGroup } = {};
   for (const booknote of booknotes) {

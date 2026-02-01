@@ -29,7 +29,7 @@ const BookmarkToggler: React.FC<BookmarkTogglerProps> = ({ bookKey }) => {
   const config = getConfig(bookKey);
   const progress = getProgress(bookKey);
 
-  const toggleBookmark = () => {
+  const toggleBookmark = async () => {
     const bookData = getBookData(bookKey);
     const config = getConfig(bookKey);
     const progress = getProgress(bookKey);
@@ -64,7 +64,13 @@ const BookmarkToggler: React.FC<BookmarkTogglerProps> = ({ bookKey }) => {
       }
       const updatedConfig = updateBooknotes(bookKey, bookmarks);
       if (updatedConfig) {
-        saveConfig(envConfig, bookKey, updatedConfig, settings);
+        try {
+          const bookHash = bookKey.split('-')[0]!;
+          await (await import('@/services/notesService')).saveNotesForBook(envConfig, bookHash, bookmarks, getBookData(bookKey)?.book?.title, getConfig(bookKey)?.metaHash);
+          eventDispatcher.dispatch('notes-updated', { bookHash });
+        } catch (e) {
+          console.error('Failed to persist bookmark to central notes file', e);
+        }
       }
     } else {
       setIsBookmarked(false);
@@ -75,7 +81,13 @@ const BookmarkToggler: React.FC<BookmarkTogglerProps> = ({ bookKey }) => {
       });
       const updatedConfig = updateBooknotes(bookKey, bookmarks);
       if (updatedConfig) {
-        saveConfig(envConfig, bookKey, updatedConfig, settings);
+        try {
+          const bookHash = bookKey.split('-')[0]!;
+          await (await import('@/services/notesService')).saveNotesForBook(envConfig, bookHash, bookmarks, getBookData(bookKey)?.book?.title, getConfig(bookKey)?.metaHash);
+          eventDispatcher.dispatch('notes-updated', { bookHash });
+        } catch (e) {
+          console.error('Failed to persist bookmark deletion to central notes file', e);
+        }
       }
     }
   };
@@ -94,15 +106,30 @@ const BookmarkToggler: React.FC<BookmarkTogglerProps> = ({ bookKey }) => {
   }, [bookKey]);
 
   useEffect(() => {
-    const { booknotes = [] } = config || {};
-    const { location: cfi } = progress || {};
-    if (!cfi) return;
-
-    const locationBookmarked = booknotes
-      .filter((booknote) => booknote.type === 'bookmark' && !booknote.deletedAt)
-      .some((item) => isCfiInLocation(item.cfi, cfi));
-    setIsBookmarked(locationBookmarked);
-    setBookmarkRibbonVisibility(bookKey, locationBookmarked);
+    const check = async () => {
+      const { location: cfi } = progress || {};
+      if (!cfi || !bookKey) return;
+      try {
+        const bookHash = bookKey.split('-')[0]!;
+        const notes = await (await import('@/services/notesService')).getNotesForBook(envConfig, bookHash);
+        const locationBookmarked = (notes || [])
+          .filter((booknote) => booknote.type === 'bookmark' && !booknote.deletedAt)
+          .some((item) => isCfiInLocation(item.cfi, cfi));
+        setIsBookmarked(locationBookmarked);
+        setBookmarkRibbonVisibility(bookKey, locationBookmarked);
+      } catch (e) {
+        console.warn('Failed to check centralized bookmarks for', bookKey, e);
+      }
+    };
+    check();
+    const handler = (payload: any) => {
+      if (!payload || payload.bookHash !== (bookKey && bookKey.split('-')[0])) return;
+      check();
+    };
+    eventDispatcher.on('notes-updated', handler);
+    return () => {
+      eventDispatcher.off('notes-updated', handler);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config, progress]);
 

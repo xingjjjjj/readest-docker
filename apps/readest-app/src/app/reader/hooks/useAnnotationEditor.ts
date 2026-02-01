@@ -7,6 +7,7 @@ import { useEnv } from '@/context/EnvContext';
 import { useReaderStore } from '@/store/readerStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useBookDataStore } from '@/store/bookDataStore';
+import { eventDispatcher } from '@/utils/event';
 
 interface HandlePositions {
   start: Point;
@@ -166,7 +167,13 @@ export const useAnnotationEditor = ({
             annotations[existingIndex] = updatedAnnotation;
             const updatedConfig = updateBooknotes(bookKey, annotations);
             if (updatedConfig) {
-              saveConfig(envConfig, bookKey, updatedConfig, settings);
+              try {
+                const bookHash = bookKey.split('-')[0]!;
+                await (await import('@/services/notesService')).saveNotesForBook(envConfig, bookHash, annotations, config?.title, config?.metaHash);
+                eventDispatcher.dispatch('notes-updated', { bookHash });
+              } catch (e) {
+                console.error('Failed to persist updated annotation to central file', e);
+              }
             }
 
             setSelection({

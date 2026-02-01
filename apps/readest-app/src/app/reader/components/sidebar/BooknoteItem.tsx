@@ -53,23 +53,26 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({ bookKey, item, onClick }) =
     }
   };
 
-  const deleteNote = (note: BookNote) => {
+  const deleteNote = async (note: BookNote) => {
     if (!bookKey) return;
-    const config = getConfig(bookKey);
-    if (!config) return;
-    const { booknotes = [] } = config;
-    booknotes.forEach((item) => {
-      if (item.id === note.id) {
-        item.deletedAt = Date.now();
-        const views = getViewsById(bookKey.split('-')[0]!);
-        views.forEach((view) =>
-          view?.addAnnotation({ ...item, value: `${NOTE_PREFIX}${item.cfi}` }, true),
-        );
+    const bookHash = bookKey.split('-')[0]!;
+    const views = getViewsById(bookHash);
+    // mark as deleted in centralized notes file
+    try {
+      const notes = await (await import('@/services/notesService')).getNotesForBook(envConfig, bookHash);
+      for (const item of notes) {
+        if (item.id === note.id) {
+          item.deletedAt = Date.now();
+          views.forEach((view) =>
+            view?.addAnnotation({ ...item, value: `${NOTE_PREFIX}${item.cfi}` }, true),
+          );
+        }
       }
-    });
-    const updatedConfig = updateBooknotes(bookKey, booknotes);
-    if (updatedConfig) {
-      saveConfig(envConfig, bookKey, updatedConfig, settings);
+      await (await import('@/services/notesService')).saveNotesForBook(envConfig, bookHash, notes, getConfig(bookKey)?.title, getConfig(bookKey)?.metaHash);
+      updateBooknotes(bookKey, notes);
+      eventDispatcher.dispatch('notes-updated', { bookHash });
+    } catch (e) {
+      console.error('Failed to delete note in central file', e);
     }
   };
 
@@ -83,19 +86,21 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({ bookKey, item, onClick }) =
     setInlineEditMode(true);
   };
 
-  const handleSaveBookmark = () => {
+  const handleSaveBookmark = async () => {
     setInlineEditMode(false);
-    const config = getConfig(bookKey);
-    if (!config || !editorDraft) return;
-
-    const { booknotes: annotations = [] } = config;
-    const existingIndex = annotations.findIndex((annotation) => item.id === annotation.id);
-    if (existingIndex === -1) return;
-    annotations[existingIndex]!.updatedAt = Date.now();
-    annotations[existingIndex]!.text = editorDraft;
-    const updatedConfig = updateBooknotes(bookKey, annotations);
-    if (updatedConfig) {
-      saveConfig(envConfig, bookKey, updatedConfig, settings);
+    if (!bookKey || !editorDraft) return;
+    const bookHash = bookKey.split('-')[0]!;
+    try {
+      const notes = await (await import('@/services/notesService')).getNotesForBook(envConfig, bookHash);
+      const existingIndex = notes.findIndex((annotation) => item.id === annotation.id);
+      if (existingIndex === -1) return;
+      notes[existingIndex]!.updatedAt = Date.now();
+      notes[existingIndex]!.text = editorDraft;
+      await (await import('@/services/notesService')).saveNotesForBook(envConfig, bookHash, notes, getConfig(bookKey)?.title, getConfig(bookKey)?.metaHash);
+      updateBooknotes(bookKey, notes);
+      eventDispatcher.dispatch('notes-updated', { bookHash });
+    } catch (e) {
+      console.error('Failed to save bookmark text to central notes file', e);
     }
   };
 
@@ -182,7 +187,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({ bookKey, item, onClick }) =
                 'booknote-text inline leading-normal',
                 item.note && 'content font-size-xs text-gray-500',
                 (item.style === 'underline' || item.style === 'squiggly') &&
-                  'underline decoration-2',
+                'underline decoration-2',
                 item.style === 'highlight' && `bg-${item.color}-500 bg-opacity-40`,
                 item.style === 'underline' && `decoration-${item.color}-400`,
                 item.style === 'squiggly' && `decoration-wavy decoration-${item.color}-400`,

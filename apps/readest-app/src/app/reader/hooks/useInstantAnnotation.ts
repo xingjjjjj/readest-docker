@@ -267,18 +267,25 @@ export const useInstantAnnotation = ({ bookKey, getAnnotationText }: UseInstantA
       );
 
       if (existingIndex !== -1) {
-        annotations[existingIndex] = {
-          ...annotations[existingIndex]!,
-          ...annotation,
-          id: annotations[existingIndex]!.id,
-        };
+        const existing = annotations[existingIndex]!;
+        const merged = { ...existing, ...annotation, id: existing.id };
+        if (annotation.note === '' || annotation.note === undefined || (typeof annotation.note === 'string' && annotation.note.trim() === '')) {
+          merged.note = existing.note;
+        }
+        annotations[existingIndex] = merged;
       } else {
         annotations.push(annotation);
       }
 
       const updatedConfig = updateBooknotes(bookKey, annotations);
       if (updatedConfig) {
-        saveConfig(envConfig, bookKey, updatedConfig, settings);
+        try {
+          const bookHash = bookKey.split('-')[0]!;
+          await (await import('@/services/notesService')).saveNotesForBook(envConfig, bookHash, annotations, config?.title, config?.metaHash);
+          eventDispatcher.dispatch('notes-updated', { bookHash });
+        } catch (e) {
+          console.error('Failed to persist notes to central file', e);
+        }
       }
 
       return true;

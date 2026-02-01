@@ -91,7 +91,10 @@ export const useBookDataStore = create<BookDataState>((set, get) => ({
     library.unshift(book);
     setLibrary([...library]);
     config.updatedAt = Date.now();
-    await appService.saveBookConfig(book, config, settings);
+    // Avoid persisting booknotes into per-book config; notes are stored in centralized notes file
+    const configToSave = { ...config } as any;
+    if (configToSave.booknotes) delete configToSave.booknotes;
+    await appService.saveBookConfig(book, configToSave, settings);
     await appService.saveLibraryBooks(library);
   },
   updateBooknotes: (key: string, booknotes: BookNote[]) => {

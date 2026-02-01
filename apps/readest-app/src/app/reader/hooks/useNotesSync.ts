@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { useEnv } from '@/context/EnvContext';
 import { useSync } from '@/hooks/useSync';
 import { BookNote } from '@/types/book';
 import { useBookDataStore } from '@/store/bookDataStore';
@@ -10,8 +11,10 @@ import { throttle } from '@/utils/throttle';
 
 export const useNotesSync = (bookKey: string) => {
   const { user } = useAuth();
+  const { envConfig } = useEnv();
   const { syncedNotes, syncNotes, lastSyncedAtNotes } = useSync(bookKey);
   const { getConfig, setConfig, getBookData } = useBookDataStore();
+
 
   const config = getConfig(bookKey);
 
@@ -83,6 +86,19 @@ export const useNotesSync = (bookKey: string) => {
         ...newNotes.map(processNewNote),
       ];
       setConfig(bookKey, { booknotes: mergedNotes });
+
+      // persist merged notes to centralized notes file
+      (async () => {
+        try {
+          const notesService = await import('@/services/notesService');
+          const bookHash = book?.hash;
+          if (bookHash) {
+            await notesService.saveNotesForBook(envConfig, bookHash, mergedNotes, book?.title, book?.metaHash);
+          }
+        } catch (e) {
+          console.error('Failed to persist merged synced notes to central file', e);
+        }
+      })();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [syncedNotes]);

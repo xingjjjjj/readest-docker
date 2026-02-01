@@ -27,6 +27,8 @@ services:
       - ./books:/app/books
       # 配置持久化
       - ./config:/app/config
+      # 批注持久化，放在appdata下
+      - ./books/.readest/annotations:/app/books/.readest/annotations
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/"]
       interval: 30s

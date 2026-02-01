@@ -32,7 +32,7 @@ const MAX_NOTEBOOK_WIDTH = 0.45;
 const Notebook: React.FC = ({ }) => {
   const _ = useTranslation();
   const { updateAppTheme, safeAreaInsets } = useThemeStore();
-  const { envConfig, appService } = useEnv();
+  const { envConfig: envCfg, appService } = useEnv();
   const { settings } = useSettingsStore();
   const { sideBarBookKey } = useSidebarStore();
   const { notebookWidth, isNotebookVisible, isNotebookPinned } = useNotebookStore();
@@ -42,6 +42,8 @@ const Notebook: React.FC = ({ }) => {
   const { getNotebookWidth, setNotebookWidth, setNotebookVisible, toggleNotebookPin } =
     useNotebookStore();
   const { setNotebookNewAnnotation, setNotebookEditAnnotation } = useNotebookStore();
+
+  const [bookNotesAll, setBookNotesAll] = useState<BookNote[]>([]);
 
   const [isSearchBarVisible, setIsSearchBarVisible] = useState(false);
   const [searchResults, setSearchResults] = useState<BookNote[] | null>(null);
@@ -94,7 +96,7 @@ const Notebook: React.FC = ({ }) => {
     toggleNotebookPin();
     const globalReadSettings = settings.globalReadSettings;
     const newGlobalReadSettings = { ...globalReadSettings, isNotebookPinned: !isNotebookPinned };
-    saveSysSettings(envConfig, 'globalReadSettings', newGlobalReadSettings);
+    saveSysSettings(envCfg, 'globalReadSettings', newGlobalReadSettings);
   };
 
   const handleClickOverlay = () => {
@@ -103,7 +105,7 @@ const Notebook: React.FC = ({ }) => {
     setNotebookEditAnnotation(null);
   };
 
-  const handleSaveNote = (selection: TextSelection, note: string) => {
+  const handleSaveNote = async (selection: TextSelection, note: string) => {
     if (!sideBarBookKey) return;
     const view = getView(sideBarBookKey);
     const config = getConfig(sideBarBookKey)!;
@@ -111,7 +113,9 @@ const Notebook: React.FC = ({ }) => {
     const cfi = view?.getCFI(selection.index, selection.range);
     if (!cfi) return;
 
-    const { booknotes: annotations = [] } = config;
+    // operate on the centralized notes state
+    const annotations = [...bookNotesAll];
+
     const style = settings.globalReadSettings.highlightStyle;
     const color = settings.globalReadSettings.highlightStyles[style];
     const annotation: BookNote = {
@@ -126,46 +130,45 @@ const Notebook: React.FC = ({ }) => {
       updatedAt: Date.now(),
     };
 
-    // If there's an existing highlight (same CFI) without a note, update it instead
-    // find existing annotation with same CFI regardless of deletedAt so we can revive/update it
     const existingIndex = annotations.findIndex(
       (a) => a.type === 'annotation' && a.cfi === cfi && (!a.note || a.note.trim() === ''),
     );
     if (existingIndex !== -1) {
       const existing = annotations[existingIndex]!;
-      // preserve id and timestamps
       annotation.id = existing.id;
       annotation.createdAt = existing.createdAt || annotation.createdAt;
-      // clear deletedAt if present (revive)
       delete (annotation as any).deletedAt;
-      // update the stored annotation entry (keep style fields intact)
       annotations[existingIndex] = { ...existing, ...annotation };
-
-      // Ensure both style overlay and note overlay exist: update style overlay and
-      // add a note overlay on top of it
       try {
         view?.addAnnotation(annotations[existingIndex]);
         view?.addAnnotation({ ...annotations[existingIndex], value: `${NOTE_PREFIX}${annotations[existingIndex].cfi}` });
       } catch (e) {
-        // ignore overlay failures
+        // ignore
       }
     } else {
-      // new annotation
       view?.addAnnotation({ ...annotation, value: `${NOTE_PREFIX}${annotation.cfi}` });
       annotations.push(annotation);
     }
-    const updatedConfig = updateBooknotes(sideBarBookKey, annotations);
-    if (updatedConfig) {
-      saveConfig(envConfig, sideBarBookKey, updatedConfig, settings);
+
+    // update in-memory store and centralized file
+    updateBooknotes(sideBarBookKey, annotations);
+    try {
+      const bookHash = sideBarBookKey.split('-')[0]!;
+      await (await import('@/services/notesService')).saveNotesForBook(envCfg, bookHash, annotations, config?.title, config?.metaHash);
+      setBookNotesAll(annotations);
+      eventDispatcher.dispatch('notes-updated', { bookHash });
+    } catch (e) {
+      console.error('Failed to persist notes to central file', e);
     }
+
     setNotebookNewAnnotation(null);
   };
 
-  const handleEditNote = (note: BookNote, isDelete: boolean) => {
+  const handleEditNote = async (note: BookNote, isDelete: boolean) => {
     if (!sideBarBookKey) return;
     const view = getView(sideBarBookKey);
     const config = getConfig(sideBarBookKey)!;
-    const { booknotes: annotations = [] } = config;
+    const annotations = [...bookNotesAll];
     const existingIndex = annotations.findIndex((item) => item.id === note.id);
     if (existingIndex === -1) return;
     if (isDelete) {
@@ -173,11 +176,18 @@ const Notebook: React.FC = ({ }) => {
     } else {
       note.updatedAt = Date.now();
     }
-    annotations[existingIndex] = note;
-    view?.addAnnotation({ ...note, value: `${NOTE_PREFIX}${note.cfi}` }, true);
-    const updatedConfig = updateBooknotes(sideBarBookKey, annotations);
-    if (updatedConfig) {
-      saveConfig(envConfig, sideBarBookKey, updatedConfig, settings);
+    const existing = annotations[existingIndex]!;
+    const merged = { ...existing, ...note, updatedAt: note.updatedAt || Date.now() };
+    annotations[existingIndex] = merged;
+    view?.addAnnotation({ ...merged, value: `${NOTE_PREFIX}${merged.cfi}` }, true);
+    updateBooknotes(sideBarBookKey, annotations);
+    try {
+      const bookHash = sideBarBookKey.split('-')[0]!;
+      await (await import('@/services/notesService')).saveNotesForBook(envCfg, bookHash, annotations, config?.title, config?.metaHash);
+      setBookNotesAll(annotations);
+      eventDispatcher.dispatch('notes-updated', { bookHash });
+    } catch (e) {
+      console.error('Failed to persist notes to central file', e);
     }
     setNotebookEditAnnotation(null);
   };
@@ -203,11 +213,30 @@ const Notebook: React.FC = ({ }) => {
   const { handleDragStart, handleDragKeyDown } = useDrag(onDragMove, onDragKeyDown);
 
   const config = getConfig(sideBarBookKey);
-  const { booknotes: allNotes = [] } = config || {};
-  const annotationNotes = allNotes
+
+  // Use centralized notes storage instead of per-book config
+  useEffect(() => {
+    const load = async () => {
+      if (!sideBarBookKey) {
+        setBookNotesAll([]);
+        return;
+      }
+      const bookHash = sideBarBookKey.split('-')[0]!;
+      try {
+        const notes = await (await import('@/services/notesService')).getNotesForBook(envCfg, bookHash);
+        setBookNotesAll(notes || []);
+      } catch (e) {
+        console.warn('Failed to load notes for book', bookHash, e);
+        setBookNotesAll([]);
+      }
+    };
+    load();
+  }, [sideBarBookKey, envCfg]);
+
+  const annotationNotes = bookNotesAll
     .filter((note) => note.type === 'annotation' && note.note && !note.deletedAt)
     .sort((a, b) => b.createdAt - a.createdAt);
-  const excerptNotes = allNotes
+  const excerptNotes = bookNotesAll
     .filter((note) => note.type === 'excerpt' && note.text && !note.deletedAt)
     .sort((a, b) => a.createdAt - b.createdAt);
 

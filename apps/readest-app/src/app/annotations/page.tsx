@@ -43,8 +43,8 @@ const AnnotationsPage: React.FC = () => {
                     if (book.deletedAt) continue;
 
                     try {
-                        const config = await appService.loadBookConfig(book, {} as any);
-                        const notes = (config.booknotes || []).filter(
+                        const notesService = await import('@/services/notesService');
+                        const notes = (await notesService.getNotesForBook(envConfig, book.hash)).filter(
                             (note: BookNote) => !note.deletedAt && (note.note || note.text),
                         );
 
@@ -74,7 +74,7 @@ const AnnotationsPage: React.FC = () => {
         };
 
         loadAnnotations();
-    }, [library, appService, _]);
+    }, [library, appService, _, envConfig]);
 
     const filteredNotes = useMemo(() => {
         let allNotes: Array<{
@@ -128,13 +128,21 @@ const AnnotationsPage: React.FC = () => {
         if (!appService) return;
 
         try {
-            const config = await appService.loadBookConfig(book, {} as any);
-            const notes = config.booknotes || [];
+            const notesService = await import('@/services/notesService');
+            const notes = await notesService.getNotesForBook(envConfig, book.hash);
             const noteIndex = notes.findIndex((n: BookNote) => n.id === note.id);
 
             if (noteIndex !== -1 && notes[noteIndex]) {
                 notes[noteIndex]!.deletedAt = Date.now();
-                await appService.saveBookConfig(book, config);
+                // try to preserve metaHash
+                let metaHash: string | undefined;
+                try {
+                    const cfg = await appService.loadBookConfig(book, {} as any);
+                    metaHash = cfg?.metaHash;
+                } catch (err) {
+                    /* ignore */
+                }
+                await notesService.saveNotesForBook(envConfig, book.hash, notes, book.title, metaHash);
 
                 // 更新本地状态
                 setBooksWithNotes((prev) =>
