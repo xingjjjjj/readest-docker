@@ -50,13 +50,21 @@ export class ChunkedFileLoader {
         }
 
         try {
-            const response = await fetch(
-                `/api/storage/file/info?filePath=${encodeURIComponent(this.filePath)}`,
-                { cache: 'no-store' }
-            );
+            const url = `/api/storage/file/info?filePath=${encodeURIComponent(this.filePath)}`;
+            console.log(`[ChunkedFileLoader] Fetching file info for: ${this.filePath}`);
+            console.log(`[ChunkedFileLoader] Request URL: ${url}`);
+
+            const response = await fetch(url, { cache: 'no-store' });
 
             if (!response.ok) {
-                throw new Error(`Failed to get file info: ${response.status}`);
+                const errorText = await response.text().catch(() => 'Unable to read error response');
+                console.error(`[ChunkedFileLoader] Failed to get file info:`, {
+                    filePath: this.filePath,
+                    status: response.status,
+                    statusText: response.statusText,
+                    error: errorText,
+                });
+                throw new Error(`Failed to get file info: ${response.status} - ${errorText}`);
             }
 
             const fileInfo: FileInfo | null = await response.json();

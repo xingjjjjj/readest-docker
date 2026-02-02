@@ -480,18 +480,28 @@ export class OptimizedBookLoader {
      * 获取书籍文件路径
      */
     private getBookFilePath(): string {
-        // 优先使用 filePath，其次使用 title.format，最后使用 hash/book.format
+        // 优先使用 relativePath（本地存储模式），其次使用 filePath，最后使用兜底方案
+        if (this.book.relativePath) {
+            console.log(`[OptimizedLoader] Using book.relativePath: ${this.book.relativePath}`);
+            return this.book.relativePath;
+        }
+
         if (this.book.filePath) {
+            console.log(`[OptimizedLoader] Using book.filePath: ${this.book.filePath}`);
             return this.book.filePath;
         }
 
         // 如果有 title，使用 title + 扩展名
         if (this.book.title) {
-            return `${this.book.title}.${this.book.format.toLowerCase()}`;
+            const path = `${this.book.title}.${this.book.format.toLowerCase()}`;
+            console.log(`[OptimizedLoader] Using book.title: ${path}`);
+            return path;
         }
 
         // 兜底方案：hash/book.format
-        return `${this.book.hash}/book.${this.book.format.toLowerCase()}`;
+        const path = `${this.book.hash}/book.${this.book.format.toLowerCase()}`;
+        console.log(`[OptimizedLoader] Using fallback hash: ${path}`);
+        return path;
     }
 
     /**

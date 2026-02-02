@@ -49,6 +49,13 @@ export async function GET(req: NextRequest) {
 
     try {
         const { fullPath, relPath } = resolveLocalPath(filePath, useTemp);
+        console.log(`[storage/info] Checking file:`, {
+            filePath,
+            fullPath,
+            relPath,
+            useTemp,
+        });
+
         const stats = await stat(fullPath);
         const format = toFormat(relPath);
         const etag = `"${stats.size}-${stats.mtimeMs}"`;
@@ -69,8 +76,23 @@ export async function GET(req: NextRequest) {
             },
         );
     } catch (error: any) {
-        console.error('[storage/info] Error:', error?.message || error);
-        return NextResponse.json({ error: 'File not found' }, { status: 404 });
+        console.error('[storage/info] Error:', {
+            filePath,
+            useTemp,
+            error: error?.message || error,
+            code: error?.code,
+        });
+        return NextResponse.json(
+            {
+                error: 'File not found',
+                details: {
+                    filePath,
+                    message: error?.message,
+                    code: error?.code,
+                }
+            },
+            { status: 404 }
+        );
     }
 }
 
