@@ -22,10 +22,11 @@ const DEFAULT_NOTES_FILE: NotesFile = {
 
 export const loadAllNotes = async (envConfig: EnvConfigType): Promise<NotesFile> => {
     const appService = await envConfig.getAppService();
+    const fsApi = ((appService as any).fs ?? appService) as any;
     const fn = getNotesFilename();
     try {
-        if (!(await appService.fs.exists(fn, 'Books'))) return DEFAULT_NOTES_FILE;
-        const str = (await appService.fs.readFile(fn, 'Books', 'text')) as string;
+        if (!(await fsApi.exists(fn, 'Books'))) return DEFAULT_NOTES_FILE;
+        const str = (await fsApi.readFile(fn, 'Books', 'text')) as string;
         try {
             const parsed = JSON.parse(str) as NotesFile;
             return parsed;
@@ -62,23 +63,25 @@ export const loadAllNotes = async (envConfig: EnvConfigType): Promise<NotesFile>
 
 export const saveAllNotes = async (envConfig: EnvConfigType, notesFile: NotesFile) => {
     const appService = await envConfig.getAppService();
+    const fsApi = ((appService as any).fs ?? appService) as any;
     const fn = getNotesFilename();
     // atomic write: write tmp then write final file (rename may not be available in all platforms)
     const tmp = `${fn}.tmp`;
     try {
         const payload = JSON.stringify({ ...notesFile, updatedAt: Date.now() }, null, 2);
-        await appService.fs.writeFile(tmp, 'Books', payload);
+        await fsApi.writeFile(tmp, 'Books', payload);
         // Some platform fs implementations (web) don't provide rename; write final file and cleanup tmp
         try {
-            await appService.fs.writeFile(fn, 'Books', payload);
+            await fsApi.writeFile(fn, 'Books', payload);
         } catch (e) {
             console.warn('[notesService] failed to write final notes file directly, will try fallback write', e);
             // fallback: attempt direct write of raw notesFile
-            await appService.fs.writeFile(fn, 'Books', JSON.stringify(notesFile));
+            await fsApi.writeFile(fn, 'Books', JSON.stringify(notesFile));
         }
         // try to remove tmp file if supported
         try {
-            await appService.fs.removeFile(tmp, 'Books');
+            const removeFile = fsApi.removeFile ?? fsApi.deleteFile;
+            if (removeFile) await removeFile.call(fsApi, tmp, 'Books');
         } catch (e) {
             // ignore cleanup error
         }
@@ -86,7 +89,7 @@ export const saveAllNotes = async (envConfig: EnvConfigType, notesFile: NotesFil
         console.error('[notesService] failed to save notes file:', e);
         try {
             // fallback: write directly
-            await appService.fs.writeFile(fn, 'Books', JSON.stringify(notesFile));
+            await fsApi.writeFile(fn, 'Books', JSON.stringify(notesFile));
         } catch (err) {
             console.error('[notesService] fallback write also failed:', err);
             throw err;

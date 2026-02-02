@@ -99,12 +99,11 @@ const AnnotationsPage: React.FC = () => {
                             hash: bookHash,
                             title: bookEntry.title || 'Unknown Book',
                             author: '',
-                            format: 'unknown',
-                            relativePath: '',
+                            // Notes metadata may not include a reliable format; default to a valid BookFormat.
+                            format: 'EPUB',
                             createdAt: Date.now(),
                             updatedAt: Date.now(),
-                            progress: 0,
-                        } as Book;
+                        };
                     }
 
                     if (!book.deletedAt) {

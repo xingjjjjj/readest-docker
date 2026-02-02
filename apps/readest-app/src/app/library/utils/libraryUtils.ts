@@ -1,6 +1,23 @@
 import { Book } from '@/types/book';
 import { formatAuthors, formatTitle } from '@/utils/book';
 
+export type BookReadStatus = 'unread' | 'reading' | 'finished';
+
+export const getBookProgressPercentage = (book: Book): number => {
+  if (!book.progress || !book.progress[1]) return 0;
+  if (book.progress[1] === 1) return 100;
+  const percentage = Math.round((book.progress[0] / book.progress[1]) * 100);
+  return Math.max(0, Math.min(100, percentage));
+};
+
+export const getBookReadStatus = (book: Book): BookReadStatus => {
+  if (book.finishedAt) return 'finished';
+  const pct = getBookProgressPercentage(book);
+  if (pct >= 100) return 'finished';
+  if (pct > 0) return 'reading';
+  return 'unread';
+};
+
 export const createBookFilter = (queryTerm: string | null) => (item: Book) => {
   if (!queryTerm) return true;
   if (item.deletedAt) return false;

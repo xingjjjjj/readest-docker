@@ -30,7 +30,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({ bookKey, item, onClick, onU
   const _ = useTranslation();
   const { envConfig } = useEnv();
   const { settings } = useSettingsStore();
-  const { getConfig, updateBooknotes } = useBookDataStore();
+  const { getConfig, getBookData, updateBooknotes } = useBookDataStore();
   const config = useBookDataStore((state) => state.getConfig(bookKey));
   const { getProgress, getView, getViewsById } = useReaderStore();
   const { setNotebookEditAnnotation, setNotebookVisible } = useNotebookStore();
@@ -76,7 +76,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({ bookKey, item, onClick, onU
         envConfig,
         bookHash,
         notes,
-        getConfig(bookKey)?.title,
+        getBookData(bookKey)?.book?.title,
         getConfig(bookKey)?.metaHash,
       );
       eventDispatcher.dispatch('notes-updated', { bookHash });
@@ -119,7 +119,7 @@ const BooknoteItem: React.FC<BooknoteItemProps> = ({ bookKey, item, onClick, onU
         envConfig,
         bookHash,
         notes,
-        getConfig(bookKey)?.title,
+        getBookData(bookKey)?.book?.title,
         getConfig(bookKey)?.metaHash,
       );
       eventDispatcher.dispatch('notes-updated', { bookHash });

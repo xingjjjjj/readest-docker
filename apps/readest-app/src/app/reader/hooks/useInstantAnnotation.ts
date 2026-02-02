@@ -8,6 +8,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useReaderStore } from '@/store/readerStore';
 import { uniqueId } from '@/utils/misc';
+import { eventDispatcher } from '@/utils/event';
 
 interface UseInstantAnnotationProps {
   bookKey: string;
@@ -18,7 +19,7 @@ interface UseInstantAnnotationProps {
 export const useInstantAnnotation = ({ bookKey, getAnnotationText }: UseInstantAnnotationProps) => {
   const { envConfig } = useEnv();
   const { settings } = useSettingsStore();
-  const { getConfig, saveConfig, updateBooknotes } = useBookDataStore();
+  const { getConfig, getBookData, saveConfig, updateBooknotes } = useBookDataStore();
   const { getView, getViewsById, getViewSettings } = useReaderStore();
 
   const startPointRef = useRef<Point | null>(null);
@@ -281,7 +282,13 @@ export const useInstantAnnotation = ({ bookKey, getAnnotationText }: UseInstantA
       if (updatedConfig) {
         try {
           const bookHash = bookKey.split('-')[0]!;
-          await (await import('@/services/notesService')).saveNotesForBook(envConfig, bookHash, annotations, config?.title, config?.metaHash);
+          await (await import('@/services/notesService')).saveNotesForBook(
+            envConfig,
+            bookHash,
+            annotations,
+            getBookData(bookKey)?.book?.title,
+            config?.metaHash,
+          );
           eventDispatcher.dispatch('notes-updated', { bookHash });
         } catch (e) {
           console.error('Failed to persist notes to central file', e);

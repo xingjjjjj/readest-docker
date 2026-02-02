@@ -420,9 +420,27 @@ export class OptimizedBookLoader {
                 throw new Error('Document not loaded');
             }
 
-            const section = this.loadedDocument.sections?.[spineIndex];
+            const sections = this.loadedDocument.sections || [];
+            if (!sections.length) {
+                console.warn('[OptimizedLoader] No sections available on document');
+                return new ArrayBuffer(0);
+            }
+
+            let safeIndex = spineIndex;
+            if (spineIndex < 0 || spineIndex >= sections.length) {
+                safeIndex = Math.min(Math.max(spineIndex, 0), sections.length - 1);
+                console.warn(
+                    `[OptimizedLoader] Section ${spineIndex} out of range, clamped to ${safeIndex}`,
+                );
+            }
+
+            let section = sections[safeIndex];
             if (!section) {
-                throw new Error(`Section ${spineIndex} not found`);
+                section = sections.find((s) => !!s);
+            }
+            if (!section) {
+                console.warn(`[OptimizedLoader] Section ${spineIndex} not found after fallback`);
+                return new ArrayBuffer(0);
             }
 
             // foliate section.load() 通常返回字符串或 Document

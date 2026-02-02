@@ -380,7 +380,7 @@ const Notebook: React.FC = ({ }) => {
             )}
           </div>
           <ul className=''>
-            {filteredExcerptNotes.map((item) => (
+            {filteredExcerptNotes.map((item, index) => (
               <li key={item.id} className='my-2'>
                 <div
                   role='button'

@@ -15,7 +15,7 @@ import { useLibraryStore } from '@/store/libraryStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
 import { navigateToLibrary, navigateToReader, showReaderWindow } from '@/utils/nav';
-import { createBookFilter, createBookSorter } from '../utils/libraryUtils';
+import { createBookFilter, createBookSorter, getBookReadStatus } from '../utils/libraryUtils';
 import { formatTitle } from '@/utils/book';
 import { eventDispatcher } from '@/utils/event';
 
@@ -36,12 +36,10 @@ interface BookshelfProps {
     book: Book,
     options?: { redownload?: boolean; queued?: boolean },
   ) => Promise<boolean>;
-  handleBookUpload: (book: Book, syncBooks?: boolean) => Promise<boolean>;
   handleBookDelete: (book: Book, syncBooks?: boolean) => Promise<boolean>;
   handleSetSelectMode: (selectMode: boolean) => void;
   handleShowDetailsBook: (book: Book) => void;
   handlePushLibrary: () => Promise<void>;
-  booksTransferProgress: { [key: string]: number | null };
 }
 
 const Bookshelf: React.FC<BookshelfProps> = ({
@@ -50,13 +48,11 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   isSelectAll,
   isSelectNone,
   handleImportBooks,
-  handleBookUpload,
   handleBookDownload,
   handleBookDelete,
   handleSetSelectMode,
   handleShowDetailsBook,
   handlePushLibrary,
-  booksTransferProgress,
 }) => {
   const _ = useTranslation();
   const router = useRouter();
@@ -67,6 +63,9 @@ const Bookshelf: React.FC<BookshelfProps> = ({
 
   const groupId = searchParams?.get('group') || '';
   const queryTerm = searchParams?.get('q') || null;
+  const rawFilter = searchParams?.get('filter') || 'all';
+  // Legacy: want-to-read filter was removed; treat it as finished.
+  const filter = rawFilter === 'want' ? 'finished' : rawFilter;
   const viewMode = searchParams?.get('view') || settings.libraryViewMode;
   const sortBy = searchParams?.get('sort') || settings.librarySortBy;
   const sortOrder = searchParams?.get('order') || (settings.librarySortAscending ? 'asc' : 'desc');
@@ -119,8 +118,23 @@ const Bookshelf: React.FC<BookshelfProps> = ({
 
   const filteredBooks = useMemo(() => {
     const bookFilter = createBookFilter(queryTerm);
-    return queryTerm ? libraryBooks.filter((book) => bookFilter(book)) : libraryBooks;
-  }, [libraryBooks, queryTerm]);
+    const byQuery = queryTerm ? libraryBooks.filter((book) => bookFilter(book)) : libraryBooks;
+
+    switch (filter) {
+      case 'unread':
+        return byQuery.filter((b) => !b.deletedAt && getBookReadStatus(b) === 'unread');
+      case 'reading':
+        return byQuery.filter((b) => !b.deletedAt && getBookReadStatus(b) === 'reading');
+      case 'finished':
+        return byQuery.filter((b) => !b.deletedAt && getBookReadStatus(b) === 'finished');
+      case 'favorite':
+        return byQuery.filter((b) => !b.deletedAt && !!b.isFavorite);
+      case 'all':
+      default:
+        // Slightly bias "All" towards recently used ordering elsewhere; keep as-is here
+        return byQuery;
+    }
+  }, [libraryBooks, queryTerm, filter]);
 
   const currentBookshelfItems = useMemo(() => {
     const groupName = getGroupName(groupId) || '';
@@ -315,14 +329,10 @@ const Bookshelf: React.FC<BookshelfProps> = ({
             setLoading={setLoading}
             toggleSelection={toggleSelection}
             handleGroupBooks={groupSelectedBooks}
-            handleBookUpload={handleBookUpload}
             handleBookDownload={handleBookDownload}
             handleBookDelete={handleBookDelete}
             handleSetSelectMode={handleSetSelectMode}
             handleShowDetailsBook={handleShowDetailsBook}
-            transferProgress={
-              'hash' in item ? booksTransferProgress[(item as Book).hash] || null : null
-            }
           />
         ))}
         {viewMode === 'grid' && currentBookshelfItems.length > 0 && (
@@ -331,9 +341,9 @@ const Bookshelf: React.FC<BookshelfProps> = ({
             style={
               coverFit === 'fit' && viewMode === 'grid'
                 ? {
-                    display: 'flex',
-                    paddingBottom: `${iconSize15 + 24}px`,
-                  }
+                  display: 'flex',
+                  paddingBottom: `${iconSize15 + 24}px`,
+                }
                 : undefined
             }
           >

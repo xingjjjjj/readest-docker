@@ -55,6 +55,15 @@ export interface Book {
   progress?: [number, number]; // Add progress field: [current, total], 1-based page number
   primaryLanguage?: string;
 
+  /** Reading / library metadata (stored in .readest/library.json) */
+  lastReadAt?: number;
+  totalReadTimeMs?: number;
+  finishedAt?: number;
+  isFavorite?: boolean;
+  favoriteAt?: number;
+  isWantToRead?: boolean;
+  wantToReadAt?: number;
+
   metadata?: BookMetadata;
 }
 

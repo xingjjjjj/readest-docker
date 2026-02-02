@@ -29,7 +29,7 @@ export const useAnnotationEditor = ({
 }: UseAnnotationEditorProps) => {
   const { envConfig } = useEnv();
   const { settings } = useSettingsStore();
-  const { getConfig, saveConfig, updateBooknotes } = useBookDataStore();
+  const { getConfig, getBookData, saveConfig, updateBooknotes } = useBookDataStore();
   const { getView, getViewsById } = useReaderStore();
 
   const view = getView(bookKey);
@@ -169,7 +169,13 @@ export const useAnnotationEditor = ({
             if (updatedConfig) {
               try {
                 const bookHash = bookKey.split('-')[0]!;
-                await (await import('@/services/notesService')).saveNotesForBook(envConfig, bookHash, annotations, config?.title, config?.metaHash);
+                await (await import('@/services/notesService')).saveNotesForBook(
+                  envConfig,
+                  bookHash,
+                  annotations,
+                  getBookData(bookKey)?.book?.title,
+                  config?.metaHash,
+                );
                 eventDispatcher.dispatch('notes-updated', { bookHash });
               } catch (e) {
                 console.error('Failed to persist updated annotation to central file', e);

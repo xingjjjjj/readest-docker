@@ -13,8 +13,6 @@ import { AppService, DeleteAction } from '@/types/system';
 import { navigateToLibrary, navigateToReader } from '@/utils/nav';
 import { formatAuthors, formatTitle, getPrimaryLanguage, listFormater } from '@/utils/book';
 import { eventDispatcher } from '@/utils/event';
-import { ProgressPayload } from '@/utils/transfer';
-import { throttle } from '@/utils/throttle';
 import { transferManager } from '@/services/transferManager';
 import { getDirPath, getFilename, joinPaths } from '@/utils/path';
 import { parseOpenWithFiles } from '@/helpers/openWith';
@@ -62,6 +60,7 @@ import { getBreadcrumbs } from './utils/libraryUtils';
 import Spinner from '@/components/Spinner';
 import LibraryHeader from './components/LibraryHeader';
 import Bookshelf from './components/Bookshelf';
+import LibraryOverviewBar from './components/LibraryOverviewBar';
 import useShortcuts from '@/hooks/useShortcuts';
 import DropIndicator from '@/components/DropIndicator';
 import SettingsDialog from '@/components/settings/SettingsDialog';
@@ -107,9 +106,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   const [isSelectNone, setIsSelectNone] = useState(false);
   const [showDetailsBook, setShowDetailsBook] = useState<Book | null>(null);
   const [currentGroupPath, setCurrentGroupPath] = useState<string | undefined>(undefined);
-  const [booksTransferProgress, setBooksTransferProgress] = useState<{
-    [key: string]: number | null;
-  }>({});
   const [pendingNavigationBookIds, setPendingNavigationBookIds] = useState<string[] | null>(null);
   const isInitiating = useRef(false);
 
@@ -523,34 +519,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     setLoading(false);
   };
 
-  const updateBookTransferProgress = throttle((bookHash: string, progress: ProgressPayload) => {
-    if (progress.total === 0) return;
-    const progressPct = (progress.progress / progress.total) * 100;
-    setBooksTransferProgress((prev) => ({
-      ...prev,
-      [bookHash]: progressPct,
-    }));
-  }, 500);
-
-  const handleBookUpload = useCallback(
-    async (book: Book, _syncBooks = true) => {
-      // Use transfer queue for uploads - priority 1 for manual uploads (higher priority)
-      const transferId = transferManager.queueUpload(book, 1);
-      if (transferId) {
-        eventDispatcher.dispatch('toast', {
-          type: 'info',
-          timeout: 2000,
-          message: _('Upload queued: {{title}}', {
-            title: book.title,
-          }),
-        });
-        return true;
-      }
-      return false;
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
 
   const handleBookDownload = useCallback(
     async (book: Book, downloadOptions: { redownload?: boolean; queued?: boolean } = {}) => {
@@ -752,7 +720,19 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
         tabIndex={-1}
         aria-label={_('Library Header')}
       >
-        <LibraryHeader
+        <LibraryHeader />
+        <progress
+          className={clsx(
+            'progress progress-success absolute bottom-0 left-0 right-0 h-1 translate-y-[2px] transition-opacity duration-200 sm:translate-y-[4px]',
+            isSyncing ? 'opacity-100' : 'opacity-0',
+          )}
+          value={syncProgress * 100}
+          max='100'
+        />
+      </div>
+
+      {showBookshelf && (
+        <LibraryOverviewBar
           isSelectMode={isSelectMode}
           isSelectAll={isSelectAll}
           onImportBooksFromFiles={handleImportBooksFromFiles}
@@ -763,15 +743,8 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
           onSelectAll={handleSelectAll}
           onDeselectAll={handleDeselectAll}
         />
-        <progress
-          className={clsx(
-            'progress progress-success absolute bottom-0 left-0 right-0 h-1 translate-y-[2px] transition-opacity duration-200 sm:translate-y-[4px]',
-            isSyncing ? 'opacity-100' : 'opacity-0',
-          )}
-          value={syncProgress * 100}
-          max='100'
-        />
-      </div>
+      )}
+
       {(loading || isSyncing) && (
         <div className='fixed inset-0 z-50 flex items-center justify-center'>
           <Spinner loading />
@@ -843,12 +816,10 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
                 isSelectAll={isSelectAll}
                 isSelectNone={isSelectNone}
                 handleImportBooks={handleImportBooksFromFiles}
-                handleBookUpload={handleBookUpload}
                 handleBookDownload={handleBookDownload}
                 handleBookDelete={handleBookDelete('both')}
                 handleSetSelectMode={handleSetSelectMode}
                 handleShowDetailsBook={handleShowDetailsBook}
-                booksTransferProgress={booksTransferProgress}
                 handlePushLibrary={pushLibrary}
               />
             </div>
@@ -876,7 +847,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
           isOpen={!!showDetailsBook}
           book={showDetailsBook}
           onClose={() => setShowDetailsBook(null)}
-          handleBookUpload={handleBookUpload}
           handleBookDownload={handleBookDownload}
           handleBookDelete={handleBookDelete('both')}
           handleBookDeleteCloudBackup={handleBookDelete('cloud')}

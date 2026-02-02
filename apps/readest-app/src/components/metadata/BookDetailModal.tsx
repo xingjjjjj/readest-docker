@@ -24,7 +24,6 @@ interface BookDetailModalProps {
   isOpen: boolean;
   onClose: () => void;
   handleBookDownload?: (book: Book, options?: { redownload?: boolean; queued?: boolean }) => void;
-  handleBookUpload?: (book: Book) => void;
   handleBookDelete?: (book: Book) => void;
   handleBookDeleteCloudBackup?: (book: Book) => void;
   handleBookDeleteLocalCopy?: (book: Book) => void;
@@ -42,7 +41,6 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({
   isOpen,
   onClose,
   handleBookDownload,
-  handleBookUpload,
   handleBookDelete,
   handleBookDeleteCloudBackup,
   handleBookDeleteLocalCopy,
@@ -166,13 +164,6 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({
     }
   };
 
-  const handleReupload = async () => {
-    handleClose();
-    if (handleBookUpload) {
-      handleBookUpload(book);
-    }
-  };
-
   const handleBookExport = async () => {
     setIsLoading(true);
     setTimeout(async () => {
@@ -232,7 +223,6 @@ const BookDetailModal: React.FC<BookDetailModalProps> = ({
                 }
                 onDeleteLocalCopy={handleBookDeleteLocalCopy ? handleDeleteLocalCopy : undefined}
                 onDownload={handleBookDownload ? handleRedownload : undefined}
-                onUpload={handleBookUpload ? handleReupload : undefined}
                 onExport={handleBookExport}
               />
             )}

@@ -5,9 +5,11 @@ import { useEffect, useRef, useState } from 'react';
 import { MdCheckCircle, MdCheckCircleOutline, MdChevronRight, MdChevronLeft } from 'react-icons/md';
 import { useEnv } from '@/context/EnvContext';
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
+import { useTranslation } from '@/hooks/useTranslation';
 import { BooksGroup } from '@/types/book';
 import { LibraryViewModeType } from '@/types/settings';
 import BookCover from '@/components/BookCover';
+import { getBookReadStatus } from '../utils/libraryUtils';
 
 interface GroupItemProps {
   mode: LibraryViewModeType;
@@ -17,11 +19,17 @@ interface GroupItemProps {
 }
 
 const GroupItem: React.FC<GroupItemProps> = ({ mode, group, isSelectMode, groupSelected }) => {
+  const _ = useTranslation();
   const { appService } = useEnv();
   const iconSize15 = useResponsiveSize(15);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(false);
+
+  const total = group.books.length;
+  const finished = group.books.filter((b) => getBookReadStatus(b) === 'finished').length;
+  const reading = group.books.filter((b) => getBookReadStatus(b) === 'reading').length;
+  const favorites = group.books.filter((b) => b.isFavorite).length;
 
   const checkScrollArrows = () => {
     if (mode === 'list' && scrollContainerRef.current) {
@@ -122,12 +130,12 @@ const GroupItem: React.FC<GroupItemProps> = ({ mode, group, isSelectMode, groupS
             style={
               mode === 'list'
                 ? {
-                    scrollbarWidth: 'none',
-                    msOverflowStyle: 'none',
-                    WebkitOverflowScrolling: 'touch',
-                    transform: 'translateZ(0)',
-                    willChange: 'scroll-position',
-                  }
+                  scrollbarWidth: 'none',
+                  msOverflowStyle: 'none',
+                  WebkitOverflowScrolling: 'touch',
+                  transform: 'translateZ(0)',
+                  willChange: 'scroll-position',
+                }
                 : undefined
             }
             onScroll={mode === 'list' ? handleScroll : undefined}
@@ -191,6 +199,16 @@ const GroupItem: React.FC<GroupItemProps> = ({ mode, group, isSelectMode, groupS
         {mode === 'list' && (
           <div className='text-base-content/75 w-28 min-w-24 max-w-40 overflow-hidden text-ellipsis text-base font-semibold'>
             {group.displayName}
+          </div>
+        )}
+
+        {mode === 'list' && (
+          <div className='text-neutral-content/80 ms-auto hidden items-center gap-3 text-xs sm:flex'>
+            <span>
+              {finished}/{total} {_('Finished')}
+            </span>
+            {reading > 0 && <span>{reading} {_('Reading')}</span>}
+            {favorites > 0 && <span>{favorites} {_('Favorites')}</span>}
           </div>
         )}
         {groupSelected && (

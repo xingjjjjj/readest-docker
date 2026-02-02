@@ -80,7 +80,6 @@ interface BookshelfItemProps {
   coverFit: LibraryCoverFitType;
   isSelectMode: boolean;
   itemSelected: boolean;
-  transferProgress: number | null;
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   toggleSelection: (hash: string) => void;
   handleGroupBooks: () => void;
@@ -88,7 +87,6 @@ interface BookshelfItemProps {
     book: Book,
     options?: { redownload?: boolean; queued?: boolean },
   ) => Promise<boolean>;
-  handleBookUpload: (book: Book, syncBooks?: boolean) => Promise<boolean>;
   handleBookDelete: (book: Book, syncBooks?: boolean) => Promise<boolean>;
   handleSetSelectMode: (selectMode: boolean) => void;
   handleShowDetailsBook: (book: Book) => void;
@@ -100,11 +98,9 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
   coverFit,
   isSelectMode,
   itemSelected,
-  transferProgress,
   setLoading,
   toggleSelection,
   handleGroupBooks,
-  handleBookUpload,
   handleBookDownload,
   handleSetSelectMode,
   handleShowDetailsBook,
@@ -152,6 +148,13 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
       } else {
         const available = await makeBookAvailable(book);
         if (!available) return;
+        const now = Date.now();
+        const updated = {
+          ...book,
+          lastReadAt: now,
+          updatedAt: now,
+        };
+        await updateBook(envConfig, updated);
         if (appService?.hasWindow && settings.openBookInNewWindow) {
           showReaderWindow(appService, [book.hash]);
         } else {
@@ -162,7 +165,7 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isSelectMode, settings.openBookInNewWindow, appService],
+    [isSelectMode, settings.openBookInNewWindow, appService, envConfig, updateBook],
   );
 
   const handleGroupClick = useCallback(
@@ -219,6 +222,18 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
         showBookDetailsModal(book);
       },
     });
+
+    const toggleFavoriteMenuItem = await MenuItem.new({
+      text: book.isFavorite ? _('Unfavorite') : _('Favorite'),
+      action: async () => {
+        const updated = {
+          ...book,
+          isFavorite: !book.isFavorite,
+          favoriteAt: !book.isFavorite ? Date.now() : undefined,
+        };
+        await updateBook(envConfig, updated);
+      },
+    });
     // Cloud upload/download functionality removed - using local server storage only
     // const downloadBookMenuItem = await MenuItem.new({
     //   text: _('Download Book'),
@@ -242,6 +257,7 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
     menu.append(selectBookMenuItem);
     menu.append(groupBooksMenuItem);
     menu.append(showBookDetailsMenuItem);
+    menu.append(toggleFavoriteMenuItem);
     menu.append(showBookInFinderMenuItem);
     // Cloud storage menu items removed
     // if (book.uploadedAt && !book.downloadedAt) {
@@ -387,9 +403,6 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
               coverFit={coverFit}
               isSelectMode={isSelectMode}
               bookSelected={itemSelected}
-              transferProgress={transferProgress}
-              handleBookUpload={handleBookUpload}
-              handleBookDownload={handleBookDownload}
               showBookDetailsModal={showBookDetailsModal}
             />
           ) : (

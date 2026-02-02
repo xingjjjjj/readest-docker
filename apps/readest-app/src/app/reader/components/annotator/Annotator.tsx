@@ -360,6 +360,8 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
 
     // Otherwise this is the style overlay
     if (styleOptions) {
+      const safeStyle = (style ?? 'highlight') as NonNullable<BookNote['style']>;
+
       // If the note popup is visible for this CFI, hide the style overlay to avoid
       // duplicate UI (we want only one visible at a time when the note panel is open).
       // Require the popup (`showAnnotPopup`) to be actually shown to avoid flicker when
@@ -374,22 +376,22 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
       if (highlightOptionsVisible && selection?.cfi === (annotation.cfi as string)) {
         draw((rects: any[]) => {
           const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-          const base = (Overlayer as any)[style](rects, styleOptions);
+          const base = (Overlayer as any)[safeStyle](rects, styleOptions);
           g.appendChild(base);
-          if (style === 'highlight') {
+          if (safeStyle === 'highlight') {
             const outline = Overlayer.outline(rects, { color: isEink ? einkBgColor : hexColor, width: 2 });
             g.appendChild(outline);
-          } else if (style === 'underline' || style === 'squiggly') {
-            const topStyle = (Overlayer as any)[style](rects, styleOptions);
+          } else if (safeStyle === 'underline' || safeStyle === 'squiggly') {
+            const topStyle = (Overlayer as any)[safeStyle](rects, styleOptions);
             g.appendChild(topStyle);
           }
           return g;
         });
       } else {
-        if (style === 'highlight') {
+        if (safeStyle === 'highlight') {
           draw(Overlayer.highlight, styleOptions);
         } else {
-          draw(Overlayer[style as keyof typeof Overlayer], styleOptions);
+          draw(Overlayer[safeStyle], styleOptions);
         }
       }
       return;

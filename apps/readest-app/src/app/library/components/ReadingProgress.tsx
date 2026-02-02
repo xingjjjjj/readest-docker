@@ -3,37 +3,29 @@
 import type React from 'react';
 import { memo, useMemo } from 'react';
 import type { Book } from '@/types/book';
+import { getBookProgressPercentage } from '../utils/libraryUtils';
 
 interface ReadingProgressProps {
   book: Book;
 }
 
-const getProgressPercentage = (book: Book) => {
-  if (!book.progress || !book.progress[1]) {
-    return null;
-  }
-  if (book.progress && book.progress[1] === 1) {
-    return 100;
-  }
-  const percentage = Math.round((book.progress[0] / book.progress[1]) * 100);
-  return Math.max(0, Math.min(100, percentage));
-};
-
 const ReadingProgress: React.FC<ReadingProgressProps> = memo(
   ({ book }) => {
-    const progressPercentage = useMemo(() => getProgressPercentage(book), [book]);
-
-    if (progressPercentage === null || Number.isNaN(progressPercentage)) {
-      return null;
-    }
+    const progressPercentage = useMemo(() => getBookProgressPercentage(book), [book]);
+    if (!book.progress || Number.isNaN(progressPercentage)) return null;
 
     return (
       <div
-        className='text-neutral-content/70 flex justify-between text-xs'
+        className='flex w-full items-center gap-2'
         role='status'
         aria-label={`${progressPercentage}%`}
       >
-        <span>{progressPercentage}%</span>
+        <progress
+          className='progress progress-success h-1.5 flex-1'
+          value={progressPercentage}
+          max={100}
+        />
+        <span className='text-neutral-content/70 text-[11px] tabular-nums'>{progressPercentage}%</span>
       </div>
     );
   },

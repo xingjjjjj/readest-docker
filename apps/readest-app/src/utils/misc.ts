@@ -101,3 +101,14 @@ export const isValidURL = (url: string, allowedSchemes: string[] = ['http', 'htt
 export const stubTranslation = (stubKey: string) => {
   return stubKey;
 };
+
+export const formatDurationMs = (ms?: number | null) => {
+  const totalMs = Math.max(0, ms || 0);
+  if (!totalMs) return '0m';
+  const totalSeconds = Math.floor(totalMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  if (hours <= 0) return `${Math.max(1, minutes)}m`;
+  if (minutes <= 0) return `${hours}h`;
+  return `${hours}h ${minutes}m`;
+};

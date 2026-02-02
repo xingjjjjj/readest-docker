@@ -86,15 +86,33 @@ export const useBookDataStore = create<BookDataState>((set, get) => ({
     if (bookIndex == -1) return;
     const book = library.splice(bookIndex, 1)[0]!;
     book.progress = config.progress;
-    book.updatedAt = Date.now();
+    const now = Date.now();
+
+    // Update reading metadata in library.json
+    // - lastReadAt: latest activity timestamp
+    // - totalReadTimeMs: approximate reading time based on progress-change intervals
+    //   (cap the delta to avoid counting idle time)
+    const prevLastReadAt = book.lastReadAt || 0;
+    const delta = prevLastReadAt ? now - prevLastReadAt : 0;
+    const maxCountedDeltaMs = 10 * 60 * 1000; // 10 minutes
+    if (delta > 0 && delta <= maxCountedDeltaMs) {
+      book.totalReadTimeMs = (book.totalReadTimeMs || 0) + delta;
+    }
+    book.lastReadAt = now;
+
+    // Finished detection
+    if (config.progress && config.progress[1] > 0 && config.progress[0] >= config.progress[1]) {
+      book.finishedAt = book.finishedAt || now;
+    }
+
+    book.updatedAt = now;
     book.downloadedAt = book.downloadedAt || Date.now();
     library.unshift(book);
     setLibrary([...library]);
-    config.updatedAt = Date.now();
+    config.updatedAt = now;
     // Avoid persisting booknotes into per-book config; notes are stored in centralized notes file
-    const configToSave = { ...config } as any;
-    if (configToSave.booknotes) delete configToSave.booknotes;
-    await appService.saveBookConfig(book, configToSave, settings);
+    const { booknotes: _booknotes, ...cleanConfig } = config;
+    await appService.saveBookConfig(book, cleanConfig as BookConfig, settings);
     await appService.saveLibraryBooks(library);
   },
   updateBooknotes: (key: string, booknotes: BookNote[]) => {
