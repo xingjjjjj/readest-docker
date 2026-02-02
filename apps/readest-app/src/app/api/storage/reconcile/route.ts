@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { STORAGE_ROOT, ensureRoots, isLocalStorageEnabled } from '../_lib/localFs';
+import { BOOK_UNGROUPED_NAME } from '@/services/constants';
 
 const SUPPORTED_EXTS = ['.epub', '.mobi', '.azw', '.azw3', '.fb2', '.cbz', '.pdf', '.txt'];
 const METADATA_DIR = '.readest';
@@ -261,5 +262,5 @@ function findFileByName(
  */
 function inferGroupFromPath(relativePath: string): string {
     const dir = path.dirname(relativePath);
-    return dir === '.' ? '' : dir.replace(/\\/g, '/');
+    return dir === '.' ? BOOK_UNGROUPED_NAME : dir.replace(/\\/g, '/');
 }

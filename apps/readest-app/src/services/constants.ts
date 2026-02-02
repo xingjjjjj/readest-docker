@@ -37,7 +37,8 @@ export const SUPPORTED_BOOK_EXTS = [
   'txt',
 ];
 export const BOOK_ACCEPT_FORMATS = SUPPORTED_BOOK_EXTS.map((ext) => `.${ext}`).join(', ');
-export const BOOK_UNGROUPED_NAME = '';
+// Ungrouped books are stored under this directory name in local storage.
+export const BOOK_UNGROUPED_NAME = '未分组';
 export const BOOK_UNGROUPED_ID = '';
 
 export const SUPPORTED_IMAGE_EXTS = ['png', 'jpg', 'jpeg'];

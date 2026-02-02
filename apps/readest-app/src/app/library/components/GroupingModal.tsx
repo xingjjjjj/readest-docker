@@ -13,7 +13,7 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
 import { useKeyDownActions } from '@/hooks/useKeyDownActions';
-import { BOOK_UNGROUPED_ID, BOOK_UNGROUPED_NAME } from '@/services/constants';
+import { BOOK_UNGROUPED_NAME } from '@/services/constants';
 import { getBreadcrumbs } from '../utils/libraryUtils';
 
 interface GroupingModalProps {
@@ -70,7 +70,8 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
       .map((hash) => libraryBooks.find((book) => book.hash === hash))
       .some((book) => {
         if (!book) return false;
-        const hasGroupId = book.groupId && book.groupId !== BOOK_UNGROUPED_ID;
+        const ungroupedId = getGroupId(BOOK_UNGROUPED_NAME);
+        const hasGroupId = book.groupId && (!ungroupedId || book.groupId !== ungroupedId);
         const hasGroupName = book.groupName && book.groupName !== BOOK_UNGROUPED_NAME;
         return !!(hasGroupId || hasGroupName);
       });
@@ -134,7 +135,8 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
       for (const book of libraryBooks.filter((book) => book.hash === id || book.groupId === id)) {
         if (!book) continue;
 
-        const hasGroupId = book.groupId && book.groupId !== BOOK_UNGROUPED_ID;
+        const ungroupedId = getGroupId(BOOK_UNGROUPED_NAME);
+        const hasGroupId = book.groupId && (!ungroupedId || book.groupId !== ungroupedId);
         const hasGroupName = book.groupName && book.groupName !== BOOK_UNGROUPED_NAME;
 
         if (hasGroupId || hasGroupName || book.relativePath?.includes('/')) {
@@ -149,7 +151,7 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
             reclassifyPromises.push(promise);
           }
 
-          book.groupId = BOOK_UNGROUPED_ID;
+          book.groupId = getGroupId(BOOK_UNGROUPED_NAME);
           book.groupName = BOOK_UNGROUPED_NAME;
           book.updatedAt = Date.now();
         }

@@ -16,13 +16,12 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
 import { navigateToLibrary, navigateToReader, showReaderWindow } from '@/utils/nav';
 import { createBookFilter, createBookSorter, getBookReadStatus } from '../utils/libraryUtils';
-import { formatTitle } from '@/utils/book';
 import { eventDispatcher } from '@/utils/event';
 
 import Alert from '@/components/Alert';
 import Spinner from '@/components/Spinner';
 import ModalPortal from '@/components/ModalPortal';
-import BookshelfItem, { generateBookshelfItems } from './BookshelfItem';
+import BookshelfItem from './BookshelfItem';
 import SelectModeActions from './SelectModeActions';
 import GroupingModal from './GroupingModal';
 
@@ -136,14 +135,24 @@ const Bookshelf: React.FC<BookshelfProps> = ({
     }
   }, [libraryBooks, queryTerm, filter]);
 
+  const groupPath = useMemo(() => {
+    if (!groupId) return '';
+    return getGroupName(groupId) || '';
+  }, [groupId, getGroupName]);
+
   const currentBookshelfItems = useMemo(() => {
-    const groupName = getGroupName(groupId) || '';
-    if (groupId && !groupName) {
+    if (groupId && !groupPath) {
       return [];
     }
-    const items = generateBookshelfItems(filteredBooks, groupName);
-    return items;
-  }, [filteredBooks, groupId, getGroupName]);
+
+    // Root (no group selected) shows all books.
+    if (!groupPath) {
+      return filteredBooks;
+    }
+
+    // Only show books that belong to the current folder (non-recursive).
+    return filteredBooks.filter((book) => (book.groupName || '') === groupPath);
+  }, [filteredBooks, groupId, groupPath]);
 
   useEffect(() => {
     if (groupId && currentBookshelfItems.length === 0) {
@@ -156,20 +165,13 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   const sortedBookshelfItems = useMemo(() => {
     const bookSorter = createBookSorter(sortBy, uiLanguage);
     const sortOrderMultiplier = sortOrder === 'asc' ? 1 : -1;
-    return currentBookshelfItems.sort((a, b) => {
+    return currentBookshelfItems.slice().sort((a, b) => {
       if (sortBy === 'updated') {
         return (
           (new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime()) * sortOrderMultiplier
         );
-      } else if ('name' in a || 'name' in b) {
-        const aName = 'name' in a ? a.name : formatTitle(a.title);
-        const bName = 'name' in b ? b.name : formatTitle(b.title);
-        return aName.localeCompare(bName, uiLanguage || navigator.language) * sortOrderMultiplier;
-      } else if (!('name' in a || 'name' in b)) {
-        return bookSorter(a, b) * sortOrderMultiplier;
-      } else {
-        return 0;
       }
+      return bookSorter(a, b) * sortOrderMultiplier;
     });
   }, [sortOrder, sortBy, uiLanguage, currentBookshelfItems]);
 
@@ -274,9 +276,7 @@ const Bookshelf: React.FC<BookshelfProps> = ({
     if (isSelectMode) {
       setShowSelectModeActions(true);
       if (isSelectAll) {
-        setSelectedBooks(
-          currentBookshelfItems.map((item) => ('hash' in item ? item.hash : item.id)),
-        );
+        setSelectedBooks(currentBookshelfItems.map((book) => book.hash));
       } else if (isSelectNone) {
         setSelectedBooks([]);
       }

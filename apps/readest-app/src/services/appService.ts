@@ -60,6 +60,7 @@ import {
   DEFAULT_MOBILE_SYSTEM_SETTINGS,
   DEFAULT_ANNOTATOR_CONFIG,
   DEFAULT_EINK_VIEW_SETTINGS,
+  BOOK_UNGROUPED_NAME,
 } from './constants';
 import { cachedFetchAsUrl } from '@/utils/cachedFetch';
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http';
@@ -110,7 +111,7 @@ export class BaseAppService implements AppService {
   canReadExternalDir = false;
   distChannel = 'readest' as DistChannel;
 
-  protected CURRENT_MIGRATION_VERSION = 20260121;
+  protected CURRENT_MIGRATION_VERSION = 20260202;
 
   protected fs!: FileSystem;
   protected resolvePath(fp: string, base: BaseDir): ResolvedPath {
@@ -152,6 +153,14 @@ export class BaseAppService implements AppService {
         await this.migrate20260121();
       } catch (error) {
         console.error('Error migrating to version 20260121:', error);
+      }
+    }
+
+    if (lastMigrationVersion < 20260202) {
+      try {
+        await this.migrate20260202();
+      } catch (error) {
+        console.error('Error migrating to version 20260202:', error);
       }
     }
   }
@@ -589,12 +598,21 @@ export class BaseAppService implements AppService {
 
       const fileExt = EXTS[format] || format.toLowerCase?.() || 'book';
       const safeBaseName = makeSafeFilename(book.sourceTitle || book.title);
-      const targetGroupName = options?.targetGroupName?.trim();
+      const rawTargetGroupName = options?.targetGroupName?.trim();
+      const normalizedTargetRelativePath = options?.targetRelativePath
+        ? (options.targetRelativePath.includes('/')
+          ? options.targetRelativePath
+          : `${BOOK_UNGROUPED_NAME}/${options.targetRelativePath}`)
+        : undefined;
+      const derivedGroupNameFromPath = normalizedTargetRelativePath
+        ? normalizedTargetRelativePath.split('/').slice(0, -1).join('/') || BOOK_UNGROUPED_NAME
+        : undefined;
+      const targetGroupName = (derivedGroupNameFromPath || rawTargetGroupName || BOOK_UNGROUPED_NAME).trim();
 
       // Compute target relative path for local mode
       if (shouldUseLocalFlatStorage) {
-        const derivedRelativePath = options?.targetRelativePath
-          ? options.targetRelativePath
+        const derivedRelativePath = normalizedTargetRelativePath
+          ? normalizedTargetRelativePath
           : `${targetGroupName ? `${targetGroupName}/` : ''}${safeBaseName}.${fileExt}`;
 
         if (!derivedRelativePath) {
@@ -609,18 +627,24 @@ export class BaseAppService implements AppService {
         }
         if (targetGroupName && !book.groupName) {
           book.groupName = targetGroupName;
-          if (existingBook && !existingBook.groupName) {
-            existingBook.groupName = targetGroupName;
-          }
+        }
+        if (existingBook && targetGroupName && !existingBook.groupName) {
+          existingBook.groupName = targetGroupName;
         }
       } else if (this.appPlatform === 'web') {
         // For web platform in remote mode, still require relativePath for consistency
-        const derivedRelativePath = options?.targetRelativePath
-          ? options.targetRelativePath
+        const derivedRelativePath = normalizedTargetRelativePath
+          ? normalizedTargetRelativePath
           : `${targetGroupName ? `${targetGroupName}/` : ''}${safeBaseName}.${fileExt}`;
         book.relativePath = derivedRelativePath;
         if (existingBook) {
           existingBook.relativePath = derivedRelativePath;
+        }
+        if (targetGroupName && !book.groupName) {
+          book.groupName = targetGroupName;
+        }
+        if (existingBook && targetGroupName && !existingBook.groupName) {
+          existingBook.groupName = targetGroupName;
         }
       }
 
@@ -790,7 +814,7 @@ export class BaseAppService implements AppService {
     try {
       // Extract directory structure for grouping
       const directory = relativePath.split('/').slice(0, -1).join('/');
-      const groupName = directory || '';
+      const groupName = directory || BOOK_UNGROUPED_NAME;
 
       // Import the book as transient (don't copy, just reference)
       const book = await this.importBook(
@@ -832,6 +856,7 @@ export class BaseAppService implements AppService {
     }
 
     try {
+      const normalizedNewGroupName = newGroupName?.trim() || BOOK_UNGROUPED_NAME;
       // 获取当前设置，读取分组目录配置
       const settings = await this.loadSettings();
       const groupDirectories = settings.groupDirectories || {};
@@ -855,10 +880,10 @@ export class BaseAppService implements AppService {
       // 1. 如果新分组在 groupDirectories 中有配置，使用配置的目录
       // 2. 否则使用分组名称作为目录
       let targetDirectory: string;
-      if (newGroupName && groupDirectories[newGroupName]) {
-        targetDirectory = groupDirectories[newGroupName];
-      } else if (newGroupName) {
-        targetDirectory = newGroupName;
+      if (normalizedNewGroupName && groupDirectories[normalizedNewGroupName]) {
+        targetDirectory = groupDirectories[normalizedNewGroupName];
+      } else if (normalizedNewGroupName) {
+        targetDirectory = normalizedNewGroupName;
       } else {
         targetDirectory = '';
       }
@@ -900,7 +925,7 @@ export class BaseAppService implements AppService {
 
       // 更新 book 的路径信息
       book.relativePath = newRelativePath;
-      book.groupName = newGroupName || undefined;
+      book.groupName = normalizedNewGroupName;
       // 如果 API 返回了绝对路径，也更新它
       if (result.absolutePath) {
         book.absolutePath = result.absolutePath;
@@ -1550,7 +1575,8 @@ export class BaseAppService implements AppService {
 
       const ext = EXTS[book.format] || book.format?.toLowerCase?.() || 'book';
       const safeBaseName = makeSafeFilename(book.sourceTitle || book.title || book.hash);
-      const newRelativePath = `${book.groupName ? `${book.groupName}/` : ''}${safeBaseName}.${ext}`;
+      const normalizedGroupName = (book.groupName && book.groupName.trim()) || BOOK_UNGROUPED_NAME;
+      const newRelativePath = `${normalizedGroupName ? `${normalizedGroupName}/` : ''}${safeBaseName}.${ext}`;
 
       // Legacy paths
       const legacyBookPath = `${book.hash}/${safeBaseName}.${ext}`;
@@ -1598,6 +1624,81 @@ export class BaseAppService implements AppService {
       console.log(`[Migration 20260121] Migrated ${migrated} book(s) to flat layout`);
     } else {
       console.log('[Migration 20260121] No legacy books to migrate');
+    }
+  }
+
+  /**
+   * Migration 20260202: move root-level local books into the "Ungrouped" directory.
+   * - Applies only when appPlatform === 'web' and STORAGE_MODE is local
+   * - For any book with relativePath lacking a directory, move book + metadata to BOOK_UNGROUPED_NAME/...
+   */
+  private async migrate20260202(): Promise<void> {
+    // @ts-ignore - NEXT_PUBLIC_STORAGE_MODE is set at build time
+    const isLocalMode = (process.env['NEXT_PUBLIC_STORAGE_MODE'] || 'local') === 'local';
+    if (this.appPlatform !== 'web' || !isLocalMode) {
+      console.log('[Migration 20260202] Skip (not web/local mode)');
+      return;
+    }
+
+    console.log('[Migration 20260202] Start moving root-level books to ungrouped directory');
+
+    const books = await this.loadLibraryBooks();
+    let migrated = 0;
+
+    for (const book of books) {
+      if (!book.relativePath) continue;
+
+      const hasDir = book.relativePath.includes('/');
+      const alreadyUngrouped = book.relativePath.startsWith(`${BOOK_UNGROUPED_NAME}/`);
+
+      if (!hasDir && !alreadyUngrouped) {
+        const oldBookPath = book.relativePath;
+        const newRelativePath = `${BOOK_UNGROUPED_NAME}/${oldBookPath}`;
+        const oldCoverPath = oldBookPath.replace(/\.[^.]+$/, '') + '/cover.png';
+        const oldConfigPath = oldBookPath.replace(/\.[^.]+$/, '') + '/config.json';
+        const newCoverPath = newRelativePath.replace(/\.[^.]+$/, '') + '/cover.png';
+        const newConfigPath = newRelativePath.replace(/\.[^.]+$/, '') + '/config.json';
+
+        try {
+          await this.ensureLocalBookDirs({ ...book, relativePath: newRelativePath } as Book);
+
+          if (await this.fs.exists(oldBookPath, 'Books')) {
+            const file = await this.fs.openFile(oldBookPath, 'Books');
+            await this.fs.writeFile(newRelativePath, 'Books', file);
+            await this.fs.removeFile(oldBookPath, 'Books');
+          }
+
+          if (await this.fs.exists(oldCoverPath, 'Books')) {
+            const coverFile = await this.fs.openFile(oldCoverPath, 'Books');
+            await this.fs.writeFile(newCoverPath, 'Books', coverFile);
+            await this.fs.removeFile(oldCoverPath, 'Books');
+          }
+
+          if (await this.fs.exists(oldConfigPath, 'Books')) {
+            const configContent = await this.fs.readFile(oldConfigPath, 'Books', 'text');
+            await this.fs.writeFile(newConfigPath, 'Books', configContent);
+            await this.fs.removeFile(oldConfigPath, 'Books');
+          }
+
+          book.relativePath = newRelativePath;
+          book.groupName = BOOK_UNGROUPED_NAME;
+          book.groupId = md5Fingerprint(BOOK_UNGROUPED_NAME);
+          migrated++;
+        } catch (error) {
+          console.error('[Migration 20260202] Failed to migrate book:', book.title, error);
+        }
+      } else if (alreadyUngrouped && (!book.groupName || book.groupName.trim() !== BOOK_UNGROUPED_NAME)) {
+        book.groupName = BOOK_UNGROUPED_NAME;
+        book.groupId = md5Fingerprint(BOOK_UNGROUPED_NAME);
+        migrated++;
+      }
+    }
+
+    if (migrated > 0) {
+      await this.saveLibraryBooks(books);
+      console.log(`[Migration 20260202] Migrated ${migrated} book(s) to ungrouped directory`);
+    } else {
+      console.log('[Migration 20260202] No root-level books to migrate');
     }
   }
 }

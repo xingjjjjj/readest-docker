@@ -40,7 +40,7 @@ import { useOpenWithBooks } from '@/hooks/useOpenWithBooks';
 import { SelectedFile, useFileSelector } from '@/hooks/useFileSelector';
 import { lockScreenOrientation, selectDirectory } from '@/utils/bridge';
 import { requestStoragePermission } from '@/utils/permission';
-import { SUPPORTED_BOOK_EXTS } from '@/services/constants';
+import { BOOK_UNGROUPED_NAME, SUPPORTED_BOOK_EXTS } from '@/services/constants';
 import {
   tauriHandleClose,
   tauriHandleSetAlwaysOnTop,
@@ -66,6 +66,7 @@ import DropIndicator from '@/components/DropIndicator';
 import SettingsDialog from '@/components/settings/SettingsDialog';
 import ModalPortal from '@/components/ModalPortal';
 import TransferQueuePanel from './components/TransferQueuePanel';
+import GroupSidebar from './components/GroupSidebar';
 
 const LibraryPageWithSearchParams = () => {
   const searchParams = useSearchParams();
@@ -407,13 +408,14 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       if (!file) return null;
       try {
         const { path, basePath } = selectedFile;
-        let inferredGroupName = '';
+        let inferredGroupName = BOOK_UNGROUPED_NAME;
 
         if (groupId) {
-          inferredGroupName = getGroupName(groupId) || '';
+          inferredGroupName = getGroupName(groupId) || BOOK_UNGROUPED_NAME;
         } else if (path && basePath) {
           const rootPath = getDirPath(basePath);
-          inferredGroupName = getDirPath(path).replace(rootPath, '').replace(/^\//, '');
+          const inferred = getDirPath(path).replace(rootPath, '').replace(/^\//, '');
+          inferredGroupName = inferred || BOOK_UNGROUPED_NAME;
         }
 
         const fileName = typeof file === 'string' ? file : file?.name;
@@ -750,39 +752,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
           <Spinner loading />
         </div>
       )}
-      {currentGroupPath && (
-        <div
-          className={`transition-all duration-300 ease-in-out ${currentGroupPath ? 'opacity-100' : 'max-h-0 opacity-0'
-            }`}
-        >
-          <div className='flex flex-wrap items-center gap-y-1 px-4 text-base'>
-            <button
-              onClick={() => handleNavigateToPath(undefined)}
-              className='hover:bg-base-300 text-base-content/85 rounded px-2 py-1'
-            >
-              {_('All')}
-            </button>
-            {getBreadcrumbs(currentGroupPath).map((crumb, index, array) => {
-              const isLast = index === array.length - 1;
-              return (
-                <React.Fragment key={index}>
-                  <MdChevronRight size={iconSize} className='text-neutral-content' />
-                  {isLast ? (
-                    <span className='truncate rounded px-2 py-1'>{crumb.name}</span>
-                  ) : (
-                    <button
-                      onClick={() => handleNavigateToPath(crumb.path)}
-                      className='hover:bg-base-300 text-base-content/85 truncate rounded px-2 py-1'
-                    >
-                      {crumb.name}
-                    </button>
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
-        </div>
-      )}
       {showBookshelf &&
         (libraryBooks.some((book) => !book.deletedAt) ? (
           <OverlayScrollbarsComponent
@@ -810,18 +779,29 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
               }}
             >
               <DropIndicator />
-              <Bookshelf
-                libraryBooks={libraryBooks}
-                isSelectMode={isSelectMode}
-                isSelectAll={isSelectAll}
-                isSelectNone={isSelectNone}
-                handleImportBooks={handleImportBooksFromFiles}
-                handleBookDownload={handleBookDownload}
-                handleBookDelete={handleBookDelete('both')}
-                handleSetSelectMode={handleSetSelectMode}
-                handleShowDetailsBook={handleShowDetailsBook}
-                handlePushLibrary={pushLibrary}
-              />
+              <div className='flex flex-col gap-4 px-4 md:flex-row md:gap-6'>
+                <div className='md:flex-shrink-0 md:w-52 md:hover:w-64 md:transition-[width] md:duration-300'>
+                  <GroupSidebar
+                    currentPath={currentGroupPath}
+                    onNavigateToPath={handleNavigateToPath}
+                    collapsibleOnMobile
+                  />
+                </div>
+                <div className='min-w-0 flex-1'>
+                  <Bookshelf
+                    libraryBooks={libraryBooks}
+                    isSelectMode={isSelectMode}
+                    isSelectAll={isSelectAll}
+                    isSelectNone={isSelectNone}
+                    handleImportBooks={handleImportBooksFromFiles}
+                    handleBookDownload={handleBookDownload}
+                    handleBookDelete={handleBookDelete('both')}
+                    handleSetSelectMode={handleSetSelectMode}
+                    handleShowDetailsBook={handleShowDetailsBook}
+                    handlePushLibrary={pushLibrary}
+                  />
+                </div>
+              </div>
             </div>
           </OverlayScrollbarsComponent>
         ) : (

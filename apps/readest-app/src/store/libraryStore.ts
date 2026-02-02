@@ -3,6 +3,7 @@ import { Book, BookGroupType, BooksGroup } from '@/types/book';
 import { EnvConfigType, isTauriAppPlatform } from '@/services/environment';
 import { BOOK_UNGROUPED_NAME } from '@/services/constants';
 import { md5Fingerprint } from '@/utils/md5';
+import { useSettingsStore } from '@/store/settingsStore';
 
 interface NotesFileData {
   version: number;
@@ -142,16 +143,31 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   refreshGroups: () => {
     const { library } = get();
     const groups: Record<string, string> = {};
+    const { settings } = useSettingsStore.getState();
+    const persistedGroups = settings.groupDirectories || {};
+
+    Object.keys(persistedGroups).forEach((name) => {
+      if (!name) return;
+      groups[md5Fingerprint(name)] = name;
+      let nextSlashIndex = name.indexOf('/', 0);
+      while (nextSlashIndex > 0) {
+        const parentName = name.substring(0, nextSlashIndex);
+        groups[md5Fingerprint(parentName)] = parentName;
+        nextSlashIndex = name.indexOf('/', nextSlashIndex + 1);
+      }
+    });
 
     library.forEach((book) => {
-      if (book.groupName && book.groupName !== BOOK_UNGROUPED_NAME && !book.deletedAt) {
-        groups[md5Fingerprint(book.groupName)] = book.groupName;
-        let nextSlashIndex = book.groupName.indexOf('/', 0);
-        while (nextSlashIndex > 0) {
-          const groupName = book.groupName.substring(0, nextSlashIndex);
-          groups[md5Fingerprint(groupName)] = groupName;
-          nextSlashIndex = book.groupName.indexOf('/', nextSlashIndex + 1);
-        }
+      if (book.deletedAt) return;
+      const groupName = (book.groupName && book.groupName.trim()) || BOOK_UNGROUPED_NAME;
+      if (!groupName) return;
+
+      groups[md5Fingerprint(groupName)] = groupName;
+      let nextSlashIndex = groupName.indexOf('/', 0);
+      while (nextSlashIndex > 0) {
+        const parentName = groupName.substring(0, nextSlashIndex);
+        groups[md5Fingerprint(parentName)] = parentName;
+        nextSlashIndex = groupName.indexOf('/', nextSlashIndex + 1);
       }
     });
 

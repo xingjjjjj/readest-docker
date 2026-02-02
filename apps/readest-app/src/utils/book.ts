@@ -186,14 +186,12 @@ export const getPrimaryLanguage = (lang: string | string[] | undefined) => {
 
 export const formatDate = (date: string | number | Date | null | undefined, isUTC = false) => {
   if (!date) return;
-  const userLang = getUserLang();
   try {
-    return new Date(date).toLocaleDateString(userLang, {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      timeZone: isUTC ? 'UTC' : undefined,
-    });
+    const dateObj = new Date(date);
+    const year = dateObj.getFullYear();
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const day = String(dateObj.getDate()).padStart(2, '0');
+    return `${year}/${month}/${day}`;
   } catch {
     return;
   }
