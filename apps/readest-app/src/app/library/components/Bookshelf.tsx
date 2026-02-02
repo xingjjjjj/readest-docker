@@ -318,14 +318,12 @@ const Bookshelf: React.FC<BookshelfProps> = ({
       >
         {sortedBookshelfItems.map((item) => (
           <BookshelfItem
-            key={`library-item-${'hash' in item ? item.hash : item.id}`}
+            key={`library-item-${item.hash}`}
             item={item}
             mode={viewMode as LibraryViewModeType}
             coverFit={coverFit as LibraryCoverFitType}
             isSelectMode={isSelectMode}
-            itemSelected={
-              'hash' in item ? selectedBooks.includes(item.hash) : selectedBooks.includes(item.id)
-            }
+            itemSelected={selectedBooks.includes(item.hash)}
             setLoading={setLoading}
             toggleSelection={toggleSelection}
             handleGroupBooks={groupSelectedBooks}

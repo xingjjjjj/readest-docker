@@ -253,7 +253,9 @@ const LibraryOverviewBar: React.FC<LibraryOverviewBarProps> = ({
             if (book.readDates && book.readDates.length > 0) {
                 for (const timestamp of book.readDates) {
                     const dateKey = new Date(timestamp).toISOString().split('T')[0];
-                    uniqueDates.add(dateKey);
+                    if (dateKey) {
+                        uniqueDates.add(dateKey);
+                    }
                 }
             } else if (book.readingDays) {
                 // Fallback to readingDays if readDates not available

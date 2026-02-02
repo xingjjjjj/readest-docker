@@ -61,7 +61,7 @@ const BookItem: React.FC<BookItemProps> = ({
     const next = {
       ...book,
       finishedAt: isFinished ? undefined : now,
-      progress: isFinished ? [0, 0] : [1, 1],
+      progress: isFinished ? ([0, 0] as [number, number]) : ([1, 1] as [number, number]),
       lastReadAt: isFinished ? book.lastReadAt : now,
       updatedAt: now,
     };
