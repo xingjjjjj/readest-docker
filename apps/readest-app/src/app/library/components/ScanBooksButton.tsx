@@ -104,12 +104,12 @@ export const ScanBooksButton: React.FC = () => {
         <button
             onClick={handleScanBooks}
             disabled={isScanning}
-            className='btn btn-ghost btn-sm gap-2'
-            aria-label={_('Scan books directory')}
-            title={_('Scan books directory for new files')}
+            className='btn btn-sm h-8 min-h-8 rounded-full px-2.5 gap-1'
+            aria-label='扫库'
+            title='扫库'
         >
-            <BiScan className={isScanning ? 'animate-spin' : ''} size={18} />
-            {_('Scan Books')}
+            <BiScan className={isScanning ? 'animate-spin' : ''} size={16} />
+            <span className='text-xs'>扫库</span>
         </button>
     );
 };

@@ -58,6 +58,8 @@ export interface Book {
   /** Reading / library metadata (stored in .readest/library.json) */
   lastReadAt?: number;
   totalReadTimeMs?: number;
+  readingDays?: number; // Total number of days with reading activity
+  readDates?: number[]; // Array of timestamps (days) when reading occurred
   finishedAt?: number;
   isFavorite?: boolean;
   favoriteAt?: number;

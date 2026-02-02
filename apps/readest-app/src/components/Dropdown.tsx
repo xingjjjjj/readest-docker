@@ -1,7 +1,8 @@
 'use client';
 
 import clsx from 'clsx';
-import React, { useState, isValidElement, ReactElement, ReactNode, useRef } from 'react';
+import React, { useEffect, useState, isValidElement, ReactElement, ReactNode, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { Overlay } from './Overlay';
 import MenuItem from './MenuItem';
 
@@ -36,9 +37,9 @@ const enhanceMenuItems = (
 
     const clonedElement = isMenuItem
       ? React.cloneElement(element, {
-          setIsDropdownOpen,
-          ...element.props,
-        })
+        setIsDropdownOpen,
+        ...element.props,
+      })
       : element;
 
     if (clonedElement.props?.children) {
@@ -68,6 +69,16 @@ const Dropdown: React.FC<DropdownProps> = ({
   const [isFocused, setIsFocused] = useState(false);
   const lastInteractionWasTapOrClick = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const toggleRef = useRef<HTMLButtonElement>(null);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+
+  useEffect(() => {
+    if (!isOpen || !toggleRef.current) return;
+    const rect = toggleRef.current.getBoundingClientRect();
+    const top = rect.bottom + window.scrollY + 4;
+    const left = rect.right + window.scrollX;
+    setMenuStyle({ top, left, transform: 'translateX(-100%)' });
+  }, [isOpen]);
 
   const setIsDropdownOpen = (open: boolean) => {
     if (disabled) return;
@@ -104,6 +115,11 @@ const Dropdown: React.FC<DropdownProps> = ({
     }
   };
 
+  const handleMouseLeave = () => {
+    setIsFocused(false);
+    setIsDropdownOpen(false);
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       if (!isOpen) setIsDropdownOpen(true);
@@ -116,26 +132,28 @@ const Dropdown: React.FC<DropdownProps> = ({
 
   const childrenWithToggle = isValidElement(children)
     ? React.cloneElement(children, {
-        ...(typeof children.type !== 'string' && {
-          setIsDropdownOpen,
-          menuClassName,
-        }),
-        children: enhanceMenuItems(children.props?.children, setIsDropdownOpen),
-      })
+      ...(typeof children.type !== 'string' && {
+        setIsDropdownOpen,
+        menuClassName,
+      }),
+      children: enhanceMenuItems(children.props?.children, setIsDropdownOpen),
+    })
     : children;
 
   return (
-    <div className='dropdown-container flex'>
-      {isOpen && <Overlay onDismiss={() => setIsDropdownOpen(false)} />}
+    <div className='dropdown-container relative inline-flex z-[60]'>
+      {isOpen && <Overlay className='z-40' onDismiss={() => setIsDropdownOpen(false)} />}
       <div
         ref={containerRef}
         role='menu'
         tabIndex={-1}
         onBlur={handleBlur}
+        onMouseLeave={handleMouseLeave}
         onKeyDown={handleKeyDown}
-        className={clsx('dropdown flex flex-col', className)}
+        className={clsx('dropdown relative flex flex-col z-[60]', className)}
       >
         <button
+          ref={toggleRef}
           aria-haspopup='menu'
           aria-expanded={isOpen}
           aria-label={label}
@@ -152,9 +170,13 @@ const Dropdown: React.FC<DropdownProps> = ({
         >
           {toggleButton}
         </button>
-        <div role='none' className={clsx('flex items-center justify-center')}>
-          {isOpen && childrenWithToggle}
-        </div>
+        {isOpen &&
+          createPortal(
+            <div role='none' className={clsx('fixed z-[70]')} style={menuStyle}>
+              {childrenWithToggle}
+            </div>,
+            document.body,
+          )}
       </div>
     </div>
   );

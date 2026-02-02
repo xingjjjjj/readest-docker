@@ -92,6 +92,8 @@ export const useBookDataStore = create<BookDataState>((set, get) => ({
     // - lastReadAt: latest activity timestamp
     // - totalReadTimeMs: approximate reading time based on progress-change intervals
     //   (cap the delta to avoid counting idle time)
+    // - readingDays: track number of unique days with reading activity
+    // - readDates: array of timestamps for each reading day
     const prevLastReadAt = book.lastReadAt || 0;
     const delta = prevLastReadAt ? now - prevLastReadAt : 0;
     const maxCountedDeltaMs = 10 * 60 * 1000; // 10 minutes
@@ -99,6 +101,27 @@ export const useBookDataStore = create<BookDataState>((set, get) => ({
       book.totalReadTimeMs = (book.totalReadTimeMs || 0) + delta;
     }
     book.lastReadAt = now;
+
+    // Track reading days
+    const today = new Date(now);
+    today.setHours(0, 0, 0, 0);
+    const todayTimestamp = today.getTime();
+
+    if (!book.readDates) {
+      book.readDates = [];
+    }
+
+    // Check if today is already recorded
+    const lastRecordedDate = book.readDates.length > 0
+      ? book.readDates[book.readDates.length - 1]
+      : 0;
+    const lastDate = new Date(lastRecordedDate!);
+    lastDate.setHours(0, 0, 0, 0);
+
+    if (lastDate.getTime() !== todayTimestamp) {
+      book.readDates.push(todayTimestamp);
+      book.readingDays = book.readDates.length;
+    }
 
     // Finished detection
     if (config.progress && config.progress[1] > 0 && config.progress[0] >= config.progress[1]) {
