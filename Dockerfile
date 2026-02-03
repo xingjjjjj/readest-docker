@@ -16,14 +16,10 @@ COPY . .
 
 # 构建应用
 WORKDIR /app/apps/readest-app
-RUN NEXT_PUBLIC_APP_PLATFORM=web NEXT_PUBLIC_STORAGE_MODE=local STORAGE_MODE=local LOCAL_STORAGE_ROOT=/app/books 
-# 把批注放在/app/books/.readest/annotations中，单独映射
-NEXT_PUBLIC_API_BASE_URL=http://localhost:3000 NEXT_PUBLIC_WEB_BASE_URL=http://localhost:3000 NEXT_PUBLIC_NODE_BASE_URL=http://localhost:3000 NEXT_PUBLIC_STORAGE_BASE_URL=http://localhost:3000 NODE_OPTIONS="--max-old-space-size=3072" pnpm build-web && \
-    # 删除开发模式构建产物，节省 ~491 MB
+RUN NEXT_PUBLIC_APP_PLATFORM=web NEXT_PUBLIC_STORAGE_MODE=local STORAGE_MODE=local LOCAL_STORAGE_ROOT=/app/books \
+    NEXT_PUBLIC_API_BASE_URL=http://localhost:3000 NEXT_PUBLIC_WEB_BASE_URL=http://localhost:3000 NEXT_PUBLIC_NODE_BASE_URL=http://localhost:3000 NEXT_PUBLIC_STORAGE_BASE_URL=http://localhost:3000 NODE_OPTIONS="--max-old-space-size=3072" pnpm build-web && \
     rm -rf .next/dev && \
-    # 删除 source maps
     find .next -name "*.map" -delete && \
-    # 删除构建缓存
     rm -rf .next/cache
 
 # ========== 运行时镜像 ==========
