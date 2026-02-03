@@ -97,11 +97,11 @@ const GroupSidebar: React.FC<GroupSidebarProps> = ({
                         <div key={group.id} className='flex flex-col'>
                             <div
                                 className={clsx(
-                                    'group relative flex items-center gap-2 rounded-lg px-2 py-1.5 pr-8',
-                                    'hover:bg-base-300/40',
+                                    'group relative flex items-center gap-1.5 rounded-lg px-1.5 py-1.5',
+                                    'hover:bg-base-300/40 transition-colors',
                                     isActive && 'bg-base-300/70',
                                 )}
-                                style={{ paddingLeft: `${8 + depth * 14}px` }}
+                                style={{ paddingLeft: `${6 + depth * 6}px` }}
                             >
                                 <button
                                     type='button'
@@ -133,28 +133,31 @@ const GroupSidebar: React.FC<GroupSidebarProps> = ({
                                 <button
                                     type='button'
                                     className={clsx(
-                                        'flex min-w-0 flex-1 items-center gap-2 rounded-md px-1 py-0.5 text-left',
+                                        'flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-1 py-0.5 text-left',
                                         'text-base-content/90',
                                     )}
                                     onClick={() => onNavigateToPath(path)}
                                     title={path}
                                 >
-                                    <HiOutlineFolder className='h-4 w-4 flex-shrink-0 text-base-content/70' />
-                                    <span className='truncate text-[13px] font-medium'>{displayLeaf}</span>
+                                    <HiOutlineFolder className='h-3.5 w-3.5 flex-shrink-0 text-base-content/70' />
+                                    <span className='text-[11px] font-medium truncate block'>
+                                        {displayLeaf}
+                                    </span>
                                 </button>
 
                                 <div
                                     className={clsx(
-                                        'absolute right-2 top-1/2 -translate-y-1/2',
-                                        'flex items-center gap-1 opacity-0 transition-opacity',
+                                        'absolute right-1 top-1/2 -translate-y-1/2',
+                                        'flex items-center gap-0.5 opacity-0 transition-all',
                                         'group-hover:opacity-100',
+                                        'bg-gradient-to-l from-base-100/80 to-base-100/60 backdrop-blur-[2px] rounded-md px-1 py-0.5',
                                     )}
                                 >
                                     <button
                                         type='button'
                                         className={clsx(
-                                            'btn btn-ghost btn-xs h-6 min-h-6 w-6 p-0',
-                                            'text-base-content/70',
+                                            'btn btn-ghost btn-xs h-5 min-h-5 w-5 p-0',
+                                            'text-base-content/70 hover:text-base-content',
                                         )}
                                         aria-label={_('Create New Group')}
                                         title={_('Create New Group')}
@@ -165,14 +168,14 @@ const GroupSidebar: React.FC<GroupSidebarProps> = ({
                                             setIsDialogOpen(true);
                                         }}
                                     >
-                                        <PiPlus className='h-4 w-4' />
+                                        <PiPlus className='h-3.5 w-3.5' />
                                     </button>
 
                                     <button
                                         type='button'
                                         className={clsx(
-                                            'btn btn-ghost btn-xs h-6 min-h-6 w-6 p-0',
-                                            'text-base-content/70',
+                                            'btn btn-ghost btn-xs h-5 min-h-5 w-5 p-0',
+                                            'text-base-content/70 hover:text-base-content',
                                             (path === BOOK_UNGROUPED_NAME) && 'opacity-30',
                                         )}
                                         aria-label={_('Rename')}
@@ -186,14 +189,14 @@ const GroupSidebar: React.FC<GroupSidebarProps> = ({
                                             setIsDialogOpen(true);
                                         }}
                                     >
-                                        <PiPencilSimple className='h-4 w-4' />
+                                        <PiPencilSimple className='h-3.5 w-3.5' />
                                     </button>
 
                                     <button
                                         type='button'
                                         className={clsx(
-                                            'btn btn-ghost btn-xs h-6 min-h-6 px-1.5',
-                                            'text-error',
+                                            'btn btn-ghost btn-xs h-5 min-h-5 w-5 p-0',
+                                            'text-error/70 hover:text-error',
                                             !canDelete && 'opacity-30',
                                         )}
                                         aria-label={_('Delete')}
@@ -241,13 +244,13 @@ const GroupSidebar: React.FC<GroupSidebarProps> = ({
                 <button
                     type='button'
                     className={clsx(
-                        'flex items-center gap-2 rounded-lg px-3 py-2 text-left',
-                        'hover:bg-base-300/40',
+                        'flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-left',
+                        'hover:bg-base-300/40 transition-colors',
                         !currentPath && 'bg-base-300/70',
                     )}
                     onClick={() => onNavigateToPath(undefined)}
                 >
-                    <span className='text-[13px] font-medium'>{_('All')}</span>
+                    <span className='text-[11px] font-semibold'>{_('All')}</span>
                 </button>
 
                 <div className='border-base-300/60 border-t pt-2'>{renderTree('', 0)}</div>

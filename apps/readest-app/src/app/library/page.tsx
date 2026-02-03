@@ -780,7 +780,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
             >
               <DropIndicator />
               <div className='flex flex-col gap-4 px-4 md:flex-row md:gap-6'>
-                <div className='md:flex-shrink-0 md:w-52 md:hover:w-64 md:transition-[width] md:duration-300'>
+                <div className='md:flex-shrink-0 md:w-40 md:transition-[width] md:duration-300 md:hover:w-56'>
                   <GroupSidebar
                     currentPath={currentGroupPath}
                     onNavigateToPath={handleNavigateToPath}

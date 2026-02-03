@@ -70,6 +70,8 @@ const Dropdown: React.FC<DropdownProps> = ({
   const lastInteractionWasTapOrClick = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const mouseLeaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
 
   useEffect(() => {
@@ -79,6 +81,15 @@ const Dropdown: React.FC<DropdownProps> = ({
     const left = rect.right + window.scrollX;
     setMenuStyle({ top, left, transform: 'translateX(-100%)' });
   }, [isOpen]);
+
+  useEffect(() => {
+    // Cleanup timeout on unmount
+    return () => {
+      if (mouseLeaveTimeoutRef.current) {
+        clearTimeout(mouseLeaveTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const setIsDropdownOpen = (open: boolean) => {
     if (disabled) return;
@@ -109,13 +120,41 @@ const Dropdown: React.FC<DropdownProps> = ({
       return;
     }
     if (!containerRef.current) return;
-    if (!containerRef.current.contains(e.relatedTarget as Node)) {
+    const nextTarget = e.relatedTarget as Node | null;
+    if (
+      nextTarget &&
+      (containerRef.current.contains(nextTarget) || menuRef.current?.contains(nextTarget))
+    ) {
+      return;
+    }
+    if (!containerRef.current.contains(nextTarget)) {
       setIsFocused(false);
       setIsDropdownOpen(false);
     }
   };
 
   const handleMouseLeave = () => {
+    if (isOpen) {
+      // Delay closing to allow mouse to move into portal menu
+      mouseLeaveTimeoutRef.current = setTimeout(() => {
+        setIsFocused(false);
+        setIsDropdownOpen(false);
+      }, 300);
+    } else {
+      setIsFocused(false);
+    }
+  };
+
+  const handleMenuMouseEnter = () => {
+    // Cancel close timeout when mouse enters menu
+    if (mouseLeaveTimeoutRef.current) {
+      clearTimeout(mouseLeaveTimeoutRef.current);
+      mouseLeaveTimeoutRef.current = null;
+    }
+  };
+
+  const handleMenuMouseLeave = () => {
+    // Close when mouse leaves menu
     setIsFocused(false);
     setIsDropdownOpen(false);
   };
@@ -172,7 +211,14 @@ const Dropdown: React.FC<DropdownProps> = ({
         </button>
         {isOpen &&
           createPortal(
-            <div role='none' className={clsx('fixed z-[70]')} style={menuStyle}>
+            <div
+              ref={menuRef}
+              role='none'
+              className={clsx('fixed z-[70]')}
+              style={menuStyle}
+              onMouseEnter={handleMenuMouseEnter}
+              onMouseLeave={handleMenuMouseLeave}
+            >
               {childrenWithToggle}
             </div>,
             document.body,
