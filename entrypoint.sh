@@ -164,6 +164,38 @@ mkdir -p "$LOCAL_STORAGE_ROOT/.readest"
 echo "✓ Storage directories ready: $LOCAL_STORAGE_ROOT"
 
 # =====================
+# 4.5 初始化 note.json
+# =====================
+echo "[Config] Initializing note.json..."
+
+NOTE_FILE="$LOCAL_STORAGE_ROOT/.readest/note.json"
+
+# 如果 note.json 不存在，创建空的初始结构
+if [ ! -f "$NOTE_FILE" ]; then
+    echo "📝 Creating note.json with default structure..."
+    mkdir -p "$(dirname "$NOTE_FILE")"
+    cat > "$NOTE_FILE" << 'EOF'
+{
+  "books": {}
+}
+EOF
+    echo "✓ Created $NOTE_FILE with default structure"
+else
+    echo "✓ Using existing $NOTE_FILE"
+    # 验证 note.json 是否有效的 JSON
+    if ! grep -q '^\s*{' "$NOTE_FILE" 2>/dev/null; then
+        echo "⚠️  Warning: $NOTE_FILE may be invalid, backing up and reinitializing..."
+        cp "$NOTE_FILE" "$NOTE_FILE.bak.$(date +%s)"
+        cat > "$NOTE_FILE" << 'EOF'
+{
+  "books": {}
+}
+EOF
+        echo "✓ Reinitialized $NOTE_FILE (backup saved)"
+    fi
+fi
+
+# =====================
 # 5. 应用平台配置
 # =====================
 echo "[Config] Setting up app platform..."
