@@ -292,7 +292,14 @@ export class WebAppService extends BaseAppService {
     super();
     this.fs = getIsLocalStorageMode() ? apiFileSystem : indexedDBFileSystem;
   }
+  // Option C fix: activate mobile UI branches when browsing from a phone browser.
+  // Previously only isMobile was set; isAndroidApp/isIOSApp/isMobileApp stayed false,
+  // so mobile-specific UI adaptations (pagination, footer bar, annotator, TOC,
+  // text selection, etc.) were never activated on mobile web.
   override isMobile = ['android', 'ios'].includes(getOSPlatform());
+  override isAndroidApp = getOSPlatform() === 'android';
+  override isIOSApp = getOSPlatform() === 'ios';
+  override isMobileApp = ['android', 'ios'].includes(getOSPlatform());
   override appPlatform = 'web' as AppPlatform;
   override hasSafeAreaInset = isPWA();
 

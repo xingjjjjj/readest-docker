@@ -10,6 +10,9 @@ const SUPPORTED_EXTS = ['.epub', '.mobi', '.azw', '.azw3', '.fb2', '.cbz', '.pdf
 const METADATA_DIR = '.readest';
 const LIBRARY_FILE = path.join(STORAGE_ROOT, METADATA_DIR, 'library.json');
 
+// 哈希缓存：使用文件路径+mtime作为key，避免重复计算
+const hashCache = new Map<string, { hash: string; mtime: number }>();
+
 interface ScannedBook {
     filePath: string;
     relativePath: string;
@@ -30,8 +33,16 @@ interface LibraryBook {
 /**
  * 计算文件的快速哈希（用于去重）
  * 仅读取前1MB + 最后1MB + 文件大小
+ * 使用缓存避免重复计算
  */
-async function computeQuickHash(filePath: string): Promise<string> {
+async function computeQuickHash(filePath: string, mtime: number): Promise<string> {
+    // 检查缓存
+    const cacheKey = filePath;
+    const cached = hashCache.get(cacheKey);
+    if (cached && cached.mtime === mtime) {
+        return cached.hash;
+    }
+
     try {
         const stat = await fs.stat(filePath);
         const hash = createHash('md5');
@@ -56,7 +67,12 @@ async function computeQuickHash(filePath: string): Promise<string> {
         }
 
         await fd.close();
-        return hash.digest('hex');
+        const result = hash.digest('hex');
+
+        // 缓存结果
+        hashCache.set(cacheKey, { hash: result, mtime });
+
+        return result;
     } catch (error) {
         console.error('[QuickHash] Error computing hash for:', filePath, error);
         // 如果计算失败，使用相对路径作为备用
@@ -209,10 +225,14 @@ export async function POST(_req: NextRequest) {
         const scannedBooks = await scanDirectory(STORAGE_ROOT, STORAGE_ROOT);
         console.log('[ScanAndImport] Found', scannedBooks.length, 'files in storage');
 
-        // Step 2: 计算快速哈希
+        // Step 2: 计算快速哈希（并发处理，限制并发数）
         console.log('[ScanAndImport] Computing hashes for deduplication...');
-        for (const book of scannedBooks) {
-            book.hash = await computeQuickHash(book.filePath);
+        const HASH_CONCURRENCY = 5; // 限制同时计算哈希的数量
+        for (let i = 0; i < scannedBooks.length; i += HASH_CONCURRENCY) {
+            const batch = scannedBooks.slice(i, i + HASH_CONCURRENCY);
+            await Promise.all(batch.map(async (book) => {
+                book.hash = await computeQuickHash(book.filePath, book.mtime);
+            }));
         }
 
         // Step 3: 读取现有库
@@ -277,12 +297,14 @@ export async function POST(_req: NextRequest) {
             }
         }
 
-        // Step 6a: 为新书籍创建同名文件夹并提取封面
+        // Step 6a: 为新书籍创建同名文件夹并提取封面（批量并发处理）
         console.log('[ScanAndImport] Creating metadata folders and extracting covers for', newBooks.length, 'new books...');
         let coversExtracted = 0;
         let coversFailed = 0;
 
-        for (const newBook of newBooks) {
+        // 批量处理新书，限制并发数避免资源耗尽
+        const COVER_CONCURRENCY = 3; // 同时处理3本书的封面提取
+        const processBook = async (newBook: LibraryBook) => {
             const bookFilePath = path.join(STORAGE_ROOT, newBook['relativePath']!);
             const metadataFolderPath = path.join(
                 STORAGE_ROOT,
@@ -292,26 +314,28 @@ export async function POST(_req: NextRequest) {
             try {
                 // 创建元数据文件夹
                 await fs.mkdir(metadataFolderPath, { recursive: true });
-                console.log('[ScanAndImport] ✓ Created metadata folder:', path.basename(metadataFolderPath));
 
-                // 创建初始 config.json
-                const configPath = path.join(metadataFolderPath, 'config.json');
-                const configExists = await fs.stat(configPath).then(() => true).catch(() => false);
-                if (!configExists) {
-                    const initConfig = { updatedAt: 0 };
-                    await fs.writeFile(configPath, JSON.stringify(initConfig, null, 2), 'utf-8');
-                    console.log('[ScanAndImport] ✓ Created config.json for:', newBook['title']);
-                }
+                // 并行创建 config.json 和提取封面
+                const [configResult, coverBuffer] = await Promise.allSettled([
+                    // 创建初始 config.json
+                    (async () => {
+                        const configPath = path.join(metadataFolderPath, 'config.json');
+                        const configExists = await fs.stat(configPath).then(() => true).catch(() => false);
+                        if (!configExists) {
+                            const initConfig = { updatedAt: 0 };
+                            await fs.writeFile(configPath, JSON.stringify(initConfig, null, 2), 'utf-8');
+                        }
+                    })(),
+                    // 提取封面
+                    extractCover(bookFilePath)
+                ]);
 
-                // 提取并保存封面
-                const coverBuffer = await extractCover(bookFilePath);
-                if (coverBuffer) {
+                // 保存封面
+                if (coverBuffer.status === 'fulfilled' && coverBuffer.value) {
                     const coverPath = path.join(metadataFolderPath, 'cover.png');
-                    await fs.writeFile(coverPath, coverBuffer);
-                    console.log('[ScanAndImport] ✓ Extracted cover for:', newBook['title']);
+                    await fs.writeFile(coverPath, coverBuffer.value);
                     coversExtracted++;
                 } else {
-                    console.warn('[ScanAndImport] ⚠️ No cover found for:', newBook['title']);
                     coversFailed++;
                 }
 
@@ -323,15 +347,19 @@ export async function POST(_req: NextRequest) {
                         newBook['format'] as string,
                     );
                     await saveBookMetadataInfo(metadataFolderPath, metadata);
-                    console.log('[ScanAndImport] ✓ Extracted metadata for:', newBook['title']);
                 } catch (error) {
-                    console.warn('[ScanAndImport] ⚠️ Failed to extract metadata for:', newBook['title'], error);
                     // 不影响整体流程
                 }
             } catch (error) {
-                console.error('[ScanAndImport] ✗ Failed to process metadata for:', newBook['title'], error);
+                console.error('[ScanAndImport] ✗ Failed to process:', newBook['title']);
                 coversFailed++;
             }
+        };
+
+        // 批量处理，每批COVER_CONCURRENCY本书
+        for (let i = 0; i < newBooks.length; i += COVER_CONCURRENCY) {
+            const batch = newBooks.slice(i, i + COVER_CONCURRENCY);
+            await Promise.all(batch.map(processBook));
         }
 
         if (newBooks.length > 0) {
@@ -343,12 +371,15 @@ export async function POST(_req: NextRequest) {
             .filter(b => !deletedBooks.some(db => db.hash === b.hash))
             .concat(newBooks);
 
-        // Step 6c: 检查所有书籍的元数据文件夹，确保存在
+        // Step 6c: 检查所有书籍的元数据文件夹，确保存在（批量检查）
         console.log('[ScanAndImport] Checking metadata folders for all books...');
         let foldersCreated = 0;
         let configsCreated = 0;
-        for (const book of updatedLibrary) {
-            if (!book.relativePath) continue;
+
+        // 批量检查，避免串行处理
+        const CHECK_CONCURRENCY = 10;
+        const checkBook = async (book: LibraryBook) => {
+            if (!book.relativePath) return;
 
             const metadataFolderName = book.relativePath.replace(/\.[^.]+$/, '');
             const metadataFolderPath = path.join(STORAGE_ROOT, metadataFolderName);
@@ -357,7 +388,6 @@ export async function POST(_req: NextRequest) {
                 const folderExists = await fs.stat(metadataFolderPath).then(() => true).catch(() => false);
                 if (!folderExists) {
                     await fs.mkdir(metadataFolderPath, { recursive: true });
-                    console.log('[ScanAndImport] Created missing metadata folder:', metadataFolderName);
                     foldersCreated++;
                 }
 
@@ -370,9 +400,15 @@ export async function POST(_req: NextRequest) {
                     configsCreated++;
                 }
             } catch (error) {
-                console.warn('[ScanAndImport] Failed to create metadata folder for:', book['title'], error);
+                // 忽略错误
             }
+        };
+
+        for (let i = 0; i < updatedLibrary.length; i += CHECK_CONCURRENCY) {
+            const batch = updatedLibrary.slice(i, i + CHECK_CONCURRENCY);
+            await Promise.all(batch.map(checkBook));
         }
+
         if (foldersCreated > 0) {
             console.log('[ScanAndImport] ✓ Created', foldersCreated, 'missing metadata folders');
         }
@@ -380,20 +416,21 @@ export async function POST(_req: NextRequest) {
             console.log('[ScanAndImport] ✓ Created', configsCreated, 'missing config.json files');
         }
 
-        // Step 6d: 为已有书籍补全缺失封面
+        // Step 6d: 为已有书籍补全缺失封面（批量并发处理）
         console.log('[ScanAndImport] Checking missing covers for all books...');
         let coversRecovered = 0;
         let coversStillMissing = 0;
 
-        for (const book of updatedLibrary) {
-            if (!book.relativePath) continue;
+        // 批量检查并提取缺失封面
+        const recoverCover = async (book: LibraryBook) => {
+            if (!book.relativePath) return;
 
             const metadataFolderName = book.relativePath.replace(/\.[^.]+$/, '');
             const metadataFolderPath = path.join(STORAGE_ROOT, metadataFolderName);
             const coverPath = path.join(metadataFolderPath, 'cover.png');
 
             const coverExists = await fs.stat(coverPath).then(() => true).catch(() => false);
-            if (coverExists) continue;
+            if (coverExists) return;
 
             try {
                 const bookFilePath = path.join(STORAGE_ROOT, book.relativePath);
@@ -401,14 +438,19 @@ export async function POST(_req: NextRequest) {
                 if (coverBuffer) {
                     await fs.writeFile(coverPath, coverBuffer);
                     coversRecovered++;
-                    console.log('[ScanAndImport] ✓ Recovered cover for:', book['title'] || book.relativePath);
                 } else {
                     coversStillMissing++;
                 }
             } catch (error) {
                 coversStillMissing++;
-                console.warn('[ScanAndImport] ⚠️ Failed to recover cover for:', book['title'] || book.relativePath, error);
             }
+        };
+
+        // 限制并发数
+        const RECOVER_CONCURRENCY = 2;
+        for (let i = 0; i < updatedLibrary.length; i += RECOVER_CONCURRENCY) {
+            const batch = updatedLibrary.slice(i, i + RECOVER_CONCURRENCY);
+            await Promise.all(batch.map(recoverCover));
         }
 
         if (coversRecovered > 0 || coversStillMissing > 0) {

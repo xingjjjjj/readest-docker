@@ -65,3 +65,5 @@ fastlane/report.xml
 # nix
 result*
 apps/readest-app/.next/
+config/
+apps/readest-app/node_modules/.mf/

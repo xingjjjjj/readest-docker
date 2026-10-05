@@ -1286,6 +1286,9 @@ export class BaseAppService implements AppService {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const libraryBooks = books.map(({ coverImageUrl, ...rest }) => rest);
     await this.safeSaveJSON(getLibraryFilename(), 'Books', libraryBooks);
+    // Fix: invalidate cache so loadLibraryBooks won't return stale data after a delete
+    this._libraryCache = null;
+    this.libraryLoadTime = 0;
   }
 
   /**

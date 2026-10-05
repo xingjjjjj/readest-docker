@@ -23,6 +23,14 @@ import BookCover from '@/components/BookCover';
 import Dropdown from '../Dropdown';
 import MenuItem from '../MenuItem';
 
+// Check if running in local storage mode (no cloud backend)
+const isLocalStorageMode = () => {
+  if (typeof window !== 'undefined') {
+    return (window as any).__STORAGE_MODE__ === 'local';
+  }
+  return typeof process !== 'undefined' && process.env?.['NEXT_PUBLIC_STORAGE_MODE'] === 'local';
+};
+
 interface BookDetailViewProps {
   book: Book;
   metadata: BookMetadata | null;
@@ -91,23 +99,27 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({
                   <MenuItem
                     noIcon
                     transient
-                    label={_('Remove from Cloud & Device')}
+                    label={isLocalStorageMode() ? _('Delete Book') : _('Remove from Cloud & Device')}
                     onClick={onDelete}
                   />
-                  <MenuItem
-                    noIcon
-                    transient
-                    label={_('Remove from Cloud Only')}
-                    onClick={onDeleteCloudBackup}
-                    disabled={!book.uploadedAt}
-                  />
-                  <MenuItem
-                    noIcon
-                    transient
-                    label={_('Remove from Device Only')}
-                    onClick={onDeleteLocalCopy}
-                    disabled={!book.downloadedAt}
-                  />
+                  {!isLocalStorageMode() && (
+                    <>
+                      <MenuItem
+                        noIcon
+                        transient
+                        label={_('Remove from Cloud Only')}
+                        onClick={onDeleteCloudBackup}
+                        disabled={!book.uploadedAt}
+                      />
+                      <MenuItem
+                        noIcon
+                        transient
+                        label={_('Remove from Device Only')}
+                        onClick={onDeleteLocalCopy}
+                        disabled={!book.downloadedAt}
+                      />
+                    </>
+                  )}
                 </div>
               </Dropdown>
             )}

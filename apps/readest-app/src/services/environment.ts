@@ -12,9 +12,23 @@ export const isTauriAppPlatform = () => appPlatform === 'tauri';
 export const isWebAppPlatform = () => appPlatform === 'web';
 export const hasCli = () => window.__READEST_CLI_ACCESS === true;
 export const isPWA = () => window.matchMedia('(display-mode: standalone)').matches;
-export const getBaseUrl = () => process.env['NEXT_PUBLIC_API_BASE_URL'] ?? READEST_WEB_BASE_URL;
-export const getNodeBaseUrl = () =>
-  process.env['NEXT_PUBLIC_NODE_BASE_URL'] ?? READEST_NODE_BASE_URL;
+
+// 动态检测访问源，完全运行时决定 API 地址
+// 一劳永逸：无需任何配置，自动适配内外网
+const getSmartBaseUrl = () => {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  const { protocol, host } = window.location;
+
+  // 直接使用当前访问的地址作为 API 地址
+  // 无论是 localhost、内网IP 还是外网域名，都自动适配
+  return `${protocol}//${host}`;
+};
+
+export const getBaseUrl = () => getSmartBaseUrl() || READEST_WEB_BASE_URL;
+export const getNodeBaseUrl = () => getSmartBaseUrl() || READEST_NODE_BASE_URL;
 
 const isWebDevMode = () => process.env['NODE_ENV'] === 'development' && isWebAppPlatform();
 

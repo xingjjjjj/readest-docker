@@ -150,8 +150,11 @@ const Bookshelf: React.FC<BookshelfProps> = ({
       return filteredBooks;
     }
 
-    // Only show books that belong to the current folder (non-recursive).
-    return filteredBooks.filter((book) => (book.groupName || '') === groupPath);
+    // Show books that belong to the current folder and its subfolders (recursive).
+    return filteredBooks.filter((book) => {
+      const bookGroup = book.groupName || '';
+      return bookGroup === groupPath || bookGroup.startsWith(`${groupPath}/`);
+    });
   }, [filteredBooks, groupId, groupPath]);
 
   useEffect(() => {

@@ -59,6 +59,7 @@ ENV_VARS=(
     "LOCAL_STORAGE_ROOT"
     "NEXT_PUBLIC_APP_PLATFORM"
     "NEXT_PUBLIC_API_BASE_URL"
+    "NEXT_PUBLIC_EXTERNAL_API_BASE_URL"
     "NEXT_PUBLIC_WEB_BASE_URL"
     "NEXT_PUBLIC_NODE_BASE_URL"
     "NEXT_PUBLIC_STORAGE_BASE_URL"
@@ -216,6 +217,7 @@ echo "[Config] Validating API URLs..."
 
 API_URL_VARS=(
     "NEXT_PUBLIC_API_BASE_URL"
+    "NEXT_PUBLIC_EXTERNAL_API_BASE_URL"
     "NEXT_PUBLIC_WEB_BASE_URL"
     "NEXT_PUBLIC_NODE_BASE_URL"
     "NEXT_PUBLIC_STORAGE_BASE_URL"
@@ -224,7 +226,7 @@ API_URL_VARS=(
 for url_var in "${API_URL_VARS[@]}"; do
     url_value="${!url_var}"
     if [ -z "$url_value" ]; then
-        echo "⚠️  $url_var not set, defaults to http://localhost:3000"
+        echo "ℹ️  $url_var not set (will be auto-detected at runtime)"
     else
         echo "✓ $url_var: $url_value"
     fi

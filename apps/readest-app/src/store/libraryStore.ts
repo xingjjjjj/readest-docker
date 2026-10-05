@@ -79,13 +79,17 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
   },
   updateBook: async (envConfig: EnvConfigType, book: Book) => {
     const appService = await envConfig.getAppService();
-    const { library } = get();
-    const bookIndex = library.findIndex((b) => b.hash === book.hash);
-    if (bookIndex !== -1) {
-      library[bookIndex] = book;
-    }
-    set({ library: [...library] });
-    await appService.saveLibraryBooks(library);
+    // Fix: use functional update to avoid race condition when deleting multiple books concurrently
+    set((state) => {
+      const library = [...state.library];
+      const bookIndex = library.findIndex((b) => b.hash === book.hash);
+      if (bookIndex !== -1) {
+        library[bookIndex] = book;
+      }
+      return { library };
+    });
+    const { library: updatedLibrary } = get();
+    await appService.saveLibraryBooks(updatedLibrary);
   },
   updateBooks: async (envConfig: EnvConfigType, books: Book[]) => {
     if (!books?.length) return;
