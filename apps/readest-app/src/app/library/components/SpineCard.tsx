@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Book, BookNote } from '@/types/book';
@@ -73,21 +73,25 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
   const { notesData } = useLibraryStore();
   const [randomNote, setRandomNote] = useState<BookNote | null>(null);
   const [annotationCount, setAnnotationCount] = useState(0);
+  // 用 ref 跟踪当前 book，避免快速 hover 切换时的竞态
+  const bookRef = useRef<Book | null>(null);
+  bookRef.current = book;
 
+  // 计算 book 的批注信息（同步，不用 useEffect）
   useEffect(() => {
-    if (!book || !notesData?.books?.[book.hash]) {
+    if (!book) {
       setRandomNote(null);
       setAnnotationCount(0);
       return;
     }
-    const notes = notesData.books[book.hash].notes;
-    if (!notes || notes.length === 0) {
+    const bookNotes = notesData?.books?.[book.hash]?.notes;
+    if (!bookNotes || bookNotes.length === 0) {
       setRandomNote(null);
       setAnnotationCount(0);
       return;
     }
-    const validNotes = notes.filter((n: any) => !n.deletedAt && (n.note || n.text));
-    setAnnotationCount(notes.filter((n: any) => !n.deletedAt).length);
+    const validNotes = bookNotes.filter((n: any) => !n.deletedAt && (n.note || n.text));
+    setAnnotationCount(bookNotes.filter((n: any) => !n.deletedAt).length);
     if (validNotes.length === 0) {
       setRandomNote(null);
       return;
@@ -95,13 +99,19 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
     setRandomNote(validNotes[Math.floor(Math.random() * validNotes.length)] as BookNote);
   }, [book, notesData]);
 
+  // 定位：book 或 randomNote 变化时都重新定位
+  // 用双重 rAF 确保批注 DOM 已渲染
   useEffect(() => {
     if (book && spineEl) {
       setVisible(true);
+      // 第一帧：React 提交 DOM
       requestAnimationFrame(() => {
-        if (cardRef.current && spineEl) {
-          placeCard(cardRef.current, spineEl);
-        }
+        // 第二帧：浏览器布局完成
+        requestAnimationFrame(() => {
+          if (cardRef.current && spineEl && bookRef.current === book) {
+            placeCard(cardRef.current, spineEl);
+          }
+        });
       });
     } else {
       setVisible(false);
