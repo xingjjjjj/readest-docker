@@ -223,12 +223,12 @@ const MorganSidebar: React.FC<MorganSidebarProps> = ({
             className={!currentGroup ? 'active' : ''}
             onClick={() => navigateGroup(undefined)}
           >
-            <span className='roman'>{ROMAN[5]}</span>
+            <span className='roman'>{ROMAN[0]}</span>
             全部书架
             <span className='cnt'>{libraryBooks.length}</span>
           </a>
         </li>
-        {renderGroupTree('', 0, 6)}
+        {renderGroupTree('', 0, 1)}
       </ul>
     </>
   );
