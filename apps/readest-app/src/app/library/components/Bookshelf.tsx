@@ -16,6 +16,7 @@ import { formatAuthors, formatTitle } from '@/utils/book';
 import { eventDispatcher } from '@/utils/event';
 
 import BookshelfItem from './BookshelfItem';
+import { BOOK_UNGROUPED_NAME } from '@/services/constants';
 import { Menu, MenuItem } from '@tauri-apps/api/menu';
 import { revealItemInDir } from '@tauri-apps/plugin-opener';
 import { getOSPlatform } from '@/utils/misc';
@@ -119,6 +120,86 @@ const groupId = searchParams?.get('group') || '';
 
     return books;
   }, [libraryBooks, groupId, filter, queryTerm, sortBy, sortOrder]);
+
+  // --- A. 分区陈列：按顶层分组分区 ---
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  const currentGroupName = groupId ? useLibraryStore.getState().getGroupName(groupId) : null;
+
+  const bookSections = useMemo(() => {
+    // 已在具体分组视图时不分区
+    if (currentGroupName) {
+      return [{ name: currentGroupName, books: filteredBooks, topLevel: false }];
+    }
+    // "全部书架"视图：按顶层分组分区，未分组在最后
+    const sections: { name: string; books: Book[]; topLevel: boolean }[] = [];
+    const byTop: Record<string, Book[]> = {};
+    for (const b of filteredBooks) {
+      const gn = (b.groupName || '').trim() || BOOK_UNGROUPED_NAME;
+      const top = gn.split('/')[0];
+      if (!byTop[top]) byTop[top] = [];
+      byTop[top].push(b);
+    }
+    const tops = Object.keys(byTop).sort((a, b2) => {
+      if (a === BOOK_UNGROUPED_NAME) return 1;
+      if (b2 === BOOK_UNGROUPED_NAME) return -1;
+      return a.localeCompare(b2, 'zh');
+    });
+    for (const top of tops) {
+      sections.push({ name: top, books: byTop[top], topLevel: true });
+    }
+    return sections;
+  }, [filteredBooks, currentGroupName]);
+
+  const toggleSection = (name: string) => {
+    setCollapsedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name);
+      else next.add(name);
+      return next;
+    });
+  };
+
+  // --- D. 虚拟滚动：可视区外占位 ---
+  const [visibleSet, setVisibleSet] = useState<Set<string>>(new Set());
+  const observerRef = useRef<IntersectionObserver | null>(null);
+
+  // 当书单变化时重置可见集（先标记前 N 本可见，其余由 observer 接管）
+  useEffect(() => {
+    if (filteredBooks.length <= 60) {
+      setVisibleSet(new Set(filteredBooks.map((b) => b.hash)));
+    } else {
+      setVisibleSet(new Set(filteredBooks.slice(0, 40).map((b) => b.hash)));
+    }
+    return () => {
+      observerRef.current?.disconnect();
+      observerRef.current = null;
+    };
+  }, [filteredBooks]);
+
+  // IntersectionObserver：进入视口的占位符变为真实卡片
+  const registerSpineSentinel = useCallback((bookHash: string, el: HTMLElement | null) => {
+    if (!el || filteredBooks.length <= 60) return;
+    if (!observerRef.current) {
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          setVisibleSet((prev) => {
+            let changed = false;
+            const next = new Set(prev);
+            for (const entry of entries) {
+              const hash = (entry.target as HTMLElement).dataset.bookHash;
+              if (hash && entry.isIntersecting && !next.has(hash)) {
+                next.add(hash);
+                changed = true;
+              }
+            }
+            return changed ? next : prev;
+          });
+        },
+        { rootMargin: '600px 0px' }
+      );
+    }
+    observerRef.current.observe(el);
+  }, [filteredBooks.length]);
 
   // Select all / deselect all
   useEffect(() => {
@@ -393,93 +474,127 @@ const groupId = searchParams?.get('group') || '';
     );
   }
 
-  // Grid mode = 书脊墙
+  // 渲染单本书脊卡片（真实内容）
+  const renderSpine = (book: Book) => {
+    const stCls = spineStatusClass(book);
+    const pct = spineProgress(book);
+    const authorShort = (book.author || '').split(/[·,]/).pop()?.trim() || '';
+    const status = getBookReadStatus(book);
+    const isSelected = isSelectMode && selectedBooks.includes(book.hash);
+    const hasCover = !!book.coverImageUrl;
+
+    return (
+      <div
+        key={book.hash}
+        className={clsx('morgan-spine', stCls, isSelected && 'selected')}
+        style={{ ['--p' as any]: `${pct}%` }}
+        tabIndex={0}
+        onClick={() => handleBookClick(book)}
+        onContextMenu={(e) => { e.preventDefault(); handleSpineContextMenu(book); }}
+        onMouseEnter={(e) => handleSpineHover(book, e.currentTarget)}
+        onFocus={(e) => handleSpineHover(book, e.currentTarget)}
+      >
+        <div className='spine-cover'>
+          {hasCover ? (
+            <img src={book.coverImageUrl!} alt={book.title} />
+          ) : (
+            <div className='spine-cover-fallback'>
+              <div className='fb-title'>{formatTitle(book.title)}</div>
+              <div className='fb-author'>{authorShort}</div>
+            </div>
+          )}
+        </div>
+        {status === 'finished' && (
+          <button
+            className='spine-finished-badge'
+            onClick={(e) => handleToggleFinished(e, book)}
+            title={_('Mark as Unfinished')}
+          >
+            <MdCheck />
+          </button>
+        )}
+        {status !== 'finished' && (
+          <button
+            className='spine-finish-btn'
+            onClick={(e) => handleToggleFinished(e, book)}
+            title={_('Mark as Finished')}
+          >
+            ✓
+          </button>
+        )}
+        <button
+          className={clsx('spine-fav-btn', book.isFavorite && 'favorited')}
+          onClick={(e) => handleToggleFavorite(e, book)}
+          title={book.isFavorite ? _('Unfavorite') : _('Favorite')}
+        >
+          {book.isFavorite ? '♥' : '♡'}
+        </button>
+        {status === 'reading' && (
+          <div className='spine-reading-dot' title={_('Reading')} />
+        )}
+        <div className='spine-text'>
+          <span className='spine-title' title={book.title}>
+            {formatTitle(book.title)}
+          </span>
+        </div>
+        <button
+          className='spine-info-btn'
+          onClick={(e) => { e.stopPropagation(); handleShowDetailsBook(book); }}
+          title={_('Show Book Details')}
+        >
+          i
+        </button>
+        {status !== 'unread' && <span className='spine-progress' />}
+        {isSelected && (
+          <div className='spine-selected-overlay' />
+        )}
+      </div>
+    );
+  };
+
+  // 渲染虚拟占位符（固定高度避免布局跳动）
+  const renderSentinel = (book: Book) => (
+    <div
+      key={book.hash}
+      className='morgan-spine morgan-spine-placeholder'
+      ref={(el) => registerSpineSentinel(book.hash, el)}
+      data-book-hash={book.hash}
+    />
+  );
+
+  // Grid mode = 分区书脊墙（A）+ 虚拟滚动（D）
   return (
     <>
       <div
         ref={shelfRef}
-        className='morgan-shelf'
+        className='morgan-shelf-wrap'
         onMouseLeave={handleSpineLeave}
       >
-        {filteredBooks.map((book) => {
-          const stCls = spineStatusClass(book);
-          const h = spineHeight(book);
-          const pct = spineProgress(book);
-          const fs = book.title.length > 11 ? '10px' : book.title.length > 8 ? '11px' : '12.5px';
-          const authorShort = (book.author || '').split(/[·,]/).pop()?.trim() || '';
-          const status = getBookReadStatus(book);
-          const isSelected = isSelectMode && selectedBooks.includes(book.hash);
-          const hasCover = !!book.coverImageUrl;
-
+        {bookSections.map((section) => {
+          const isCollapsed = collapsedGroups.has(section.name);
+          const sectionBooks = isCollapsed ? [] : section.books;
           return (
-            <div
-              key={book.hash}
-              className={clsx('morgan-spine', stCls, isSelected && 'selected')}
-              style={{ ['--p' as any]: `${pct}%` }}
-              tabIndex={0}
-              onClick={() => handleBookClick(book)}
-              onContextMenu={(e) => { e.preventDefault(); handleSpineContextMenu(book); }}
-              onMouseEnter={(e) => handleSpineHover(book, e.currentTarget)}
-              onFocus={(e) => handleSpineHover(book, e.currentTarget)}
-            >
-              <div className='spine-cover'>
-                {hasCover ? (
-                  <img src={book.coverImageUrl!} alt={book.title} />
-                ) : (
-                  <div className='spine-cover-fallback'>
-                    <div className='fb-title'>{formatTitle(book.title)}</div>
-                    <div className='fb-author'>{authorShort}</div>
-                  </div>
+            <section key={section.name} className='morgan-shelf-section'>
+              {/* 分区标题横带 */}
+              <div
+                className='section-header'
+                onClick={() => section.topLevel && toggleSection(section.name)}
+                style={{ cursor: section.topLevel ? 'pointer' : 'default' }}
+              >
+                <span className='section-name'>◆ {section.name}</span>
+                <span className='section-line' />
+                <span className='section-count'>{section.books.length} 册</span>
+                {section.topLevel && (
+                  <span className={clsx('section-chevron', isCollapsed && 'collapsed')}>▶</span>
                 )}
               </div>
-              {/* 已读对号徽标 — 左上角，常显示 */}
-              {status === 'finished' && (
-                <button
-                  className='spine-finished-badge'
-                  onClick={(e) => handleToggleFinished(e, book)}
-                  title={_('Mark as Unfinished')}
-                >
-                  <MdCheck />
-                </button>
-              )}
-              {/* 未读的标记已读按钮 — 左上角，hover 显示 */}
-              {status !== 'finished' && (
-                <button
-                  className='spine-finish-btn'
-                  onClick={(e) => handleToggleFinished(e, book)}
-                  title={_('Mark as Finished')}
-                >
-                  ✓
-                </button>
-              )}
-              {/* 收藏按钮 — 右上角，已收藏时常显示 */}
-              <button
-                className={clsx('spine-fav-btn', book.isFavorite && 'favorited')}
-                onClick={(e) => handleToggleFavorite(e, book)}
-                title={book.isFavorite ? _('Unfavorite') : _('Favorite')}
-              >
-                {book.isFavorite ? '♥' : '♡'}
-              </button>
-              {status === 'reading' && (
-                <div className='spine-reading-dot' title={_('Reading')} />
-              )}
-              <div className='spine-text'>
-                <span className='spine-title' title={book.title}>
-                  {formatTitle(book.title)}
-                </span>
+              {/* 书脊墙 */}
+              <div className='morgan-shelf'>
+                {sectionBooks.map((book) =>
+                  visibleSet.has(book.hash) ? renderSpine(book) : renderSentinel(book)
+                )}
               </div>
-              <button
-                className='spine-info-btn'
-                onClick={(e) => { e.stopPropagation(); handleShowDetailsBook(book); }}
-                title={_('Show Book Details')}
-              >
-                i
-              </button>
-              {status !== 'unread' && <span className='spine-progress' />}
-              {isSelected && (
-                <div className='spine-selected-overlay' />
-              )}
-            </div>
+            </section>
           );
         })}
       </div>

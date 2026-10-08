@@ -1491,6 +1491,61 @@
   color: var(--parchment-dim); opacity: .7;
 }
 
+
+
+/* --- A. 分区书架：分组标题横带 --- */
+.morgan-library .morgan-shelf-wrap {
+  display: flex; flex-direction: column; gap: 0;
+}
+.morgan-library .morgan-shelf-section {
+  margin-bottom: 8px;
+}
+.morgan-library .morgan-shelf-section .section-header {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 10px 16px 8px;
+  user-select: none;
+}
+.morgan-library .morgan-shelf-section .section-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 17px; font-weight: 600; color: var(--gilt);
+  letter-spacing: .05em; white-space: nowrap;
+}
+.morgan-library .morgan-shelf-section .section-line {
+  flex: 1; height: 1px;
+  background: linear-gradient(90deg, rgba(201,169,97,.3), transparent);
+}
+.morgan-library .morgan-shelf-section .section-count {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 9px; color: var(--gilt-dim); letter-spacing: .15em;
+  white-space: nowrap;
+}
+.morgan-library .morgan-shelf-section .section-chevron {
+  font-size: 10px; color: var(--gilt-dim);
+  transition: transform .25s ease;
+}
+.morgan-library .morgan-shelf-section .section-chevron.collapsed {
+  transform: rotate(-90deg);
+}
+/* 分区内的书脊墙去掉外框（外框由分区承担） */
+.morgan-library .morgan-shelf-section .morgan-shelf {
+  border-top: none; border-bottom: none;
+  box-shadow: none; background: none;
+  padding: 4px 8px 8px;
+}
+/* 分区之间的分隔线 */
+.morgan-library .morgan-shelf-section + .morgan-shelf-section {
+  border-top: 1px solid rgba(201,169,97,.08);
+  margin-top: 4px;
+}
+
+/* --- D. 虚拟滚动占位符 --- */
+.morgan-library .morgan-spine-placeholder {
+  background: linear-gradient(180deg, #33241a, #201209);
+  border: 1px solid rgba(201,169,97,.06);
+  min-height: 220px;
+  pointer-events: none;
+}
+
 @media (max-width: 980px) {
   .morgan-library .morgan-main { grid-template-columns: 1fr; }
   .morgan-library .morgan-sidebar {
