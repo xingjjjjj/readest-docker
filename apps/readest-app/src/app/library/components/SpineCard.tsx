@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { Book } from '@/types/book';
 import { getBookProgressPercentage, getBookReadStatus } from '../utils/libraryUtils';
 import { formatDurationMs } from '@/utils/misc';
+import { useLibraryStore } from '@/store/libraryStore';
 
 interface SpineCardProps {
   book: Book | null;
@@ -28,6 +29,26 @@ const formatDate = (ts?: number) => {
 const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
+  const { notesData } = useLibraryStore();
+
+  // 从 notesData 中取该书的批注，随机选一条
+  const randomNote = useMemo(() => {
+    if (!book || !notesData?.books?.[book.hash]) return null;
+    const notes = notesData.books[book.hash].notes;
+    if (!notes || notes.length === 0) return null;
+    const validNotes = notes.filter((n: any) => !n.deletedAt && (n.note || n.text));
+    if (validNotes.length === 0) return null;
+    // 随机选一条
+    return validNotes[Math.floor(Math.random() * validNotes.length)];
+  }, [book, notesData]);
+
+  // 批注总数
+  const annotationCount = useMemo(() => {
+    if (!book || !notesData?.books?.[book.hash]) return 0;
+    const notes = notesData.books[book.hash].notes;
+    if (!notes) return 0;
+    return notes.filter((n: any) => !n.deletedAt).length;
+  }, [book, notesData]);
 
   useEffect(() => {
     if (book && spineEl) {
@@ -74,7 +95,6 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
   const [stLabel, stClass] = stName(status);
   const pct = getBookProgressPercentage(book);
   const progress = book.progress || [0, 0];
-  const notesCount = book.hash ? 0 : 0; // Will be filled from notesData if needed
 
   const rows: string[] = [];
   if (status === 'reading') {
@@ -93,8 +113,17 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
   }
   if (book.groupName) rows.push(`<span class="k">架 位</span><span class="v">${book.groupName}</span>`);
   if (book.format) rows.push(`<span class="k">格 式</span><span class="v">${book.format}</span>`);
+  if (annotationCount > 0) rows.push(`<span class="k">批 注</span><span class="v">¶ ${annotationCount} 则</span>`);
   if (book.isFavorite) rows.push(`<span class="k">钤 印</span><span class="v">★ 收藏</span>`);
-  void notesCount;
+
+  // 批注引用块
+  const quoteHtml = randomNote ? `
+    <div class="cc-quote">
+      <div class="qt">❝ ${(randomNote.text || randomNote.note || '').slice(0, 80)}${(randomNote.text || randomNote.note || '').length > 80 ? '…' : ''} ❞</div>
+      ${randomNote.note ? `<div class="cc-note-text">批注：${randomNote.note.slice(0, 60)}${randomNote.note.length > 60 ? '…' : ''}</div>` : ''}
+      <span class="qs">— p.${randomNote.cfi?.match(/\/(\d+)!/)?.[1] || '?'} · ${formatDate(randomNote.updatedAt || randomNote.createdAt)}</span>
+    </div>
+  ` : '';
 
   return (
     <div
@@ -110,6 +139,7 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
       <div className='cc-author'>{book.author}</div>
       <div className='cc-rule' />
       <div className='cc-grid' dangerouslySetInnerHTML={{ __html: rows.join('') }} />
+      {randomNote && <div dangerouslySetInnerHTML={{ __html: quoteHtml }} />}
       <div className='cc-code'>{book.hash.slice(0, 8).toUpperCase()}</div>
     </div>
   );

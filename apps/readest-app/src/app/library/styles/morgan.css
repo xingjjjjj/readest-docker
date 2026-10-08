@@ -653,6 +653,11 @@
   font-family: 'EB Garamond', serif; font-style: italic;
   font-size: 12.5px; line-height: 1.5; color: var(--paper-ink);
 }
+.morgan-library .cc-quote .cc-note-text {
+  font-family: 'EB Garamond', serif; font-size: 11px;
+  color: #8A6B2B; margin-top: 4px; padding: 3px 6px;
+  background: rgba(185,138,47,.08); border-radius: 2px;
+}
 .morgan-library .cc-quote .qs {
   display: block; margin-top: 3px; text-align: right;
   font-family: 'IBM Plex Mono', monospace; font-size: 9px;
