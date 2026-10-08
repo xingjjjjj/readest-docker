@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Book, BookNote } from '@/types/book';
@@ -26,6 +26,47 @@ const formatDate = (ts?: number) => {
   return `${d.getFullYear().toString().slice(2)}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
+// 统一定位计算函数
+const placeCard = (cardEl: HTMLElement, spineEl: HTMLElement) => {
+  const r = spineEl.getBoundingClientRect();
+  const cw = cardEl.offsetWidth;
+  let left = Math.min(Math.max(r.left + r.width / 2 - cw / 2, 10), window.innerWidth - cw - 10);
+
+  const availAbove = r.top - 16;
+  const availBelow = window.innerHeight - r.bottom - 16;
+  const cardHeight = cardEl.offsetHeight;
+
+  let top: number;
+  let maxHeight: number | undefined;
+
+  if (cardHeight <= availAbove) {
+    // 上方放得下
+    top = r.top - cardHeight - 12;
+  } else if (cardHeight <= availBelow) {
+    // 下方放得下
+    top = r.bottom + 12;
+  } else {
+    // 都放不下——选空间较大的一侧，限制高度并滚动
+    if (availAbove >= availBelow) {
+      top = 16;
+      maxHeight = availAbove - 8;
+    } else {
+      top = r.bottom + 12;
+      maxHeight = availBelow - 8;
+    }
+  }
+
+  cardEl.style.left = `${left}px`;
+  cardEl.style.top = `${top}px`;
+  if (maxHeight !== undefined) {
+    cardEl.style.maxHeight = `${maxHeight}px`;
+    cardEl.style.overflowY = 'auto';
+  } else {
+    cardEl.style.maxHeight = '';
+    cardEl.style.overflowY = '';
+  }
+};
+
 const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -33,7 +74,6 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
   const [randomNote, setRandomNote] = useState<BookNote | null>(null);
   const [annotationCount, setAnnotationCount] = useState(0);
 
-  // 当 book 变化时，从 notesData 中随机选一条批注
   useEffect(() => {
     if (!book || !notesData?.books?.[book.hash]) {
       setRandomNote(null);
@@ -58,18 +98,9 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
   useEffect(() => {
     if (book && spineEl) {
       setVisible(true);
-      // 用 rAF 等 DOM 更新完再定位
       requestAnimationFrame(() => {
         if (cardRef.current && spineEl) {
-          const r = spineEl.getBoundingClientRect();
-          const ch = cardRef.current.offsetHeight;
-          const cw = cardRef.current.offsetWidth;
-          let left = Math.min(Math.max(r.left + r.width / 2 - cw / 2, 10), window.innerWidth - cw - 10);
-          let top = r.top - ch - 12;
-          if (top < 64) top = r.bottom + 12;
-          if (top + ch > window.innerHeight - 10) top = Math.max(64, r.top - ch - 12);
-          cardRef.current.style.left = `${left}px`;
-          cardRef.current.style.top = `${top}px`;
+          placeCard(cardRef.current, spineEl);
         }
       });
     } else {
@@ -77,20 +108,11 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
     }
   }, [book, spineEl, randomNote]);
 
-  // Reposition on scroll
   useEffect(() => {
     if (!visible || !spineEl) return;
     const onScroll = () => {
       if (cardRef.current && spineEl) {
-        const r = spineEl.getBoundingClientRect();
-        const ch = cardRef.current.offsetHeight;
-        const cw = cardRef.current.offsetWidth;
-        let left = Math.min(Math.max(r.left + r.width / 2 - cw / 2, 10), window.innerWidth - cw - 10);
-        let top = r.top - ch - 12;
-        if (top < 64) top = r.bottom + 12;
-        if (top + ch > window.innerHeight - 10) top = Math.max(64, r.top - ch - 12);
-        cardRef.current.style.left = `${left}px`;
-        cardRef.current.style.top = `${top}px`;
+        placeCard(cardRef.current, spineEl);
       }
     };
     window.addEventListener('scroll', onScroll, { passive: true });
