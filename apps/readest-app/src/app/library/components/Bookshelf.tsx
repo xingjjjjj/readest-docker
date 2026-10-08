@@ -198,13 +198,20 @@ const groupId = searchParams?.get('group') || '';
     });
   };
 
+  const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const handleSpineHover = (book: Book, el: HTMLElement) => {
     if (isSelectMode) return;
-    setHoverBook(book);
-    setHoverEl(el);
+    // 防抖：200ms 内移走不显示，避免快速划过时状态混乱
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => {
+      setHoverBook(book);
+      setHoverEl(el);
+    }, 200);
   };
 
   const handleSpineLeave = () => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     setHoverBook(null);
     setHoverEl(null);
   };

@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Book, BookNote } from '@/types/book';
@@ -26,32 +26,29 @@ const formatDate = (ts?: number) => {
   return `${d.getFullYear().toString().slice(2)}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
 
-// 统一定位计算函数
+// 统一定位
 const placeCard = (cardEl: HTMLElement, spineEl: HTMLElement) => {
   const r = spineEl.getBoundingClientRect();
   const cw = cardEl.offsetWidth;
   let left = Math.min(Math.max(r.left + r.width / 2 - cw / 2, 10), window.innerWidth - cw - 10);
 
-  const availAbove = r.top - 16;
-  const availBelow = window.innerHeight - r.bottom - 16;
+  const availAbove = r.top - 12;
+  const availBelow = window.innerHeight - r.bottom - 12;
   const cardHeight = cardEl.offsetHeight;
 
   let top: number;
   let maxHeight: number | undefined;
 
   if (cardHeight <= availAbove) {
-    // 上方放得下
-    top = r.top - cardHeight - 12;
+    top = r.top - cardHeight - 8;
   } else if (cardHeight <= availBelow) {
-    // 下方放得下
-    top = r.bottom + 12;
+    top = r.bottom + 8;
   } else {
-    // 都放不下——选空间较大的一侧，限制高度并滚动
     if (availAbove >= availBelow) {
-      top = 16;
+      top = 12;
       maxHeight = availAbove - 8;
     } else {
-      top = r.bottom + 12;
+      top = r.bottom + 8;
       maxHeight = availBelow - 8;
     }
   }
@@ -67,48 +64,37 @@ const placeCard = (cardEl: HTMLElement, spineEl: HTMLElement) => {
   }
 };
 
+// 从 notesData 同步计算批注信息（不用 useEffect，避免异步竞态）
+const getNoteInfo = (book: Book, notesData: any): { note: BookNote | null; count: number } => {
+  const notes = notesData?.books?.[book.hash]?.notes;
+  if (!notes || notes.length === 0) return { note: null, count: 0 };
+  const valid = notes.filter((n: any) => !n.deletedAt && (n.note || n.text));
+  const count = notes.filter((n: any) => !n.deletedAt).length;
+  if (valid.length === 0) return { note: null, count };
+  // 用 hash-based 伪随机（同一次 hover 内稳定，不同书不同结果）
+  const seed = book.hash.charCodeAt(0) + book.hash.charCodeAt(1) * 31 + Date.now() % 97;
+  return { note: valid[seed % valid.length] as BookNote, count };
+};
+
 const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const { notesData } = useLibraryStore();
-  const [randomNote, setRandomNote] = useState<BookNote | null>(null);
-  const [annotationCount, setAnnotationCount] = useState(0);
-  // 用 ref 跟踪当前 book，避免快速 hover 切换时的竞态
-  const bookRef = useRef<Book | null>(null);
-  bookRef.current = book;
+  const rafRef = useRef<number>(0);
 
-  // 计算 book 的批注信息（同步，不用 useEffect）
-  useEffect(() => {
-    if (!book) {
-      setRandomNote(null);
-      setAnnotationCount(0);
-      return;
-    }
-    const bookNotes = notesData?.books?.[book.hash]?.notes;
-    if (!bookNotes || bookNotes.length === 0) {
-      setRandomNote(null);
-      setAnnotationCount(0);
-      return;
-    }
-    const validNotes = bookNotes.filter((n: any) => !n.deletedAt && (n.note || n.text));
-    setAnnotationCount(bookNotes.filter((n: any) => !n.deletedAt).length);
-    if (validNotes.length === 0) {
-      setRandomNote(null);
-      return;
-    }
-    setRandomNote(validNotes[Math.floor(Math.random() * validNotes.length)] as BookNote);
-  }, [book, notesData]);
+  // 批注信息：同步计算，随 book/notesData 变化直接更新（无 useEffect 竞态）
+  const noteInfo = book ? getNoteInfo(book, notesData) : { note: null, count: 0 };
+  const randomNote = noteInfo.note;
+  const annotationCount = noteInfo.count;
 
-  // 定位：book 或 randomNote 变化时都重新定位
-  // 用双重 rAF 确保批注 DOM 已渲染
   useEffect(() => {
     if (book && spineEl) {
       setVisible(true);
-      // 第一帧：React 提交 DOM
-      requestAnimationFrame(() => {
-        // 第二帧：浏览器布局完成
-        requestAnimationFrame(() => {
-          if (cardRef.current && spineEl && bookRef.current === book) {
+      // 双重 rAF：React 提交 DOM → 浏览器布局完成 → 定位
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        rafRef.current = requestAnimationFrame(() => {
+          if (cardRef.current && spineEl) {
             placeCard(cardRef.current, spineEl);
           }
         });
@@ -116,8 +102,10 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
     } else {
       setVisible(false);
     }
+    return () => cancelAnimationFrame(rafRef.current);
   }, [book, spineEl, randomNote]);
 
+  // scroll 重新定位
   useEffect(() => {
     if (!visible || !spineEl) return;
     const onScroll = () => {
@@ -138,29 +126,27 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
 
   const rows: string[] = [];
   if (status === 'reading') {
-    rows.push(`<span class="k">卷 页</span><span class="v">p.${progress[0]} / ${progress[1] || '?'} <em>· ${pct}%</em></span>`);
-    rows.push(`<span class="k">上 次</span><span class="v">${book.lastReadAt ? new Date(book.lastReadAt).toLocaleString('zh-CN') : '—'}</span>`);
+    rows.push(`<span class="k">卷 页</span><span class="v">p.${progress[0]}/${progress[1] || '?'} <em>· ${pct}%</em></span>`);
+    rows.push(`<span class="k">上 次</span><span class="v">${book.lastReadAt ? new Date(book.lastReadAt).toLocaleDateString('zh-CN') : '—'}</span>`);
     rows.push(`<span class="k">阅 时</span><span class="v">${formatDurationMs(book.totalReadTimeMs || 0)}</span>`);
-    rows.push(`<span class="k">阅 读 日</span><span class="v">${book.readingDays || 0} 日</span>`);
   } else if (status === 'finished') {
-    rows.push(`<span class="k">卷 页</span><span class="v">全 ${progress[1] || book.metadata?.published || '?'} 页</span>`);
+    rows.push(`<span class="k">卷 页</span><span class="v">全 ${progress[1] || '?'} 页</span>`);
     rows.push(`<span class="k">读 程</span><span class="v">${formatDate(book.lastReadAt)} → ${formatDate(book.finishedAt)}</span>`);
     rows.push(`<span class="k">阅 时</span><span class="v">${formatDurationMs(book.totalReadTimeMs || 0)}</span>`);
-    rows.push(`<span class="k">阅 读 日</span><span class="v">${book.readingDays || 0} 日</span>`);
   } else {
-    rows.push(`<span class="k">卷 页</span><span class="v">${progress[1] || '?'} 页 · 未启卷</span>`);
+    rows.push(`<span class="k">卷 页</span><span class="v">${progress[1] || '?'} 页</span>`);
     rows.push(`<span class="k">入 藏</span><span class="v">${formatDate(book.createdAt)}</span>`);
   }
   if (book.groupName) rows.push(`<span class="k">架 位</span><span class="v">${book.groupName}</span>`);
   if (book.format) rows.push(`<span class="k">格 式</span><span class="v">${book.format}</span>`);
   if (annotationCount > 0) rows.push(`<span class="k">批 注</span><span class="v">¶ ${annotationCount} 则</span>`);
-  if (book.isFavorite) rows.push(`<span class="k">钤 印</span><span class="v">★ 收藏</span>`);
+  if (book.isFavorite) rows.push(`<span class="k">钤 印</span><span class="v">★</span>`);
 
   const quoteHtml = randomNote ? `
     <div class="cc-quote">
-      <div class="qt">❝ ${(randomNote.text || randomNote.note || '').slice(0, 80)}${(randomNote.text || randomNote.note || '').length > 80 ? '…' : ''} ❞</div>
-      ${randomNote.note ? `<div class="cc-note-text">批注：${randomNote.note.slice(0, 60)}${randomNote.note.length > 60 ? '…' : ''}</div>` : ''}
-      <span class="qs">— p.${randomNote.cfi?.match(/\/(\d+)!/)?.[1] || '?'} · ${formatDate(randomNote.updatedAt || randomNote.createdAt)}</span>
+      <div class="qt">❝ ${(randomNote.text || randomNote.note || '').slice(0, 50)}${(randomNote.text || randomNote.note || '').length > 50 ? '…' : ''} ❞</div>
+      ${randomNote.note ? `<div class="cc-note-text">${randomNote.note.slice(0, 40)}${randomNote.note.length > 40 ? '…' : ''}</div>` : ''}
+      <span class="qs">— ch.${randomNote.cfi?.match(/\/(\d+)!/)?.[1] || '?'} · ${formatDate(randomNote.updatedAt || randomNote.createdAt)}</span>
     </div>
   ` : '';
 
@@ -172,7 +158,7 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
     >
       <div className='cc-top'>
         <span className={`cc-status ${stClass}`}>{stLabel}</span>
-        <span className='cc-rating'>{pct > 0 ? `${pct}%` : '未 评'}</span>
+        <span className='cc-rating'>{pct > 0 ? `${pct}%` : '—'}</span>
       </div>
       <div className='cc-title'>{book.title}</div>
       <div className='cc-author'>{book.author}</div>
