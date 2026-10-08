@@ -461,7 +461,7 @@ const groupId = searchParams?.get('group') || '';
                 {book.isFavorite ? '♥' : '♡'}
               </button>
               {status === 'reading' && (
-                <div className='spine-reading-badge' title={_('Reading')}>在读</div>
+                <div className='spine-reading-dot' title={_('Reading')} />
               )}
               <div className='spine-text'>
                 <span className='spine-title' title={book.title}>
