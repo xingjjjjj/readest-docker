@@ -302,31 +302,56 @@ const groupId = searchParams?.get('group') || '';
     // Keep original list view for list mode
     return (
       <>
-        <div
-          ref={shelfRef}
-          className='morgan-shelf'
-          style={{ gridTemplateColumns: '1fr', gap: '0', padding: '0', border: 'none', boxShadow: 'none', background: 'none' }}
-        >
-          {filteredBooks.map((book) => (
-            <BookshelfItem
-              key={book.hash}
-              mode='list'
-              item={book}
-              coverFit={coverFit}
-              isSelectMode={isSelectMode}
-              itemSelected={selectedBooks.includes(book.hash)}
-              setLoading={setLoading}
-              toggleSelection={toggleSelectedBook}
-              handleGroupBooks={handleGroupSelected}
-              handleBookDelete={handleBookDelete}
-              handleSetSelectMode={handleSetSelectMode}
-              handleShowDetailsBook={handleShowDetailsBook}
-            />
-          ))}
+        <div className='morgan-list-view'>
+          {filteredBooks.map((book) => {
+            const status = getBookReadStatus(book);
+            const isSelected = isSelectMode && selectedBooks.includes(book.hash);
+            const hasCover = !!book.coverImageUrl;
+            const pct = getBookProgressPercentage(book);
+            return (
+              <div
+                key={book.hash}
+                className={clsx('morgan-list-item', isSelected && 'selected')}
+                onClick={() => handleBookClick(book)}
+                onContextMenu={(e) => { e.preventDefault(); handleSpineContextMenu(book); }}
+              >
+                <div className='list-item-cover'>
+                  {hasCover ? (
+                    <img src={book.coverImageUrl!} alt={book.title} />
+                  ) : (
+                    <div className='list-cover-fallback'>{formatTitle(book.title).slice(0, 4)}</div>
+                  )}
+                </div>
+                <div className='list-item-body'>
+                  <div className='list-item-title' title={book.title}>{formatTitle(book.title)}</div>
+                  <div className='list-item-author'>{(book.author || '').split(/[·,]/).pop()?.trim() || ''}</div>
+                  <div className='list-item-meta'>
+                    <span className='list-item-status' style={{ color: status === 'reading' ? 'var(--gilt)' : status === 'finished' ? '#4ade80' : 'var(--parchment-dim)' }}>
+                      {status === 'reading' ? _('Reading') : status === 'finished' ? _('Finished') : _('Unread')}
+                    </span>
+                    {book.lastReadAt && (
+                      <span className='list-item-date'>{new Date(book.lastReadAt).toLocaleDateString('zh-CN')}</span>
+                    )}
+                    {pct > 0 && <span className='list-item-pct'>{pct}%</span>}
+                  </div>
+                </div>
+                <div className='list-item-actions'>
+                  <button
+                    className='list-action-btn'
+                    onClick={(e) => { e.stopPropagation(); handleShowDetailsBook(book); }}
+                    title={_('Show Book Details')}
+                  >i</button>
+                </div>
+                {pct > 0 && <div className='list-item-progress'><div style={{ width: `${pct}%` }} /></div>}
+              </div>
+            );
+          })}
         </div>
         {filteredBooks.length === 0 && (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--parchment-dim)', fontStyle: 'italic' }}>
-            书架尚空——导入书籍或扫描书库以填充。
+          <div className='morgan-empty-shelf'>
+            <div className='empty-icon'>❦</div>
+            <div className='empty-title'>书架尚空</div>
+            <div className='empty-hint'>导入书籍或扫描书库以填充</div>
           </div>
         )}
         {showSelectModeActions && (
@@ -390,7 +415,6 @@ const groupId = searchParams?.get('group') || '';
               onMouseEnter={(e) => handleSpineHover(book, e.currentTarget)}
               onFocus={(e) => handleSpineHover(book, e.currentTarget)}
             >
-              {status === 'reading' && <i className='ribbon' />}
               <div className='spine-cover'>
                 {hasCover ? (
                   <img src={book.coverImageUrl!} alt={book.title} />
@@ -430,10 +454,10 @@ const groupId = searchParams?.get('group') || '';
                 {book.isFavorite ? '♥' : '♡'}
               </button>
               {status === 'reading' && (
-                <div className='spine-reading-dot' title={_('Reading')} />
+                <div className='spine-reading-badge' title={_('Reading')}>在读</div>
               )}
               <div className='spine-text'>
-                <span className='spine-title'>
+                <span className='spine-title' title={book.title}>
                   {formatTitle(book.title)}
                 </span>
               </div>
@@ -446,10 +470,7 @@ const groupId = searchParams?.get('group') || '';
               </button>
               {status !== 'unread' && <span className='spine-progress' />}
               {isSelected && (
-                <div style={{
-                  position: 'absolute', inset: 0, background: 'rgba(168,50,38,.3)',
-                  pointerEvents: 'none', zIndex: 4,
-                }} />
+                <div className='spine-selected-overlay' />
               )}
             </div>
           );
@@ -457,8 +478,10 @@ const groupId = searchParams?.get('group') || '';
       </div>
 
       {filteredBooks.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--parchment-dim)', fontStyle: 'italic' }}>
-          书架尚空——导入书籍或扫描书库以填充。
+        <div className='morgan-empty-shelf'>
+          <div className='empty-icon'>❦</div>
+          <div className='empty-title'>书架尚空</div>
+          <div className='empty-hint'>导入书籍或扫描书库以填充</div>
         </div>
       )}
 

@@ -1358,6 +1358,138 @@
   backdrop-filter: blur(2px) !important;
 }
 
+
+
+/* --- 6. 在读徽标（合并丝带+圆点为一个） --- */
+.morgan-library .morgan-spine .spine-reading-badge {
+  position: absolute; top: 8px; right: 8px; z-index: 4;
+  font-family: 'IBM Plex Mono', monospace; font-size: 8px;
+  letter-spacing: .1em; color: white;
+  background: rgba(168,50,38,.85); border: 1px solid rgba(255,255,255,.2);
+  border-radius: 3px; padding: 3px 6px;
+  box-shadow: 0 2px 6px rgba(168,50,38,.4);
+}
+
+/* --- 8. 批量选中视觉反馈加强 --- */
+.morgan-library .morgan-spine .spine-selected-overlay {
+  position: absolute; inset: 0; z-index: 5;
+  border: 2px solid var(--gilt);
+  border-radius: 4px;
+  background: rgba(201,169,97,.08);
+  pointer-events: none;
+  box-shadow: 0 0 12px rgba(201,169,97,.3), inset 0 0 20px rgba(201,169,97,.1);
+}
+.morgan-library .morgan-spine .spine-selected-overlay::after {
+  content: '✓'; position: absolute; top: -1px; right: -1px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--gilt); color: var(--wood-darkest);
+  font-size: 12px; font-weight: bold; display: flex;
+  align-items: center; justify-content: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,.4);
+}
+
+/* --- 9. list 模式摩根化 --- */
+.morgan-library .morgan-list-view {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 12px 0;
+}
+.morgan-library .morgan-list-item {
+  display: flex; gap: 14px; padding: 10px 12px;
+  background: linear-gradient(180deg, #3a2a18, #241510);
+  border: 1px solid rgba(201,169,97,.12);
+  border-radius: 4px; cursor: pointer; position: relative;
+  transition: all .25s;
+}
+.morgan-library .morgan-list-item:hover {
+  border-color: rgba(201,169,97,.3);
+  box-shadow: 0 4px 12px rgba(0,0,0,.3);
+  transform: translateY(-1px);
+}
+.morgan-library .morgan-list-item.selected {
+  border-color: var(--gilt);
+  box-shadow: 0 0 12px rgba(201,169,97,.25);
+}
+.morgan-library .morgan-list-item .list-item-cover {
+  width: 48px; aspect-ratio: 2/3; flex: none;
+  overflow: hidden; border-radius: 2px;
+  border: 1px solid rgba(201,169,97,.15);
+  box-shadow: 0 2px 6px rgba(0,0,0,.3);
+}
+.morgan-library .morgan-list-item .list-item-cover img {
+  width: 100%; height: 100%; object-fit: cover;
+}
+.morgan-library .morgan-list-item .list-cover-fallback {
+  width: 100%; height: 100%; background: linear-gradient(135deg, var(--leather), var(--wood-light));
+  display: flex; align-items: center; justify-content: center;
+  color: var(--gilt-dim); font-size: 8px; font-style: italic;
+  font-family: 'Cormorant Garamond', serif;
+}
+.morgan-library .morgan-list-item .list-item-body {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;
+}
+.morgan-library .morgan-list-item .list-item-title {
+  font-family: 'Cormorant Garamond', serif; font-size: 15px; font-weight: 600;
+  color: var(--gilt-bright); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.morgan-library .morgan-list-item .list-item-author {
+  font-family: 'EB Garamond', serif; font-style: italic;
+  font-size: 12px; color: var(--parchment-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.morgan-library .morgan-list-item .list-item-meta {
+  display: flex; gap: 12px; align-items: baseline;
+  font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+  color: var(--parchment-dim);
+}
+.morgan-library .morgan-list-item .list-item-status {
+  font-weight: 500;
+}
+.morgan-library .morgan-list-item .list-item-date {
+  color: var(--gilt-dim);
+}
+.morgan-library .morgan-list-item .list-item-pct {
+  color: var(--gilt);
+}
+.morgan-library .morgan-list-item .list-item-actions {
+  flex: none; display: flex; align-items: center;
+}
+.morgan-library .morgan-list-item .list-action-btn {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: rgba(31,19,10,.5); border: 1px solid rgba(201,169,97,.25);
+  color: var(--gilt-dim); font-size: 11px; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Cormorant Garamond', serif; font-style: italic;
+  transition: all .2s;
+}
+.morgan-library .morgan-list-item .list-action-btn:hover {
+  background: var(--gilt); color: var(--wood-darkest);
+}
+.morgan-library .morgan-list-item .list-item-progress {
+  position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
+  background: rgba(201,169,97,.12); overflow: hidden;
+}
+.morgan-library .morgan-list-item .list-item-progress > div {
+  height: 100%; background: var(--gilt); transition: width .3s;
+}
+
+/* --- 10. 空书架引导式空状态 --- */
+.morgan-library .morgan-empty-shelf {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 80px 20px; text-align: center;
+}
+.morgan-library .morgan-empty-shelf .empty-icon {
+  font-size: 48px; color: var(--gilt-dim); opacity: .4; margin-bottom: 16px;
+  font-family: 'Cormorant Garamond', serif;
+}
+.morgan-library .morgan-empty-shelf .empty-title {
+  font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600;
+  color: var(--gilt); letter-spacing: .05em; margin-bottom: 8px;
+}
+.morgan-library .morgan-empty-shelf .empty-hint {
+  font-family: 'EB Garamond', serif; font-style: italic; font-size: 14px;
+  color: var(--parchment-dim); opacity: .7;
+}
+
 @media (max-width: 980px) {
   .morgan-library .morgan-main { grid-template-columns: 1fr; }
   .morgan-library .morgan-sidebar {
