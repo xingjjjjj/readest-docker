@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Book, BookNote } from '@/types/book';
@@ -58,17 +58,20 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
   useEffect(() => {
     if (book && spineEl) {
       setVisible(true);
-      const r = spineEl.getBoundingClientRect();
-      if (cardRef.current) {
-        const ch = cardRef.current.offsetHeight;
-        const cw = cardRef.current.offsetWidth;
-        let left = Math.min(Math.max(r.left + r.width / 2 - cw / 2, 10), window.innerWidth - cw - 10);
-        let top = r.top - ch - 12;
-        if (top < 64) top = r.bottom + 12;
-        if (top + ch > window.innerHeight - 10) top = Math.max(64, r.top - ch - 12);
-        cardRef.current.style.left = `${left}px`;
-        cardRef.current.style.top = `${top}px`;
-      }
+      // 用 rAF 等 DOM 更新完再定位
+      requestAnimationFrame(() => {
+        if (cardRef.current && spineEl) {
+          const r = spineEl.getBoundingClientRect();
+          const ch = cardRef.current.offsetHeight;
+          const cw = cardRef.current.offsetWidth;
+          let left = Math.min(Math.max(r.left + r.width / 2 - cw / 2, 10), window.innerWidth - cw - 10);
+          let top = r.top - ch - 12;
+          if (top < 64) top = r.bottom + 12;
+          if (top + ch > window.innerHeight - 10) top = Math.max(64, r.top - ch - 12);
+          cardRef.current.style.left = `${left}px`;
+          cardRef.current.style.top = `${top}px`;
+        }
+      });
     } else {
       setVisible(false);
     }
