@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useMemo } from 'react';
-import { Book } from '@/types/book';
+import React, { useEffect, useRef, useState } from 'react';
+import { Book, BookNote } from '@/types/book';
 import { getBookProgressPercentage, getBookReadStatus } from '../utils/libraryUtils';
 import { formatDurationMs } from '@/utils/misc';
 import { useLibraryStore } from '@/store/libraryStore';
@@ -30,24 +30,29 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const { notesData } = useLibraryStore();
+  const [randomNote, setRandomNote] = useState<BookNote | null>(null);
+  const [annotationCount, setAnnotationCount] = useState(0);
 
-  // 从 notesData 中取该书的批注，随机选一条
-  const randomNote = useMemo(() => {
-    if (!book || !notesData?.books?.[book.hash]) return null;
+  // 当 book 变化时，从 notesData 中随机选一条批注
+  useEffect(() => {
+    if (!book || !notesData?.books?.[book.hash]) {
+      setRandomNote(null);
+      setAnnotationCount(0);
+      return;
+    }
     const notes = notesData.books[book.hash].notes;
-    if (!notes || notes.length === 0) return null;
+    if (!notes || notes.length === 0) {
+      setRandomNote(null);
+      setAnnotationCount(0);
+      return;
+    }
     const validNotes = notes.filter((n: any) => !n.deletedAt && (n.note || n.text));
-    if (validNotes.length === 0) return null;
-    // 随机选一条
-    return validNotes[Math.floor(Math.random() * validNotes.length)];
-  }, [book, notesData]);
-
-  // 批注总数
-  const annotationCount = useMemo(() => {
-    if (!book || !notesData?.books?.[book.hash]) return 0;
-    const notes = notesData.books[book.hash].notes;
-    if (!notes) return 0;
-    return notes.filter((n: any) => !n.deletedAt).length;
+    setAnnotationCount(notes.filter((n: any) => !n.deletedAt).length);
+    if (validNotes.length === 0) {
+      setRandomNote(null);
+      return;
+    }
+    setRandomNote(validNotes[Math.floor(Math.random() * validNotes.length)] as BookNote);
   }, [book, notesData]);
 
   useEffect(() => {
@@ -67,7 +72,7 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
     } else {
       setVisible(false);
     }
-  }, [book, spineEl]);
+  }, [book, spineEl, randomNote]);
 
   // Reposition on scroll
   useEffect(() => {
@@ -116,7 +121,6 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
   if (annotationCount > 0) rows.push(`<span class="k">批 注</span><span class="v">¶ ${annotationCount} 则</span>`);
   if (book.isFavorite) rows.push(`<span class="k">钤 印</span><span class="v">★ 收藏</span>`);
 
-  // 批注引用块
   const quoteHtml = randomNote ? `
     <div class="cc-quote">
       <div class="qt">❝ ${(randomNote.text || randomNote.note || '').slice(0, 80)}${(randomNote.text || randomNote.note || '').length > 80 ? '…' : ''} ❞</div>
