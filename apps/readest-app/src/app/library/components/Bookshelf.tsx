@@ -280,9 +280,12 @@ const groupId = searchParams?.get('group') || '';
   };
 
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleSpineHover = (book: Book, el: HTMLElement) => {
     if (isSelectMode) return;
+    // 清除离开定时器（鼠标又回到书脊上）
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
     // 防抖：60ms——防止快速划过的状态抖动，但人眼基本无感知
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     hoverTimerRef.current = setTimeout(() => {
@@ -293,8 +296,17 @@ const groupId = searchParams?.get('group') || '';
 
   const handleSpineLeave = () => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    setHoverBook(null);
-    setHoverEl(null);
+    // 延迟 150ms 清除——给鼠标留出"移到著录卡上"的时间
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+    leaveTimerRef.current = setTimeout(() => {
+      setHoverBook(null);
+      setHoverEl(null);
+    }, 150);
+  };
+
+  // 鼠标进入著录卡时保持显示（取消清除）
+  const handleCardEnter = () => {
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
   };
 
   // 右键菜单（详情/编辑/删除/收藏）
@@ -492,6 +504,7 @@ const groupId = searchParams?.get('group') || '';
         onClick={() => handleBookClick(book)}
         onContextMenu={(e) => { e.preventDefault(); handleSpineContextMenu(book); }}
         onMouseEnter={(e) => handleSpineHover(book, e.currentTarget)}
+        onMouseLeave={handleSpineLeave}
         onFocus={(e) => handleSpineHover(book, e.currentTarget)}
       >
         <div className='spine-cover'>
@@ -608,7 +621,7 @@ const groupId = searchParams?.get('group') || '';
       )}
 
       {/* hover 著录卡 */}
-      <SpineCard book={hoverBook} spineEl={hoverEl} />
+      <SpineCard book={hoverBook} spineEl={hoverEl} onCardEnter={handleCardEnter} onCardLeave={handleSpineLeave} />
 
       {/* 选择模式工具栏 */}
       {showSelectModeActions && (

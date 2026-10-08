@@ -9,6 +9,8 @@ import { useLibraryStore } from '@/store/libraryStore';
 interface SpineCardProps {
   book: Book | null;
   spineEl: HTMLElement | null;
+  onCardEnter?: () => void;
+  onCardLeave?: () => void;
 }
 
 const stName = (s: string): [string, string] => {
@@ -76,7 +78,7 @@ const getNoteInfo = (book: Book, notesData: any): { note: BookNote | null; count
   return { note: valid[seed % valid.length] as BookNote, count };
 };
 
-const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
+const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl, onCardEnter, onCardLeave }) => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
   const { notesData } = useLibraryStore();
@@ -154,6 +156,8 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
       ref={cardRef}
       className={`cat-card${visible ? ' show' : ''}`}
       onClick={(e) => e.stopPropagation()}
+      onMouseEnter={onCardEnter}
+      onMouseLeave={onCardLeave}
     >
       <div className='cc-top'>
         <span className={`cc-status ${stClass}`}>{stLabel}</span>

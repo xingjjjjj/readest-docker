@@ -216,6 +216,12 @@
 .morgan-library .morgan-sidebar {
   border-right: 1px solid rgba(201,169,97,.12);
   padding: 24px 0 28px 40px;
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  max-height: 100vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .morgan-library .morgan-sidebar-title {
   font-family: 'IBM Plex Mono', monospace;
