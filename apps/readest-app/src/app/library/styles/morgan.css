@@ -1511,6 +1511,12 @@
   padding: 10px 16px 8px;
   user-select: none;
 }
+.morgan-library .morgan-shelf-section .section-roman {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 13px; font-style: italic; font-weight: 600;
+  color: var(--gilt-dim);
+  min-width: 22px; white-space: nowrap;
+}
 .morgan-library .morgan-shelf-section .section-name {
   font-family: 'Cormorant Garamond', serif;
   font-size: 17px; font-weight: 600; color: var(--gilt);

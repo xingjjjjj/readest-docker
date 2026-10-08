@@ -30,6 +30,8 @@ import GroupingModal from './GroupingModal';
 import Alert from '@/components/Alert';
 import Spinner from '@/components/Spinner';
 
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
+
 interface BookshelfProps {
   libraryBooks: Book[];
   isSelectMode: boolean;
@@ -583,9 +585,10 @@ const groupId = searchParams?.get('group') || '';
         className='morgan-shelf-wrap'
         onMouseLeave={handleSpineLeave}
       >
-        {bookSections.map((section) => {
+        {bookSections.map((section, si) => {
           const isCollapsed = collapsedGroups.has(section.name);
           const sectionBooks = isCollapsed ? [] : section.books;
+          const roman = ROMAN[si] || `${si + 1}`;
           return (
             <section key={section.name} className='morgan-shelf-section'>
               {/* 分区标题横带 */}
@@ -594,7 +597,8 @@ const groupId = searchParams?.get('group') || '';
                 onClick={() => section.topLevel && toggleSection(section.name)}
                 style={{ cursor: section.topLevel ? 'pointer' : 'default' }}
               >
-                <span className='section-name'>◆ {section.name}</span>
+                <span className='section-roman'>{roman}</span>
+                <span className='section-name'>{section.name}</span>
                 <span className='section-line' />
                 <span className='section-count'>{section.books.length} 册</span>
                 {section.topLevel && (
