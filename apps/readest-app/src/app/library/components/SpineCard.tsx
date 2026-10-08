@@ -1,6 +1,6 @@
-'use client';
+﻿'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Book, BookNote } from '@/types/book';
 import { getBookProgressPercentage, getBookReadStatus } from '../utils/libraryUtils';
 import { formatDurationMs } from '@/utils/misc';
@@ -87,17 +87,16 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl }) => {
   const randomNote = noteInfo.note;
   const annotationCount = noteInfo.count;
 
-  useEffect(() => {
+  // 用 useLayoutEffect：DOM 提交前同步定位，无闪烁、无帧等待
+  useLayoutEffect(() => {
     if (book && spineEl) {
       setVisible(true);
-      // 双重 rAF：React 提交 DOM → 浏览器布局完成 → 定位
+      // 单次 rAF：等本帧布局完成后精确测量高度
       cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(() => {
-        rafRef.current = requestAnimationFrame(() => {
-          if (cardRef.current && spineEl) {
-            placeCard(cardRef.current, spineEl);
-          }
-        });
+        if (cardRef.current && spineEl) {
+          placeCard(cardRef.current, spineEl);
+        }
       });
     } else {
       setVisible(false);

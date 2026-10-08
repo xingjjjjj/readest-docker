@@ -202,12 +202,12 @@ const groupId = searchParams?.get('group') || '';
 
   const handleSpineHover = (book: Book, el: HTMLElement) => {
     if (isSelectMode) return;
-    // 防抖：200ms 内移走不显示，避免快速划过时状态混乱
+    // 防抖：60ms——防止快速划过的状态抖动，但人眼基本无感知
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     hoverTimerRef.current = setTimeout(() => {
       setHoverBook(book);
       setHoverEl(el);
-    }, 200);
+    }, 60);
   };
 
   const handleSpineLeave = () => {
