@@ -1374,7 +1374,7 @@
 
 /* --- 6. 在读徽标（合并丝带+圆点为一个） --- */
 .morgan-library .morgan-spine .spine-reading-badge {
-  position: absolute; top: 8px; right: 8px; z-index: 4;
+  position: absolute; top: 8px; left: 38px; z-index: 4;
   font-family: 'IBM Plex Mono', monospace; font-size: 8px;
   letter-spacing: .1em; color: white;
   background: rgba(168,50,38,.85); border: 1px solid rgba(255,255,255,.2);
