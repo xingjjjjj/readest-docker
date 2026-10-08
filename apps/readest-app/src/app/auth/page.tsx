@@ -1,12 +1,11 @@
-'use client';
+﻿'use client';
+
 import clsx from 'clsx';
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { IoArrowBack } from 'react-icons/io5';
 
 import { useAuth } from '@/context/AuthContext';
 import { useTheme } from '@/hooks/useTheme';
-import { useThemeStore } from '@/store/themeStore';
 import { useSettingsStore } from '@/store/settingsStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { useEnv } from '@/context/EnvContext';
@@ -17,9 +16,9 @@ export default function AuthPage() {
   const searchParams = useSearchParams();
   const { login, isLoggedIn } = useAuth();
   const { envConfig } = useEnv();
-  const { isDarkMode } = useThemeStore();
   const { settings, setSettings, saveSettings } = useSettingsStore();
 
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -44,24 +43,18 @@ export default function AuthPage() {
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // 确保 cookie 被自动携带和设置
-        body: JSON.stringify({
-          username: 'xingjjjjj',
-          password,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ username, password }),
       });
 
       if (!response.ok) {
-        throw new Error(_('Invalid password') as string);
+        throw new Error(_('Invalid username or password') as string);
       }
 
       const { token, user } = await response.json();
       login(token, user);
 
-      // 延迟跳转，确保状态更新完成
       setTimeout(() => {
         router.replace(redirectTarget);
       }, 100);
@@ -81,76 +74,215 @@ export default function AuthPage() {
     if (isMounted && isLoggedIn) {
       router.replace(redirectTarget);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMounted, isLoggedIn]);
 
-  if (!isMounted) {
-    return null;
-  }
+  if (!isMounted) return null;
 
   return (
     <div
-      className={clsx(
-        'min-h-screen flex flex-col items-center justify-center',
-        isDarkMode ? 'bg-base-100' : 'bg-base-100'
-      )}
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background:
+          'repeating-linear-gradient(90deg, transparent 0, transparent 3px, rgba(0,0,0,.04) 3px, rgba(0,0,0,.04) 4px, transparent 4px, transparent 11px, rgba(0,0,0,.025) 11px, rgba(0,0,0,.025) 12px), radial-gradient(ellipse 120% 80% at 50% -10%, rgba(201,169,97,.06) 0%, transparent 55%), linear-gradient(180deg, #1F130A 0%, #2B1810 40%, #3D2817 100%)',
+      }}
     >
+      {/* 返回 */}
       <button
         onClick={handleGoBack}
-        className='btn btn-ghost fixed left-6 top-6 h-8 min-h-8 w-8 p-0'
+        style={{
+          position: 'fixed', left: '24px', top: '24px',
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: '#C9A961', fontSize: '20px', opacity: .6, transition: 'opacity .2s',
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+        onMouseLeave={(e) => (e.currentTarget.style.opacity = '.6')}
         aria-label={_('Go Back')}
       >
-        <IoArrowBack className='text-base-content' />
+        ←
       </button>
 
+      {/* 登录卡片 */}
       <div
-        className={clsx(
-          'card shadow-lg w-full max-w-sm',
-          'bg-base-100 border border-base-300'
-        )}
+        style={{
+          width: '100%', maxWidth: '380px',
+          margin: '0 24px',
+          padding: '40px 36px 32px',
+          background: 'linear-gradient(180deg, #3D2817 0%, #2B1810 100%)',
+          border: '1px solid rgba(201,169,97,.25)',
+          borderRadius: '8px',
+          boxShadow: '0 24px 60px rgba(0,0,0,.6), 0 0 0 1px rgba(201,169,97,.1)',
+        }}
       >
-        <div className='card-body'>
-          <h1 className='card-title justify-center text-2xl mb-6'>
-            {_('Sign in')}
-          </h1>
+        {/* 徽记 */}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '24px' }}>
+          <div
+            style={{
+              width: '48px', height: '48px',
+              border: '1.5px solid #C9A961', borderRadius: '50%',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontFamily: "'Cormorant Garamond', serif", fontSize: '24px',
+              color: '#C9A961', fontStyle: 'italic', fontWeight: 600,
+              boxShadow: 'inset 0 0 12px rgba(201,169,97,.15)',
+            }}
+          >
+            M
+          </div>
+        </div>
 
-          <form onSubmit={handleLogin} className='space-y-4'>
-            <div className='form-control'>
-              <label className='label'>
-                <span className='label-text'>{_('Password')}</span>
-              </label>
-              <input
-                type='password'
-                placeholder={_('Your password')}
-                className={clsx(
-                  'input input-bordered w-full',
-                  error && 'input-error'
-                )}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-                required
-              />
-            </div>
+        {/* 标题 */}
+        <h1
+          style={{
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: '26px', fontWeight: 600, color: '#E8C977',
+            textAlign: 'center', letterSpacing: '.06em', margin: 0,
+          }}
+        >
+          {_('Sign in')}
+        </h1>
+        <div
+          style={{
+            fontFamily: "'IBM Plex Mono', monospace", fontSize: '9px',
+            letterSpacing: '.32em', textTransform: 'uppercase',
+            color: '#9C7E3E', textAlign: 'center', marginTop: '8px', marginBottom: '28px',
+          }}
+        >
+          Bibliotheca Privata
+        </div>
 
-            {error && (
-              <div className='alert alert-error'>
-                <span>{error}</span>
-              </div>
-            )}
-
-            <button
-              type='submit'
-              className='btn btn-primary w-full'
-              disabled={loading}
+        {/* 表单 */}
+        <form onSubmit={handleLogin}>
+          {/* 用户名 */}
+          <div style={{ marginBottom: '20px' }}>
+            <label
+              style={{
+                display: 'block',
+                fontFamily: "'IBM Plex Mono', monospace", fontSize: '9px',
+                letterSpacing: '.2em', textTransform: 'uppercase',
+                color: '#9C7E3E', marginBottom: '8px',
+              }}
             >
-              {loading ? _('Signing in...') : _('Sign in')}
-            </button>
-          </form>
+              {_('Username')}
+            </label>
+            <input
+              type='text'
+              placeholder={_('Your username')}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              disabled={loading}
+              required
+              style={{
+                width: '100%', padding: '10px 14px',
+                background: 'rgba(0,0,0,.25)',
+                border: `1px solid ${error ? 'rgba(212,114,106,.4)' : 'rgba(201,169,97,.2)'}`,
+                borderRadius: '4px',
+                color: '#F4ECD8', fontSize: '15px',
+                fontFamily: "'EB Garamond', Georgia, serif",
+                outline: 'none', transition: 'border-color .2s',
+                boxSizing: 'border-box',
+              }}
+              onFocus={(e) => (e.currentTarget.style.borderColor = '#9C7E3E')}
+              onBlur={(e) => (e.currentTarget.style.borderColor = error ? 'rgba(212,114,106,.4)' : 'rgba(201,169,97,.2)')}
+            />
+          </div>
 
-          <p className='text-center text-sm text-base-content/60 mt-4'>
-            {_('Single user mode')}
-          </p>
+          {/* 密码 */}
+          <div style={{ marginBottom: '20px' }}>
+            <label
+              style={{
+                display: 'block',
+                fontFamily: "'IBM Plex Mono', monospace", fontSize: '9px',
+                letterSpacing: '.2em', textTransform: 'uppercase',
+                color: '#9C7E3E', marginBottom: '8px',
+              }}
+            >
+              {_('Password')}
+            </label>
+            <input
+              type='password'
+              placeholder={_('Your password')}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
+              required
+              style={{
+                width: '100%', padding: '10px 14px',
+                background: 'rgba(0,0,0,.25)',
+                border: `1px solid ${error ? 'rgba(212,114,106,.4)' : 'rgba(201,169,97,.2)'}`,
+                borderRadius: '4px',
+                color: '#F4ECD8', fontSize: '15px',
+                fontFamily: "'EB Garamond', Georgia, serif",
+                outline: 'none', transition: 'border-color .2s',
+                boxSizing: 'border-box',
+              }}
+              onFocus={(e) => (e.currentTarget.style.borderColor = '#9C7E3E')}
+              onBlur={(e) => (e.currentTarget.style.borderColor = error ? 'rgba(212,114,106,.4)' : 'rgba(201,169,97,.2)')}
+            />
+          </div>
+
+          {error && (
+            <div
+              style={{
+                padding: '8px 12px', marginBottom: '16px',
+                background: 'rgba(212,114,106,.1)',
+                border: '1px solid rgba(212,114,106,.25)',
+                borderRadius: '4px',
+                fontFamily: "'EB Garamond', serif", fontSize: '13px',
+                color: '#d4726a',
+              }}
+            >
+              {error}
+            </div>
+          )}
+
+          <button
+            type='submit'
+            disabled={loading}
+            style={{
+              width: '100%', padding: '11px',
+              background: loading ? 'rgba(201,169,97,.3)' : 'rgba(201,169,97,.15)',
+              border: '1px solid #9C7E3E', borderRadius: '4px',
+              color: '#E8C977',
+              fontFamily: "'Cormorant Garamond', serif", fontSize: '16px',
+              fontWeight: 500, letterSpacing: '.05em',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: 'all .25s', boxSizing: 'border-box',
+            }}
+            onMouseEnter={(e) => {
+              if (!loading) {
+                e.currentTarget.style.background = '#C9A961';
+                e.currentTarget.style.color = '#1F130A';
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!loading) {
+                e.currentTarget.style.background = 'rgba(201,169,97,.15)';
+                e.currentTarget.style.color = '#E8C977';
+              }
+            }}
+          >
+            {loading ? _('Signing in...') : _('Sign in')}
+          </button>
+        </form>
+
+        {/* 底部装饰线 */}
+        <div
+          style={{
+            height: '1px', marginTop: '28px',
+            background: 'linear-gradient(90deg, transparent, rgba(201,169,97,.3), transparent)',
+          }}
+        />
+        <div
+          style={{
+            fontFamily: "'IBM Plex Mono', monospace", fontSize: '8px',
+            letterSpacing: '.24em', textTransform: 'uppercase',
+            color: '#9C7E3E', textAlign: 'center', marginTop: '12px', opacity: .7,
+          }}
+        >
+          {_('Single user mode')}
         </div>
       </div>
     </div>

@@ -21,7 +21,8 @@ const ReadingProgress: React.FC<ReadingProgressProps> = memo(
         aria-label={`${progressPercentage}%`}
       >
         <progress
-          className='progress progress-success h-1.5 flex-1'
+          className='progress h-1.5 flex-1'
+          style={{ color: '#F5A623' }}
           value={progressPercentage}
           max={100}
         />

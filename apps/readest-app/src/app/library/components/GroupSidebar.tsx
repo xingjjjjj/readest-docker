@@ -12,6 +12,7 @@ import { BOOK_UNGROUPED_NAME } from '@/services/constants';
 import { useEnv } from '@/context/EnvContext';
 import { useSettingsStore } from '@/store/settingsStore';
 import Dialog from '@/components/Dialog';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 export interface GroupSidebarProps {
     currentPath?: string;
@@ -99,7 +100,7 @@ const GroupSidebar: React.FC<GroupSidebarProps> = ({
                                 className={clsx(
                                     'group relative flex items-center gap-1.5 rounded-lg px-1.5 py-1.5',
                                     'hover:bg-base-300/40 transition-colors',
-                                    isActive && 'bg-base-300/70',
+                                    isActive && 'bg-[#F5A623]/10 shadow-[inset_2px_0_0_#F5A623]',
                                 )}
                                 style={{ paddingLeft: `${6 + depth * 6}px` }}
                             >
@@ -238,15 +239,58 @@ const GroupSidebar: React.FC<GroupSidebarProps> = ({
         );
     };
 
+    const router = useRouter();
+    const searchParams = useSearchParams();
+    const activeFilter = searchParams?.get('filter') || 'all';
+    const applyStatusFilter = (key: 'all' | 'unread' | 'reading' | 'finished' | 'favorite') => {
+        const params = new URLSearchParams(searchParams?.toString() || '');
+        if (key === 'all') params.delete('filter');
+        else params.set('filter', key);
+        router.push(`?${params.toString()}`);
+    };
+
     const content = useMemo(() => {
         return (
             <div className='flex max-h-[70vh] flex-col gap-2 overflow-y-auto pr-1'>
+                {/* Iron status filters (moved here from the top ribbon) */}
+                <div className='flex flex-col gap-0.5'>
+                    {([
+                        { key: 'all', label: _('All') },
+                        { key: 'reading', label: _('Reading') },
+                        { key: 'unread', label: _('Unread') },
+                        { key: 'finished', label: _('Finished') },
+                        { key: 'favorite', label: _('Favorites') },
+                    ] as const).map((s) => (
+                        <button
+                            key={s.key}
+                            type='button'
+                            onClick={() => applyStatusFilter(s.key)}
+                            className={clsx(
+                                'flex items-center rounded-lg px-2 py-1 text-left text-[11px]',
+                                'hover:bg-base-300/40 transition-colors',
+                                activeFilter === s.key &&
+                                    'bg-[#F5A623]/10 text-[#FFC971] shadow-[inset_2px_0_0_#F5A623]',
+                            )}
+                            style={{
+                                fontFamily:
+                                    "ui-monospace,'SF Mono',Menlo,Consolas,monospace",
+                                letterSpacing: '0.05em',
+                            }}
+                        >
+                            {s.label}
+                        </button>
+                    ))}
+                </div>
+                <div
+                    className='my-1 h-px w-full'
+                    style={{ background: 'rgba(122,143,182,0.22)' }}
+                />
                 <button
                     type='button'
                     className={clsx(
                         'flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-left',
                         'hover:bg-base-300/40 transition-colors',
-                        !currentPath && 'bg-base-300/70',
+                        !currentPath && 'bg-[#F5A623]/10 shadow-[inset_2px_0_0_#F5A623]',
                     )}
                     onClick={() => onNavigateToPath(undefined)}
                 >
@@ -257,7 +301,7 @@ const GroupSidebar: React.FC<GroupSidebarProps> = ({
             </div>
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentPath, getGroupsByParent, expanded, groupsState]);
+    }, [currentPath, getGroupsByParent, expanded, groupsState, activeFilter]);
 
     if (!collapsibleOnMobile) {
         return (

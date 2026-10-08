@@ -1,4 +1,4 @@
-import { jwtVerify, SignJWT } from 'jose';
+﻿import { jwtVerify, SignJWT } from 'jose';
 
 // 单用户认证配置
 // 为确保中间件与API一致，开发环境使用固定默认密钥
@@ -53,6 +53,13 @@ export async function verifyJWT(token: string): Promise<AuthPayload | null> {
  */
 export function validateCredentials(username: string, password: string): boolean {
     return username === USERNAME && password === USER_PASSWORD;
+}
+
+/**
+ * 只验证密码（不需要用户名）
+ */
+export function validatePassword(password: string): boolean {
+    return password === USER_PASSWORD;
 }
 
 /**

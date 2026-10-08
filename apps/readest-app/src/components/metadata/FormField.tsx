@@ -1,10 +1,9 @@
-import React from 'react';
+﻿import React from 'react';
 import clsx from 'clsx';
 import { MdOutlineInfo, MdLock, MdLockOpen, MdError } from 'react-icons/md';
 import { useTranslation } from '@/hooks/useTranslation';
 
-const inputBaseStyles =
-  'w-full rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500';
+const inputBaseStyles = 'w-full rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-yellow-600';
 const inputBackgroundStyles = 'bg-base-200/50';
 const labelStyles = 'text-base-content block text-sm font-medium';
 

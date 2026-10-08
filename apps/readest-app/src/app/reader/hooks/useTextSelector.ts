@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useRef } from 'react';
 import { useEnv } from '@/context/EnvContext';
@@ -218,10 +218,13 @@ export const useTextSelector = (
 
   useEffect(() => {
     const handleSingleClick = (): boolean => {
+      // isUpToPopup = true 表示"刚选中文字，弹框即将/正在显示"
+      // 此时不应 dismiss，让弹框正常出现
       if (isUpToPopup.current) {
         isUpToPopup.current = false;
         return true;
       }
+      // 点击其他地方 → 取消选区和弹框（浏览器行为）
       if (isTextSelected.current) {
         handleDismissPopup();
         isTextSelected.current = false;

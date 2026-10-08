@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import { createJWT, validateCredentials } from '@/utils/jwt';
 
 export async function POST(request: NextRequest) {
@@ -13,7 +13,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 验证凭证
         if (!validateCredentials(username, password)) {
             return NextResponse.json(
                 { error: 'Invalid username or password' },
@@ -21,7 +20,6 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // 生成令牌
         const token = await createJWT(username);
 
         const response = NextResponse.json(
@@ -31,25 +29,19 @@ export async function POST(request: NextRequest) {
                 user: {
                     username,
                     name: 'User',
-                    id: 'xingjjjjj',
+                    id: username,
                     email: 'admin@local',
                 },
             },
             { status: 200 }
         );
 
-        // 设置 httpOnly cookie，供中间件校验
-        // HTTP 环境下必须使用 secure: false，否则浏览器会拒绝设置 cookie
-        const isProduction = process.env['NODE_ENV'] === 'production';
-        const protocol = request.headers.get('x-forwarded-proto') ||
-            (request.url.startsWith('https') ? 'https' : 'http');
-
         response.cookies.set('auth_token', token, {
             httpOnly: true,
-            secure: protocol === 'https', // 仅在 HTTPS 时启用 secure
+            secure: process.env['NODE_ENV'] === 'production',
             sameSite: 'lax',
             path: '/',
-            maxAge: 60 * 60 * 24 * 30, // 30 天
+            maxAge: 30 * 24 * 60 * 60,
         });
 
         return response;

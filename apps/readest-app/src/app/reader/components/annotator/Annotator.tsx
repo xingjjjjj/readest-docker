@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { RiDeleteBinLine } from 'react-icons/ri';
@@ -77,8 +77,14 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
   const [proofreadPopupPosition, setProofreadPopupPosition] = useState<Position>();
   const [highlightOptionsVisible, setHighlightOptionsVisible] = useState(false);
   const [showAnnotationNotes, setShowAnnotationNotes] = useState(false);
-  const [annotationNotes, setAnnotationNotes] = useState<BookNote[]>([]);
   const [editingAnnotation, setEditingAnnotation] = useState<BookNote | null>(null);
+
+  // 用 ref 跟踪弹框状态，避免 onLoad 闭包捕获旧 state
+  const popupOpenRef = React.useRef(false);
+  React.useEffect(() => {
+    popupOpenRef.current = showAnnotPopup || showAnnotationNotes || showWiktionaryPopup || showWikipediaPopup || showDeepLPopup || showProofreadPopup;
+  }, [showAnnotPopup, showAnnotationNotes, showWiktionaryPopup, showWikipediaPopup, showDeepLPopup, showProofreadPopup]);
+  const [annotationNotes, setAnnotationNotes] = useState<BookNote[]>([]);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportData, setExportData] = useState<{
     booknotes: BookNote[];
@@ -271,6 +277,41 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
     detail.doc?.addEventListener('pointercancel', handlePointerCancel.bind(null, doc, index));
     detail.doc?.addEventListener('pointerup', handlePointerUp.bind(null, doc, index));
     detail.doc?.addEventListener('selectionchange', handleSelectionchange.bind(null, doc, index));
+
+    // mousedown 时清理旧选区/弹框（用 ref 避免闭包旧值）
+    detail.doc?.addEventListener('mousedown', (ev: MouseEvent) => {
+      const sel = doc.getSelection();
+      // 如果已有选区且点击在选区内 → 取消选区（浏览器行为）
+      if (sel && !sel.isCollapsed && sel.toString().trim()) {
+        try {
+          const range = sel.getRangeAt(0);
+          if (range.startContainer.contains(ev.target as Node) || range.intersectsNode(ev.target as Node)) {
+            sel.removeAllRanges();
+            setShowAnnotPopup(false);
+            setShowAnnotationNotes(false);
+            setShowWiktionaryPopup(false);
+            setShowWikipediaPopup(false);
+            setShowDeepLPopup(false);
+            setShowProofreadPopup(false);
+            setEditingAnnotation(null);
+            isTextSelected.current = false;
+            return;
+          }
+        } catch {}
+      }
+      // 点击在选区外 → 如果弹框开着（用 ref 判断），直接清理状态
+      if (popupOpenRef.current) {
+        setShowAnnotPopup(false);
+        setShowAnnotationNotes(false);
+        setShowWiktionaryPopup(false);
+        setShowWikipediaPopup(false);
+        setShowDeepLPopup(false);
+        setShowProofreadPopup(false);
+        setEditingAnnotation(null);
+        isTextSelected.current = false;
+        view?.deselect();
+      }
+    }, true);
 
     // For PDF selections, enable right-click context menu to directly open translator popup.
     if (bookData.book?.format === 'PDF') {

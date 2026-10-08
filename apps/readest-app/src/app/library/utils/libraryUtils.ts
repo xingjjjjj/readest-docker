@@ -5,7 +5,8 @@ export type BookReadStatus = 'unread' | 'reading' | 'finished';
 
 export const getBookProgressPercentage = (book: Book): number => {
   if (!book.progress || !book.progress[1]) return 0;
-  if (book.progress[1] === 1) return 100;
+  // A 1-page book only counts as finished if it was actually opened
+  if (book.progress[1] === 1) return book.progress[0] >= 1 ? 100 : 0;
   const percentage = Math.round((book.progress[0] / book.progress[1]) * 100);
   return Math.max(0, Math.min(100, percentage));
 };

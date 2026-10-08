@@ -686,3 +686,24 @@ foliate-fxl {
 .stagger-item:nth-child(4) { animation-delay: 0.2s; }
 .stagger-item:nth-child(5) { animation-delay: 0.25s; }
 .stagger-item:nth-child(n+6) { animation-delay: 0.3s; }
+
+/* ================= Tungsten Study room skin ================= */
+.tungsten-room {
+  color-scheme: dark;
+  --b1: 21.5% 0.04 259;
+  --b2: 24% 0.045 258;
+  --b3: 29% 0.05 258;
+  --bc: 94.5% 0.019 96;
+  --p: 74.5% 0.16 70;
+  --pc: 22% 0.05 70;
+  --s: 81% 0.135 76;
+  --sc: 22% 0.05 70;
+  --n: 26% 0.045 258;
+  --nc: 94.5% 0.019 96;
+}
+.tungsten-serif {
+  font-family: 'Noto Serif SC', 'Source Han Serif SC', Georgia, 'Times New Roman', serif;
+}
+.tungsten-mono {
+  font-family: ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+}

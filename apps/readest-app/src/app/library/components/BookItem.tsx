@@ -99,6 +99,11 @@ const BookItem: React.FC<BookItemProps> = ({
           showSpine={false}
           imageClassName='rounded shadow-md'
         />
+        {/* Desk-lamp glow over the cover */}
+        <div
+          className='pointer-events-none absolute inset-0 rounded bg-gradient-to-b from-[#F5A623]/10 via-transparent to-transparent transition-all duration-300 group-hover:from-[#F5A623]/25'
+          aria-hidden='true'
+        />
 
         {/* Quick status indicators */}
         <div
@@ -178,6 +183,7 @@ const BookItem: React.FC<BookItemProps> = ({
         <div className={clsx('min-w-0 flex-1', mode === 'list' && 'flex flex-col gap-2')}>
           <div className='flex items-center justify-between gap-2'>
             <h4
+              style={{ fontFamily: "'Noto Serif SC','Source Han Serif SC',Georgia,serif" }}
               className={clsx(
                 'overflow-hidden text-ellipsis font-semibold',
                 mode === 'grid' && 'block whitespace-nowrap text-[0.6em] text-xs',
@@ -218,12 +224,18 @@ const BookItem: React.FC<BookItemProps> = ({
         </div>
         <div className='flex items-center justify-between gap-x-2'>
           {mode === 'grid' && (
-            <p className='text-neutral-content/70 line-clamp-1 text-[11px]'>
+            <p
+              className='text-base-content/45 line-clamp-1 text-[11px]'
+              style={{ fontFamily: "ui-monospace,'SF Mono',Menlo,Consolas,monospace" }}
+            >
               {_('Last read')}: {book.lastReadAt ? formatDate(book.lastReadAt) : _('Never')}
             </p>
           )}
           {mode === 'list' && (
-            <p className='text-neutral-content line-clamp-1 text-sm'>
+            <p
+              className='text-base-content/55 line-clamp-1 text-sm'
+              style={{ fontFamily: "ui-monospace,'SF Mono',Menlo,Consolas,monospace" }}
+            >
               {_('Last read')}: {book.lastReadAt ? formatDate(book.lastReadAt) : _('Never')}
             </p>
           )}

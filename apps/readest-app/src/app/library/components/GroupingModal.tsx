@@ -17,23 +17,19 @@ import { BOOK_UNGROUPED_NAME } from '@/services/constants';
 import { getBreadcrumbs } from '../utils/libraryUtils';
 
 interface GroupingModalProps {
-  libraryBooks: Book[];
-  selectedBooks: string[];
-  parentGroupName: string;
-  onCancel: () => void;
-  onConfirm: () => void;
+  isOpen?: boolean;
+  selectedBookIds: string[];
+  onClose: () => void;
 }
 
 const GroupingModal: React.FC<GroupingModalProps> = ({
-  libraryBooks,
-  selectedBooks,
-  parentGroupName,
-  onCancel,
-  onConfirm,
+  selectedBookIds,
+  onClose,
 }) => {
   const _ = useTranslation();
-  const { appService } = useEnv();
+  const { appService, envConfig } = useEnv();
   const {
+    library: libraryBooks,
     setLibrary,
     addGroup,
     getGroups,
@@ -42,6 +38,11 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
     getParentPath,
     refreshGroups,
   } = useLibraryStore();
+
+  const selectedBooks = selectedBookIds || [];
+  const parentGroupName = '';
+  const onCancel = onClose;
+  const onConfirm = onClose;
 
   const [currentPath, setCurrentPath] = useState<string | undefined>(undefined);
   const [showInput, setShowInput] = useState(false);
@@ -58,11 +59,14 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
   const allGroups = getGroups();
   const currentGroups = getGroupsByParent(currentPath);
   const currentGroupsList =
-    newGroup &&
-      !currentGroups.some((g) => g.id === newGroup.id) &&
-      !currentGroups.some((g) => newGroup.name.startsWith(g.name))
-      ? [newGroup, ...currentGroups]
-      : currentGroups;
+    !currentPath || currentPath === ''
+      ? currentGroups
+      : currentGroups.filter((g) => g.name !== currentPath);
+
+  const getDisplayName = (name: string) => {
+    const idx = name.lastIndexOf('/');
+    return idx >= 0 ? name.slice(idx + 1) : name;
+  };
 
   const isSelectedBooksHasGroup =
     selectedBooks.some((hash) => !isMd5(hash)) ||
@@ -70,232 +74,108 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
       .map((hash) => libraryBooks.find((book) => book.hash === hash))
       .some((book) => {
         if (!book) return false;
-        const ungroupedId = getGroupId(BOOK_UNGROUPED_NAME);
-        const hasGroupId = book.groupId && (!ungroupedId || book.groupId !== ungroupedId);
-        const hasGroupName = book.groupName && book.groupName !== BOOK_UNGROUPED_NAME;
-        return !!(hasGroupId || hasGroupName);
+        const groupName = (book.groupName || '').trim();
+        return groupName && groupName !== BOOK_UNGROUPED_NAME;
       });
 
-  const canRenameGroup = selectedBooks.length === 1 && selectedBooks.every((id) => !isMd5(id));
-  const currentGroupForRename = canRenameGroup
+  const canRenameGroup =
+    selectedBooks.length === 1 && selectedBooks.every((id) => !isMd5(id));
+
+  const renameGroupInfo = canRenameGroup
     ? allGroups.find((group) => group.id === selectedBooks[0])
     : null;
 
-  const generateNextUntitledGroupName = () => {
-    const baseName = _('Untitled Group');
-    const basePattern = parentGroupName
-      ? `${parentGroupName}/${baseName}`
-      : currentPath
-        ? `${currentPath}/${baseName}`
-        : baseName;
-
-    const escapedPattern = basePattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const untitledGroupPattern = new RegExp(`^${escapedPattern}\\s*(\\d+)?$`);
-
-    const untitledGroupNumbers = allGroups
-      .map((group) => {
-        const match = group.name.match(untitledGroupPattern);
-        return match ? parseInt(match[1] || '1', 10) : null;
-      })
-      .filter((num) => num !== null) as number[];
-
-    const nextNumber = untitledGroupNumbers.length > 0 ? Math.max(...untitledGroupNumbers) + 1 : 1;
-
-    return `${basePattern} ${nextNumber}`;
-  };
-
   const handleCreateGroup = () => {
-    const nextName = generateNextUntitledGroupName();
-    setEditGroupName(nextName);
     setShowInput(true);
     setIsRenaming(false);
+    setEditGroupName('');
     setOriginalGroupName(null);
-    setSelectedGroup(null);
+    setTimeout(() => editorRef.current?.focus(), 0);
   };
 
   const handleRenameGroup = () => {
-    if (!currentGroupForRename) return;
-
-    setEditGroupName(currentGroupForRename.name);
-    setOriginalGroupName(currentGroupForRename.name);
+    if (!renameGroupInfo) return;
     setShowInput(true);
     setIsRenaming(true);
+    setEditGroupName(getDisplayName(renameGroupInfo.name));
+    setOriginalGroupName(renameGroupInfo.name);
+    setTimeout(() => editorRef.current?.focus(), 0);
   };
 
-  const handleRemoveFromGroup = async () => {
-    const reclassifyPromises: Promise<void>[] = [];
-
-    const getGroupFromRelativePath = (relativePath?: string) => {
-      if (!relativePath) return undefined;
-      const idx = relativePath.lastIndexOf('/');
-      return idx > 0 ? relativePath.slice(0, idx) : '';
-    };
-
-    selectedBooks.forEach((id) => {
-      for (const book of libraryBooks.filter((book) => book.hash === id || book.groupId === id)) {
-        if (!book) continue;
-
-        const ungroupedId = getGroupId(BOOK_UNGROUPED_NAME);
-        const hasGroupId = book.groupId && (!ungroupedId || book.groupId !== ungroupedId);
-        const hasGroupName = book.groupName && book.groupName !== BOOK_UNGROUPED_NAME;
-
-        if (hasGroupId || hasGroupName || book.relativePath?.includes('/')) {
-          const oldGroupName = book.groupName || getGroupFromRelativePath(book.relativePath) || '';
-          const newGroupName = BOOK_UNGROUPED_NAME;
-
-          // 在本地存储模式下同步移动文件到未分组根目录
-          if (book.relativePath && appService?.reclassifyBook) {
-            const promise = appService.reclassifyBook(book, newGroupName, oldGroupName).catch((error) => {
-              console.error('Failed to move files when removing group:', error);
-            });
-            reclassifyPromises.push(promise);
-          }
-
-          book.groupId = getGroupId(BOOK_UNGROUPED_NAME);
-          book.groupName = BOOK_UNGROUPED_NAME;
-          book.updatedAt = Date.now();
+  const handleConfirmCreateGroup = () => {
+    if (!editGroupName.trim()) return;
+    const fullName = currentPath ? `${currentPath}/${editGroupName.trim()}` : editGroupName.trim();
+    if (isRenaming && originalGroupName) {
+      selectedBooks.forEach((id) => {
+        for (const book of libraryBooks.filter((b) => b.groupId === id)) {
+          const oldName = book.groupName || originalGroupName;
+          const newName = fullName;
+          book.groupName = newName;
+          book.groupId = getGroupId(newName);
         }
+      });
+      setLibrary([...libraryBooks]);
+      appService?.saveLibraryBooks(libraryBooks);
+      refreshGroups();
+    } else {
+      const group = addGroup(fullName);
+      setNewGroup(group);
+      setSelectedGroup(group);
+    }
+    setShowInput(false);
+    setEditGroupName('');
+    setIsRenaming(false);
+    setOriginalGroupName(null);
+  };
+
+  const handleRemoveFromGroup = () => {
+    selectedBooks.forEach((id) => {
+      for (const book of libraryBooks.filter((b) => b.hash === id || b.groupId === id)) {
+        book.groupName = BOOK_UNGROUPED_NAME;
+        book.groupId = getGroupId(BOOK_UNGROUPED_NAME);
       }
     });
-
-    await Promise.all(reclassifyPromises);
-
     setLibrary([...libraryBooks]);
     appService?.saveLibraryBooks(libraryBooks);
+    refreshGroups();
     onConfirm();
   };
 
-  const handleConfirmCreateGroup = async () => {
-    let groupName = editGroupName.trim();
-    if (groupName) {
-      if (isRenaming && originalGroupName) {
-        // Renaming existing group
-        const oldGroupName = originalGroupName;
-        const reclassifyPromises: Promise<void>[] = [];
-
-        // Update the group name for all books in this group and nested groups
-        libraryBooks.forEach((book) => {
-          if (book.groupName === oldGroupName) {
-            const newGroupName = groupName;
-
-            // 在本地存储模式下，移动文件以匹配新的分组名
-            if (book.relativePath && appService?.reclassifyBook) {
-              const promise = appService.reclassifyBook(book, newGroupName, oldGroupName).catch((error) => {
-                console.error('Failed to reclassify book files during rename:', error);
-              });
-              reclassifyPromises.push(promise);
-            }
-
-            book.groupName = newGroupName;
-            book.groupId = getGroupId(book.groupName);
-            book.updatedAt = Date.now();
-          } else if (book.groupName?.startsWith(oldGroupName + '/')) {
-            const newGroupName = book.groupName.replace(oldGroupName, groupName);
-
-            // 在本地存储模式下，移动文件以匹配新的分组
-            if (book.relativePath && appService?.reclassifyBook) {
-              const promise = appService.reclassifyBook(book, newGroupName, book.groupName).catch((error) => {
-                console.error('Failed to reclassify book files during rename:', error);
-              });
-              reclassifyPromises.push(promise);
-            }
-
-            book.groupName = newGroupName;
-            book.groupId = getGroupId(book.groupName);
-            book.updatedAt = Date.now();
-          }
-        });
-
-        // 等待所有文件移动操作完成后再保存库
-        await Promise.all(reclassifyPromises);
-
-        setLibrary([...libraryBooks]);
-        appService?.saveLibraryBooks(libraryBooks);
-
-        refreshGroups();
-        setShowInput(false);
-        setIsRenaming(false);
-        setOriginalGroupName(null);
-      } else {
-        // Creating new group
-        if (currentPath && !groupName.startsWith(currentPath + '/')) {
-          groupName = `${currentPath}/${groupName}`;
-        }
-
-        const newGroup = addGroup(groupName);
-        setNewGroup(newGroup);
-        setSelectedGroup(newGroup);
-        setShowInput(false);
-        const parentGroup = getParentPath(groupName);
-        if (parentGroup) {
-          setCurrentPath(parentGroup);
-        }
-      }
-    }
-  };
-
   const handleToggleSelectGroup = (group: BookGroupType) => {
-    setSelectedGroup((prevGroup) => (prevGroup?.id === group.id ? null : group));
+    setSelectedGroup(group);
   };
 
   const handleNavigateToGroup = (group: BookGroupType) => {
     setCurrentPath(group.name);
-  };
-
-  const handleNavigateBack = () => {
-    const parent = currentPath ? getParentPath(currentPath) : undefined;
-    setCurrentPath(parent);
+    setSelectedGroup(null);
   };
 
   const handleNavigateToPath = (path: string | undefined) => {
     setCurrentPath(path);
+    setSelectedGroup(null);
   };
 
-  const handleConfirmGrouping = async () => {
-    const reclassifyPromises: Promise<void>[] = [];
+  const handleNavigateBack = () => {
+    if (!currentPath) return;
+    const parent = getParentPath(currentPath);
+    setCurrentPath(parent || undefined);
+    setSelectedGroup(null);
+  };
 
+  const handleConfirmGrouping = () => {
+    if (!selectedGroup && !newGroup) return;
+    const targetGroup = selectedGroup || newGroup!;
     selectedBooks.forEach((id) => {
-      for (const book of libraryBooks.filter((book) => book.hash === id || book.groupId === id)) {
-        if (book && selectedGroup) {
-          const oldGroupName = book.groupName;
-          book.groupId = selectedGroup.id;
-          book.groupName = selectedGroup.name;
-          book.updatedAt = Date.now();
-
-          // 在本地存储模式下，移动文件以匹配新的分组
-          if (book.relativePath && appService?.reclassifyBook) {
-            const promise = appService.reclassifyBook(book, selectedGroup.name, oldGroupName).catch((error) => {
-              console.error('Failed to reclassify book files:', error);
-              // 不中断流程，继续保存元数据
-            });
-            reclassifyPromises.push(promise);
-          }
-        }
+      for (const book of libraryBooks.filter((b) => b.hash === id || b.groupId === id)) {
+        book.groupName = targetGroup.name;
+        book.groupId = getGroupId(targetGroup.name);
       }
     });
-
-    // 等待所有文件移动操作完成后再保存库
-    await Promise.all(reclassifyPromises);
-
     setLibrary([...libraryBooks]);
     appService?.saveLibraryBooks(libraryBooks);
+    refreshGroups();
     onConfirm();
   };
-
-  const getDisplayName = (fullPath: string) => {
-    const segments = fullPath.split('/');
-    return segments[segments.length - 1];
-  };
-
-  useEffect(() => {
-    if (editorRef.current) {
-      editorRef.current.select();
-    }
-  }, [showInput]);
-
-  useEffect(() => {
-    refreshGroups();
-  }, [refreshGroups]);
 
   useEffect(() => {
     const groupIds = selectedBooks
@@ -315,107 +195,141 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // 摩根风格样式
+  const morganStyle: React.CSSProperties = {
+    background: 'linear-gradient(180deg, #3D2817 0%, #2B1810 100%)',
+    border: '1px solid rgba(201,169,97,.25)',
+    borderRadius: '6px',
+    color: '#F4ECD8',
+    fontFamily: "'EB Garamond', Georgia, serif",
+    boxShadow: '0 24px 60px rgba(0,0,0,.6)',
+  };
+  const morganTitle: React.CSSProperties = {
+    fontFamily: "'Cormorant Garamond', serif",
+    color: '#E8C977',
+    fontSize: '20px',
+    fontWeight: 600,
+    letterSpacing: '.04em',
+    textAlign: 'center',
+    borderBottom: '1px solid rgba(201,169,97,.2)',
+    paddingBottom: '12px',
+    marginBottom: '16px',
+  };
+  const morganBtn: React.CSSProperties = {
+    fontFamily: "'IBM Plex Mono', monospace",
+    fontSize: '10px',
+    letterSpacing: '.15em',
+    textTransform: 'uppercase',
+    color: '#C9A961',
+    background: 'transparent',
+    border: '1px solid rgba(201,169,97,.2)',
+    borderRadius: '3px',
+    padding: '8px 14px',
+    cursor: 'pointer',
+    transition: 'all .25s',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  };
+  const morganInput: React.CSSProperties = {
+    background: 'rgba(0,0,0,.25)',
+    border: '1px solid rgba(201,169,97,.2)',
+    borderRadius: '3px',
+    color: '#F4ECD8',
+    fontFamily: "'EB Garamond', serif",
+    fontSize: '14px',
+    padding: '7px 12px',
+    outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box',
+  };
+  const morganListItem: React.CSSProperties = {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    padding: '8px 12px',
+    cursor: 'pointer',
+    borderRadius: '3px',
+    color: '#D9CDB0',
+    transition: 'all .2s',
+    fontFamily: "'EB Garamond', serif",
+    fontSize: '14px',
+  };
+
   return (
-    <div className='fixed inset-0 flex items-center justify-center'>
+    <div className='fixed inset-0 z-50 flex items-center justify-center' style={{ background: 'rgba(15,8,4,.75)', backdropFilter: 'blur(2px)' }}>
       <div
         ref={divRef}
-        className={clsx(
-          'modal-box bg-base-100 overflow-y-auto rounded-2xl shadow-xl',
-          'max-h-[85%] w-[95%] min-w-64 max-w-[440px] p-6 sm:w-[70%]',
-        )}
+        style={morganStyle}
+        className='overflow-y-auto p-6 max-h-[85%] w-[95%] min-w-64 max-w-[440px] sm:w-[70%]'
       >
-        <h2 className='text-center text-lg font-bold'>{_('Group Books')}</h2>
+        <h2 style={morganTitle}>{_('Group Books')}</h2>
 
         {/* Action buttons */}
-        <div className={clsx('mt-4 grid grid-cols-1 gap-2 text-base md:grid-cols-2')}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '16px' }}>
           <button
             onClick={handleRemoveFromGroup}
-            className='flex items-center space-x-2 p-2 text-blue-500 disabled:text-gray-400'
+            style={{ ...morganBtn, opacity: !isSelectedBooksHasGroup ? 0.4 : 1, cursor: !isSelectedBooksHasGroup ? 'not-allowed' : 'pointer' }}
             disabled={!isSelectedBooksHasGroup}
           >
-            <HiOutlineFolderRemove size={iconSize} />
-            <span className='truncate'>{_('Remove From Group')}</span>
+            <HiOutlineFolderRemove size={14} /> {_('Remove From Group')}
           </button>
-          <button
-            onClick={handleCreateGroup}
-            className='flex items-center space-x-2 p-2 text-blue-500 disabled:text-gray-400'
-          >
-            <HiOutlineFolderAdd size={iconSize} />
-            <span className='truncate'>{_('Create New Group')}</span>
+          <button onClick={handleCreateGroup} style={morganBtn}>
+            <HiOutlineFolderAdd size={14} /> {_('Create New Group')}
           </button>
           <button
             onClick={handleRenameGroup}
-            className='flex items-center space-x-2 p-2 text-blue-500 disabled:text-gray-400'
+            style={{ ...morganBtn, opacity: !canRenameGroup ? 0.4 : 1, cursor: !canRenameGroup ? 'not-allowed' : 'pointer' }}
             disabled={!canRenameGroup}
           >
-            <MdEdit size={iconSize} />
-            <span className='truncate'>{_('Rename Group')}</span>
+            <MdEdit size={14} /> {_('Rename Group')}
           </button>
         </div>
 
-        {/* Create/Rename group input */}
+        {/* Create/Rename input */}
         {showInput && (
-          <div className='mt-4 space-y-2'>
-            <div className='flex items-center gap-2'>
-              <input
-                type='text'
-                ref={editorRef}
-                value={editGroupName}
-                onChange={(e) => setEditGroupName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleConfirmCreateGroup();
-                  if (e.key === 'Escape') {
-                    setShowInput(false);
-                    setIsRenaming(false);
-                    setOriginalGroupName(null);
-                  }
-                  e.stopPropagation();
-                }}
-                className='input input-ghost w-full border-0 px-2 text-base !outline-none sm:text-sm'
-              />
-              <button
-                className={clsx(
-                  'btn btn-ghost settings-content hover:bg-transparent',
-                  'flex h-[1.3em] min-h-[1.3em] items-end p-0',
-                  editGroupName ? '' : 'btn-disabled !bg-opacity-0',
-                )}
-                onClick={() => handleConfirmCreateGroup()}
-              >
-                <div className='pr-1 align-bottom text-base text-blue-500 sm:text-sm'>
-                  {_('Save')}
-                </div>
-              </button>
-            </div>
+          <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+            <input
+              type='text'
+              ref={editorRef}
+              value={editGroupName}
+              onChange={(e) => setEditGroupName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleConfirmCreateGroup();
+                if (e.key === 'Escape') { setShowInput(false); setIsRenaming(false); setOriginalGroupName(null); }
+                e.stopPropagation();
+              }}
+              placeholder={_('Enter group name')}
+              style={morganInput}
+            />
+            <button
+              style={{ ...morganBtn, opacity: editGroupName ? 1 : 0.4 }}
+              onClick={handleConfirmCreateGroup}
+              disabled={!editGroupName}
+            >
+              {_('Save')}
+            </button>
           </div>
         )}
 
-        {/* Breadcrumb navigation */}
+        {/* Breadcrumb */}
         {currentPath && (
-          <div className='mt-4 flex flex-wrap items-center gap-2 text-base'>
-            <button
-              onClick={handleNavigateBack}
-              className='hover:bg-base-300 flex items-center gap-1 rounded px-2 py-1'
-            >
-              <IoMdArrowBack size={iconSize} />
+          <div style={{ marginTop: '16px', display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px', fontFamily: "'IBM Plex Mono', monospace", fontSize: '11px', color: '#9C7E3E' }}>
+            <button onClick={handleNavigateBack} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#C9A961', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <IoMdArrowBack size={14} />
             </button>
-            <button
-              onClick={() => handleNavigateToPath(undefined)}
-              className='hover:bg-base-300 rounded px-2 py-1'
-            >
+            <button onClick={() => handleNavigateToPath(undefined)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9C7E3E' }}>
               {_('All')}
             </button>
             {getBreadcrumbs(currentPath).map((crumb, index, array) => {
               const isLast = index === array.length - 1;
               return (
                 <React.Fragment key={index}>
-                  <MdChevronRight size={iconSize} className='text-neutral-content' />
+                  <MdChevronRight size={14} style={{ color: '#9C7E3E' }} />
                   {isLast ? (
-                    <span className='truncate rounded px-2 py-1'>{crumb.name}</span>
+                    <span style={{ color: '#C9A961' }}>{crumb.name}</span>
                   ) : (
-                    <button
-                      onClick={() => handleNavigateToPath(crumb.path)}
-                      className='hover:bg-base-300 truncate rounded px-2 py-1'
-                    >
+                    <button onClick={() => handleNavigateToPath(crumb.path)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9C7E3E' }}>
                       {crumb.name}
                     </button>
                   )}
@@ -426,55 +340,50 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
         )}
 
         {/* Groups list */}
-        <ul className='groups-list mt-4 grid grid-cols-2 gap-2 overflow-x-hidden'>
+        <ul style={{ marginTop: '16px', listStyle: 'none', padding: 0, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
           {currentGroupsList.map((group, index) => {
             const displayName = getDisplayName(group.name);
             const hasChildren = allGroups.some((g) => g.name.startsWith(group.name + '/'));
             return (
-              <div key={index} className='flex min-w-0 gap-1'>
+              <li key={index} style={{ display: 'flex', gap: '4px' }}>
                 <button
-                  className={clsx(
-                    'hover:bg-base-300 text-base-content flex min-w-0 max-w-[90%] flex-1',
-                    'items-center justify-between gap-2 rounded-md px-2 py-2',
-                  )}
+                  style={{
+                    ...morganListItem,
+                    flex: 1,
+                    background: selectedGroup?.id === group.id ? 'rgba(201,169,97,.12)' : 'transparent',
+                    color: selectedGroup?.id === group.id ? '#E8C977' : '#D9CDB0',
+                    border: selectedGroup?.id === group.id ? '1px solid rgba(201,169,97,.3)' : '1px solid transparent',
+                  }}
                   onClick={() => handleToggleSelectGroup(group)}
+                  onMouseEnter={(e) => { if (selectedGroup?.id !== group.id) e.currentTarget.style.background = 'rgba(201,169,97,.06)'; }}
+                  onMouseLeave={(e) => { if (selectedGroup?.id !== group.id) e.currentTarget.style.background = 'transparent'; }}
                 >
-                  <div className='flex min-w-0 flex-1 items-center gap-2'>
-                    <span className='shrink-0'>
-                      <HiOutlineFolder size={iconSize} />
-                    </span>
-                    <span className='min-w-0 truncate text-base sm:text-sm'>{displayName}</span>
-                  </div>
-                  <span className='text-neutral-content flex shrink-0 text-sm'>
-                    {selectedGroup && selectedGroup.id === group.id && (
-                      <MdCheck className='fill-blue-500' size={iconSize} />
-                    )}
-                  </span>
+                  <HiOutlineFolder size={14} style={{ color: '#9C7E3E', flexShrink: 0 }} />
+                  <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{displayName}</span>
+                  {selectedGroup?.id === group.id && <MdCheck size={14} style={{ color: '#C9A961', flexShrink: 0 }} />}
                 </button>
                 {hasChildren && (
                   <button
                     onClick={() => handleNavigateToGroup(group)}
-                    className='hover:bg-base-300 flex shrink-0 items-center rounded-md px-1'
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9C7E3E', padding: '8px 4px', borderRadius: '3px', display: 'flex', alignItems: 'center' }}
                   >
-                    <MdChevronRight size={iconSize} />
+                    <MdChevronRight size={14} />
                   </button>
                 )}
-              </div>
+              </li>
             );
           })}
         </ul>
 
-        {/* Footer actions */}
-        <div className='mt-6 flex justify-end gap-x-8 p-2'>
-          <button onClick={onCancel} className='flex items-center'>
+        {/* Footer */}
+        <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(201,169,97,.15)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+          <button onClick={onCancel} style={morganBtn}>
             {_('Cancel')}
           </button>
           <button
             onClick={handleConfirmGrouping}
-            className={clsx(
-              'flex items-center text-blue-500',
-              !selectedGroup && 'btn-disabled opacity-50',
-            )}
+            style={{ ...morganBtn, opacity: !selectedGroup && !newGroup ? 0.4 : 1, cursor: !selectedGroup && !newGroup ? 'not-allowed' : 'pointer', color: '#E8C977', borderColor: '#9C7E3E' }}
+            disabled={!selectedGroup && !newGroup}
           >
             {_('Confirm')}
           </button>

@@ -83,10 +83,6 @@ interface BookshelfItemProps {
   setLoading: React.Dispatch<React.SetStateAction<boolean>>;
   toggleSelection: (hash: string) => void;
   handleGroupBooks: () => void;
-  handleBookDownload: (
-    book: Book,
-    options?: { redownload?: boolean; queued?: boolean },
-  ) => Promise<boolean>;
   handleBookDelete: (book: Book, syncBooks?: boolean) => Promise<boolean>;
   handleSetSelectMode: (selectMode: boolean) => void;
   handleShowDetailsBook: (book: Book) => void;
@@ -101,7 +97,6 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
   setLoading,
   toggleSelection,
   handleGroupBooks,
-  handleBookDownload,
   handleSetSelectMode,
   handleShowDetailsBook,
 }) => {
@@ -118,27 +113,8 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
   }, []);
 
   const makeBookAvailable = async (book: Book) => {
-    if (book.uploadedAt && !book.downloadedAt) {
-      if (await appService?.isBookAvailable(book)) {
-        if (!book.downloadedAt || !book.coverDownloadedAt) {
-          book.downloadedAt = Date.now();
-          book.coverDownloadedAt = Date.now();
-          await updateBook(envConfig, book);
-        }
-        return true;
-      }
-      let available = false;
-      const loadingTimeout = setTimeout(() => setLoading(true), 200);
-      try {
-        available = await handleBookDownload(book, { queued: false });
-        await updateBook(envConfig, book);
-      } finally {
-        if (loadingTimeout) clearTimeout(loadingTimeout);
-        setLoading(false);
-        return available;
-      }
-    }
-    return true;
+    // All books live on the remote server; just verify availability
+    return (await appService?.isBookAvailable(book)) ?? false;
   };
 
   const handleBookClick = useCallback(
@@ -381,7 +357,7 @@ const BookshelfItem: React.FC<BookshelfItemProps> = ({
         className={clsx(
           'visible-focus-inset-2 group',
           mode === 'grid' &&
-          'sm:hover:bg-base-300/50 flex h-full flex-col px-0 py-2 sm:px-4 sm:py-4',
+          'sm:hover:bg-base-300/50 flex h-full flex-col px-0 py-2 sm:px-4 sm:py-4 sm:rounded-xl sm:hover:-translate-y-0.5 sm:hover:shadow-[0_10px_28px_rgba(245,166,35,0.22)]',
           mode === 'list' && 'border-base-300 flex flex-col border-b py-2',
           appService?.isMobileApp && 'no-context-menu',
           pressing && mode === 'grid' ? 'not-eink:scale-95' : 'scale-100',
