@@ -1565,16 +1565,17 @@
 }
 .morgan-library .section-recent .recent-shelf {
   grid-auto-flow: column;
-  grid-auto-columns: 96px;
+  grid-auto-columns: 110px;
   grid-template-columns: none;
   overflow-x: auto;
   padding: 4px 12px 12px;
+  gap: 8px;
 }
 .morgan-library .section-recent .recent-shelf::-webkit-scrollbar { height: 4px; }
 .morgan-library .section-recent .recent-shelf::-webkit-scrollbar-thumb { background: var(--gilt-dim); border-radius: 2px; }
-.morgan-library .section-recent .recent-shelf .morgan-spine { width: 96px; }
-.morgan-library .section-recent .recent-shelf .spine-text { padding: 6px 4px 8px; }
-.morgan-library .section-recent .recent-shelf .spine-title { font-size: 11px; -webkit-line-clamp: 1; }
+.morgan-library .section-recent .recent-shelf .morgan-spine { width: 110px; }
+.morgan-library .section-recent .recent-shelf .spine-text { padding: 8px 6px 10px; }
+.morgan-library .section-recent .recent-shelf .spine-title { font-size: 12px; -webkit-line-clamp: 1; }
 .morgan-library .section-recent .recent-shelf .morgan-spine {
   border: 1px solid rgba(201,169,97,.15);
   background: linear-gradient(180deg, #4a3826, #33221a);
