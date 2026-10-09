@@ -1530,6 +1530,75 @@
 .morgan-library .morgan-shelf-section {
   margin-bottom: 8px;
 }
+
+/* --- 最近阅读横带（与分组分区视觉区分） --- */
+.morgan-library .morgan-shelf-section.section-recent {
+  margin-bottom: 14px;
+}
+.morgan-library .section-recent .recent-header {
+  display: flex; align-items: baseline; gap: 10px;
+  padding: 6px 16px 10px;
+  user-select: none;
+}
+.morgan-library .section-recent .recent-label {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px; letter-spacing: .28em; text-transform: uppercase;
+  color: var(--gilt);
+  white-space: nowrap;
+}
+.morgan-library .section-recent .recent-line {
+  flex: 1; height: 1px;
+  background: linear-gradient(90deg, rgba(168,50,38,.5), transparent);
+}
+.morgan-library .section-recent .recent-hint {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 8px; letter-spacing: .3em; text-transform: uppercase;
+  color: var(--ribbon-red); opacity: .75;
+  white-space: nowrap;
+}
+.morgan-library .section-recent .recent-shelf {
+  grid-auto-flow: column;
+  grid-auto-columns: 96px;
+  grid-template-columns: none;
+  overflow-x: auto;
+  padding: 4px 16px 10px;
+  border-bottom: 1px solid rgba(168,50,38,.15);
+}
+.morgan-library .section-recent .recent-shelf::-webkit-scrollbar { height: 4px; }
+.morgan-library .section-recent .recent-shelf::-webkit-scrollbar-thumb { background: rgba(168,50,38,.4); border-radius: 2px; }
+.morgan-library .section-recent .recent-shelf .morgan-spine { width: 96px; }
+.morgan-library .section-recent .recent-shelf .spine-text { padding: 6px 4px 8px; }
+.morgan-library .section-recent .recent-shelf .spine-title { font-size: 11px; -webkit-line-clamp: 1; }
+
+/* --- 侧栏标注拾遗入口（与分类区分） --- */
+.morgan-library .side-marg-divider {
+  height: 1px; margin: 12px 14px 10px 14px;
+  background: linear-gradient(90deg, rgba(201,169,97,.3), transparent);
+}
+.morgan-library .side-marg .nav-cat a.side-marg-link {
+  border-left: none;
+  border: 1px solid rgba(201,169,97,.18);
+  border-radius: 4px;
+  margin: 0 14px;
+  padding: 9px 12px;
+  background: rgba(201,169,97,.03);
+}
+.morgan-library .side-marg .nav-cat a.side-marg-link:hover {
+  border-color: var(--gilt-dim);
+  background: rgba(201,169,97,.08);
+}
+.morgan-library .side-marg .nav-cat a.side-marg-link.active {
+  border-color: var(--gilt);
+  background: rgba(201,169,97,.1);
+  color: var(--gilt-bright);
+}
+.morgan-library .side-marg-link .marg-icon {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 15px; font-style: italic; font-weight: 700;
+  color: var(--ribbon-red);
+  min-width: 24px;
+}
+
 .morgan-library .morgan-shelf-section .section-header {
   display: flex; align-items: baseline; gap: 12px;
   padding: 10px 16px 8px;

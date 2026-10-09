@@ -527,11 +527,14 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
                   />
                 </div>
                 <div className='side-marg'>
-                  <div className='morgan-sidebar-title'>拾 遗 · Marginalia</div>
+                  <div className='side-marg-divider' />
                   <ul className='nav-cat'>
                     <li>
-                      <a onClick={() => setView(view === 'marginalia' ? 'catalogue' : 'marginalia')}>
-                        <span className='roman'>I</span>
+                      <a
+                        className={clsx('side-marg-link', view === 'marginalia' && 'active')}
+                        onClick={() => setView(view === 'marginalia' ? 'catalogue' : 'marginalia')}
+                      >
+                        <span className='marg-icon'>¶</span>
                         标注拾遗
                         <span className='cnt'>↗</span>
                       </a>

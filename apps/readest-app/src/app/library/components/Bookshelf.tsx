@@ -129,7 +129,7 @@ const groupId = searchParams?.get('group') || '';
 
   const bookSections = useMemo(() => {
     // "全部书架"视图：最近阅读分区放最上面，然后按顶层分组分区，未分组在最后
-    const sections: { name: string; books: Book[]; topLevel: boolean }[] = [];
+    const sections: { name: string; books: Book[]; topLevel: boolean; isRecent?: boolean }[] = [];
 
     // 最近阅读分区：有 lastReadAt 的书按时间降序取前 6
     const recent = filteredBooks
@@ -137,7 +137,7 @@ const groupId = searchParams?.get('group') || '';
       .sort((a, b) => (b.lastReadAt || 0) - (a.lastReadAt || 0))
       .slice(0, 6);
     if (recent.length > 0 && !currentGroupName) {
-      sections.push({ name: '最近阅读', books: recent, topLevel: false });
+      sections.push({ name: '最近阅读', books: recent, topLevel: false, isRecent: true });
     }
 
     // 已在具体分组视图时不分区
@@ -599,6 +599,23 @@ const groupId = searchParams?.get('group') || '';
           const isCollapsed = collapsedGroups.has(section.name);
           const sectionBooks = isCollapsed ? [] : section.books;
           const roman = ROMAN[si] || `${si + 1}`;
+          if (section.isRecent) {
+            // 最近阅读——独立视觉：小标签+横向滚动书带，与分组分区区分
+            return (
+              <section key={section.name} className='morgan-shelf-section section-recent'>
+                <div className='recent-header'>
+                  <span className='recent-label'>最近阅读</span>
+                  <span className='recent-line' />
+                  <span className='recent-hint'>RECENT</span>
+                </div>
+                <div className='morgan-shelf recent-shelf'>
+                  {sectionBooks.map((book) =>
+                    visibleSet.has(book.hash) ? renderSpine(book) : renderSentinel(book)
+                  )}
+                </div>
+              </section>
+            );
+          }
           return (
             <section key={section.name} className='morgan-shelf-section'>
               {/* 分区标题横带 */}
