@@ -13,6 +13,7 @@ interface ChronicleBandProps {
 const ChronicleBand: React.FC<ChronicleBandProps> = ({ libraryBooks }) => {
   const { notesData } = useLibraryStore();
 
+  // P8：单遍循环累计全部指标——原先三遍全量遍历，其中 rereads 一遍是算完即弃的死代码
   const stats = useMemo(() => {
     const now = Date.now();
     const dt = new Date(now);
@@ -22,8 +23,8 @@ const ChronicleBand: React.FC<ChronicleBandProps> = ({ libraryBooks }) => {
 
     let monthDone = 0;
     let yearDone = 0;
+    let finishedPages = 0;
     let totalReadTimeMs = 0;
-    let totalReadDays = 0;
     let lastReadAt = 0;
 
     const uniqueDates = new Set<string>();
@@ -35,6 +36,7 @@ const ChronicleBand: React.FC<ChronicleBandProps> = ({ libraryBooks }) => {
       if (status === 'finished') {
         if (book.finishedAt && book.finishedAt >= yearStart) yearDone++;
         if (book.finishedAt && book.finishedAt >= monthStart && book.finishedAt < nextMonthStart) monthDone++;
+        finishedPages += book.progress?.[1] || 0;
       }
       totalReadTimeMs += book.totalReadTimeMs || 0;
       if (book.lastReadAt && book.lastReadAt > lastReadAt) lastReadAt = book.lastReadAt;
@@ -49,7 +51,7 @@ const ChronicleBand: React.FC<ChronicleBandProps> = ({ libraryBooks }) => {
       }
     }
 
-    totalReadDays = uniqueDates.size > 0 ? Math.max(uniqueDates.size, fallbackMaxDays) : fallbackMaxDays;
+    let totalReadDays = uniqueDates.size > 0 ? Math.max(uniqueDates.size, fallbackMaxDays) : fallbackMaxDays;
     const totalHours = totalReadTimeMs / (1000 * 60 * 60);
     if (totalReadDays === 0) totalReadDays = Math.floor(totalHours / 24);
 
@@ -57,24 +59,7 @@ const ChronicleBand: React.FC<ChronicleBandProps> = ({ libraryBooks }) => {
       ? Object.values(notesData.books).reduce((acc, b) => acc + (b?.notes?.length || 0), 0)
       : 0;
 
-    let rereads = 0;
-    for (const book of libraryBooks) {
-      if (book.deletedAt) continue;
-      if (book.readDates && book.readDates.length > 0) {
-        const daysSet = new Set(book.readDates.map((ts) => {
-          const d = new Date(ts);
-          return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
-        }));
-        if (daysSet.size > 0 && book.progress && book.progress[1] > 0) {
-          // Heuristic: reading days > 2x page count / 50 suggests rereading
-        }
-      }
-    }
-    void rereads;
-
-    const pace = totalReadDays > 0
-      ? Math.round(libraryBooks.filter(b => !b.deletedAt && getBookReadStatus(b) === 'finished').reduce((s, b) => s + (b.progress?.[1] || 0), 0) / totalReadDays)
-      : 0;
+    const pace = totalReadDays > 0 ? Math.round(finishedPages / totalReadDays) : 0;
 
     return { monthDone, yearDone, totalAnnotations, totalHours, totalReadDays, lastReadAt, pace };
   }, [libraryBooks, notesData]);

@@ -108,12 +108,22 @@ const MorganSidebar: React.FC<MorganSidebarProps> = ({
     });
   };
 
-  // 计算某个分组路径下的书籍数（含子目录）
-  const countBooks = (groupPath: string) => {
-    return libraryBooks.filter(
-      (b) => b.groupName === groupPath || (b.groupName && b.groupName.startsWith(groupPath + '/'))
-    ).length;
-  };
+  // P9：一次遍历统计各分组路径册数（含子目录）——替代 renderGroupTree 内每分组一次的全库扫描（O(G×N)→O(N)）
+  const groupCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const b of libraryBooks) {
+      const gn = (b.groupName || '').trim();
+      if (!gn || gn === BOOK_UNGROUPED_NAME) continue;
+      const parts = gn.split('/');
+      for (let i = 1; i <= parts.length; i++) {
+        const path = parts.slice(0, i).join('/');
+        counts.set(path, (counts.get(path) || 0) + 1);
+      }
+    }
+    return counts;
+  }, [libraryBooks]);
+
+  const countBooks = (groupPath: string) => groupCounts.get(groupPath) || 0;
 
   // 递归渲染分组树
   const renderGroupTree = (parentPath: string, depth: number, romanStart: number): React.ReactNode => {
@@ -150,16 +160,7 @@ const MorganSidebar: React.FC<MorganSidebarProps> = ({
                 {hasChildren ? (
                   <span
                     className='group-chevron'
-                    style={{
-                      display: 'inline-block',
-                      width: '12px',
-                      fontSize: '10px',
-                      color: 'var(--gilt-dim)',
-                      marginRight: '4px',
-                      transition: 'transform .2s',
-                      transform: isExpanded ? 'rotate(90deg)' : 'rotate(0)',
-                      cursor: 'pointer',
-                    }}
+                    style={{ transform: isExpanded ? 'rotate(90deg)' : 'rotate(0)' }}
                     onClick={(e) => {
                       e.stopPropagation();
                       toggleExpand(path);
@@ -168,7 +169,7 @@ const MorganSidebar: React.FC<MorganSidebarProps> = ({
                     ▶
                   </span>
                 ) : (
-                  <span style={{ display: 'inline-block', width: '16px' }} />
+                  <span className='group-chevron-spacer' />
                 )}
                 <span className='roman'>{roman}</span>
                 {leaf === BOOK_UNGROUPED_NAME ? '未 分 组' : leaf}

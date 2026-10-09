@@ -7,9 +7,8 @@ import {
     writeFileBuffer,
     ensureParentDir,
 } from '../_lib/localFs';
-import { createReadStream, createWriteStream, openSync } from 'fs';
-import { stat, open } from 'fs/promises';
-import { createHash } from 'crypto';
+import { createReadStream, createWriteStream } from 'fs';
+import { stat } from 'fs/promises';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 
@@ -19,14 +18,45 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 300;
 
 /**
- * Generate ETag from file stats
+ * P13：简易 LRU 内存缓存——封面等小文件命中后不再读盘。
+ * 以 stat 的 size+mtime 为有效性凭据（文件被覆盖/删除自动失效）；容量上限 64MB，超出按插入序淘汰。
+ * Range/大文件（流式）不入缓存；PUT 写入后主动失效。
  */
-function generateETag(size: number, mtime: number): string {
-    const hash = createHash('md5')
-        .update(`${size}-${mtime}`)
-        .digest('hex')
-        .slice(0, 8);
-    return `"${hash}"`;
+const memoryCache = new Map<string, { buffer: Buffer; size: number; mtime: number }>();
+const MAX_CACHE_BYTES = 64 * 1024 * 1024;
+let memoryCacheBytes = 0;
+
+function cacheGet(key: string, size: number, mtime: number): Buffer | null {
+    const hit = memoryCache.get(key);
+    if (!hit || hit.size !== size || hit.mtime !== mtime) return null;
+    // LRU touch：重插到尾部
+    memoryCache.delete(key);
+    memoryCache.set(key, hit);
+    return hit.buffer;
+}
+
+function cacheSet(key: string, buffer: Buffer, size: number, mtime: number) {
+    const old = memoryCache.get(key);
+    if (old) {
+        memoryCacheBytes -= old.size;
+        memoryCache.delete(key);
+    }
+    memoryCache.set(key, { buffer, size, mtime });
+    memoryCacheBytes += size;
+    while (memoryCacheBytes > MAX_CACHE_BYTES && memoryCache.size > 1) {
+        const oldestKey = memoryCache.keys().next().value as string;
+        const oldest = memoryCache.get(oldestKey);
+        if (oldest) memoryCacheBytes -= oldest.size;
+        memoryCache.delete(oldestKey);
+    }
+}
+
+function cacheInvalidate(key: string) {
+    const hit = memoryCache.get(key);
+    if (hit) {
+        memoryCacheBytes -= hit.size;
+        memoryCache.delete(key);
+    }
 }
 
 /**
@@ -78,12 +108,9 @@ export async function GET(req: NextRequest) {
 
     try {
         const { fullPath, relPath } = resolveLocalPath(filePath, searchParams.get('temp') === '1');
-        console.log('[Storage File GET] Reading from:', fullPath);
 
         // 获取文件信息
         const stats = await stat(fullPath);
-        const fileSizeMB = stats.size / (1024 * 1024);
-        console.log('[Storage File GET] File size:', fileSizeMB.toFixed(2), 'MB');
 
         const filename = relPath.split('/').pop() || 'file';
         const encodedFilename = encodeURIComponent(filename);
@@ -102,7 +129,6 @@ export async function GET(req: NextRequest) {
         // 检查 If-None-Match 头，如果 ETag 匹配则返回 304
         const ifNoneMatch = req.headers.get('if-none-match');
         if (ifNoneMatch === etag) {
-            console.log('[Storage File GET] ETag match, returning 304 Not Modified');
             return new NextResponse(null, {
                 status: 304,
                 headers: {
@@ -120,28 +146,11 @@ export async function GET(req: NextRequest) {
             // Single range request - stream 206 Partial Content
             const { start, end } = ranges[0];
             const contentLength = end - start + 1;
-            const contentRangeMB = (contentLength / (1024 * 1024)).toFixed(2);
-            console.log(`[Storage File GET] Range request: bytes ${start}-${end} (${contentRangeMB} MB out of ${fileSizeMB} MB total)`);
 
-            const nodeStream = createReadStream(fullPath, { start, end });
-            const webStream = new ReadableStream({
-                start(controller) {
-                    nodeStream.on('data', (chunk) => {
-                        const uint8Array = Buffer.isBuffer(chunk)
-                            ? new Uint8Array(chunk)
-                            : new TextEncoder().encode(String(chunk));
-                        controller.enqueue(uint8Array);
-                    });
-                    nodeStream.on('end', () => controller.close());
-                    nodeStream.on('error', (error) => {
-                        console.error('[Storage File GET] Stream error:', error);
-                        controller.error(error);
-                    });
-                },
-                cancel() {
-                    nodeStream.destroy();
-                }
-            });
+            // P13：Readable.toWeb 一行替代原手工封装（原实现含永不触发的 TextEncoder 死分支）
+            const webStream = Readable.toWeb(
+                createReadStream(fullPath, { start, end })
+            ) as unknown as ReadableStream;
 
             return new NextResponse(webStream, {
                 status: 206,
@@ -161,30 +170,10 @@ export async function GET(req: NextRequest) {
         const USE_STREAMING_THRESHOLD = 50 * 1024 * 1024; // 50MB
 
         if (stats.size > USE_STREAMING_THRESHOLD) {
-            console.log('[Storage File GET] Using streaming for large file');
-
-            // 使用 Node.js ReadableStream 转换为 Web ReadableStream
-            const nodeStream = createReadStream(fullPath);
-            const webStream = new ReadableStream({
-                start(controller) {
-                    nodeStream.on('data', (chunk) => {
-                        const uint8Array = Buffer.isBuffer(chunk)
-                            ? new Uint8Array(chunk)
-                            : new TextEncoder().encode(String(chunk));
-                        controller.enqueue(uint8Array);
-                    });
-                    nodeStream.on('end', () => {
-                        controller.close();
-                    });
-                    nodeStream.on('error', (error) => {
-                        console.error('[Storage File GET] Stream error:', error);
-                        controller.error(error);
-                    });
-                },
-                cancel() {
-                    nodeStream.destroy();
-                }
-            });
+            // P13：Readable.toWeb 替代手工封装
+            const webStream = Readable.toWeb(
+                createReadStream(fullPath)
+            ) as unknown as ReadableStream;
 
             return new NextResponse(webStream, {
                 status: 200,
@@ -198,8 +187,10 @@ export async function GET(req: NextRequest) {
                 },
             });
         } else {
-            // 小文件继续使用原来的方式
-            const buffer = await readFileBuffer(fullPath);
+            // 小文件：优先内存缓存（P13），未命中才读盘
+            const cached = cacheGet(fullPath, stats.size, stats.mtimeMs);
+            const buffer = cached ?? (await readFileBuffer(fullPath));
+            if (!cached) cacheSet(fullPath, buffer, stats.size, stats.mtimeMs);
             return new NextResponse(buffer, {
                 status: 200,
                 headers: {
@@ -233,9 +224,6 @@ export async function PUT(req: NextRequest) {
 
     try {
         const { fullPath, relPath } = resolveLocalPath(filePath, searchParams.get('temp') === '1');
-        console.log('[Storage File PUT] 15. Input filePath:', filePath);
-        console.log('[Storage File PUT] 16. Resolved fullPath:', fullPath);
-        console.log('[Storage File PUT] 17. Relative path:', relPath);
 
         const contentLengthHeader = req.headers.get('content-length');
         const contentLength = contentLengthHeader ? Number(contentLengthHeader) : undefined;
@@ -253,7 +241,6 @@ export async function PUT(req: NextRequest) {
         let writtenBytes = 0;
 
         if (contentLength === undefined || contentLength > MAX_IN_MEMORY) {
-            console.log('[Storage File PUT] 18a. Streaming upload. Content-Length:', contentLengthHeader);
             await ensureParentDir(fullPath);
 
             // Count bytes while streaming to detect truncated uploads
@@ -265,23 +252,23 @@ export async function PUT(req: NextRequest) {
             });
 
             await pipeline(Readable.fromWeb(req.body as any), counter, createWriteStream(fullPath));
-            console.log('[Storage File PUT] 19a. ✓ Streamed to:', fullPath, 'size:', writtenBytes);
         } else {
             const buffer = Buffer.from(await req.arrayBuffer());
             writtenBytes = buffer.length;
-            console.log('[Storage File PUT] 18b. Buffered upload size:', writtenBytes, 'bytes');
             await writeFileBuffer(fullPath, buffer);
-            console.log('[Storage File PUT] 19b. ✓ Buffered write to:', fullPath);
         }
 
+        // P13：任何写入（含后续校验失败的截断）都使内存缓存失效，避免读到陈旧内容
+        cacheInvalidate(fullPath);
+
         if (contentLength !== undefined && writtenBytes !== contentLength) {
-            console.error('[Storage File PUT] ✗ Size mismatch! expected:', contentLength, 'written:', writtenBytes);
+            console.error('[Storage File PUT] Size mismatch! expected:', contentLength, 'written:', writtenBytes);
             await writeFileBuffer(fullPath, Buffer.alloc(0));
             return NextResponse.json({ error: 'Size mismatch while writing file' }, { status: 500 });
         }
 
         if (writtenBytes === 0) {
-            console.error('[Storage File PUT] ✗ Zero-byte upload detected for', fullPath);
+            console.error('[Storage File PUT] Zero-byte upload detected for', fullPath);
             await writeFileBuffer(fullPath, Buffer.alloc(0));
             return NextResponse.json({ error: 'Zero-byte upload detected' }, { status: 400 });
         }

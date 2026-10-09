@@ -292,21 +292,29 @@
   border-left-color: var(--gilt);
   background: rgba(201,169,97,.05);
 }
+/* P12：此块原先花括号错位（a.active 声明被拆进嵌套结构），靠浏览器 CSS Nesting 兜底才侥幸生效——
+   重写为不依赖嵌套的独立规则，并顺带修复两条被嵌套吞掉的规则（chevron 静态样式、hover 变金） */
 .morgan-library .morgan-sidebar .nav-cat a.active {
-
+  color: var(--gilt-bright);
+  border-left-color: var(--gilt);
+  background: rgba(201,169,97,.08);
+}
 /* 分组树展开/缩进 */
 .morgan-library .morgan-sidebar .nav-cat .nav-cat {
   margin: 0; padding: 0; list-style: none;
 }
+/* 分组树折叠箭头：静态样式收敛到 CSS（组件仅保留动态 transform 内联） */
 .morgan-library .morgan-sidebar .nav-cat .group-chevron {
+  display: inline-block; width: 12px; font-size: 10px;
+  color: var(--gilt-dim); margin-right: 4px;
   font-family: 'IBM Plex Mono', monospace;
-  transition: transform .2s ease;
+  transition: transform .2s ease; cursor: pointer;
+}
+.morgan-library .morgan-sidebar .nav-cat .group-chevron-spacer {
+  display: inline-block; width: 16px;
 }
 .morgan-library .morgan-sidebar .nav-cat a:hover .group-chevron {
   color: var(--gilt) !important;
-}  color: var(--gilt-bright);
-  border-left-color: var(--gilt);
-  background: rgba(201,169,97,.08);
 }
 .morgan-library .morgan-sidebar .nav-cat a.active .roman { color: var(--gilt); }
 

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Book, BookNote } from '@/types/book';
 import { getBookProgressPercentage, getBookReadStatus } from '../utils/libraryUtils';
 import { formatDurationMs } from '@/utils/misc';
@@ -27,6 +27,10 @@ const formatDate = (ts?: number) => {
   const d = new Date(ts);
   return `${d.getFullYear().toString().slice(2)}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 };
+
+// P16：dangerouslySetInnerHTML 前转义动态文本，防 EPUB 元数据/批注内容注入任意 HTML
+const escapeHtml = (s: string) =>
+  s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] as string));
 
 // 统一定位
 const placeCard = (cardEl: HTMLElement, spineEl: HTMLElement) => {
@@ -73,8 +77,9 @@ const getNoteInfo = (book: Book, notesData: any): { note: BookNote | null; count
   const valid = notes.filter((n: any) => !n.deletedAt && (n.note || n.text));
   const count = notes.filter((n: any) => !n.deletedAt).length;
   if (valid.length === 0) return { note: null, count };
-  // 用 hash-based 伪随机（同一次 hover 内稳定，不同书不同结果）
-  const seed = book.hash.charCodeAt(0) + book.hash.charCodeAt(1) * 31 + Date.now() % 97;
+  // P7：伪随机种子只用 book.hash——移除 Date.now()，同书引言稳定，不再随重渲染跳变
+  let seed = 0;
+  for (let i = 0; i < book.hash.length; i++) seed = (seed * 31 + book.hash.charCodeAt(i)) >>> 0;
   return { note: valid[seed % valid.length] as BookNote, count };
 };
 
@@ -84,8 +89,11 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl, onCardEnter, onCar
   const { notesData } = useLibraryStore();
   const rafRef = useRef<number>(0);
 
-  // 批注信息：同步计算，随 book/notesData 变化直接更新（无 useEffect 竞态）
-  const noteInfo = book ? getNoteInfo(book, notesData) : { note: null, count: 0 };
+  // 批注信息（P7：useMemo）——引言选择结果稳定，不再每次重渲染换一条引言并触发重新定位
+  const noteInfo = useMemo(
+    () => (book ? getNoteInfo(book, notesData) : { note: null, count: 0 }),
+    [book, notesData],
+  );
   const randomNote = noteInfo.note;
   const annotationCount = noteInfo.count;
 
@@ -106,16 +114,24 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl, onCardEnter, onCar
     return () => cancelAnimationFrame(rafRef.current);
   }, [book, spineEl, randomNote]);
 
-  // scroll 重新定位
+  // scroll 重新定位（P15：rAF 合帧——滚动时每帧最多一次同步布局测量）
   useEffect(() => {
     if (!visible || !spineEl) return;
+    let raf = 0;
     const onScroll = () => {
-      if (cardRef.current && spineEl) {
-        placeCard(cardRef.current, spineEl);
-      }
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        if (cardRef.current && spineEl) {
+          placeCard(cardRef.current, spineEl);
+        }
+      });
     };
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      if (raf) cancelAnimationFrame(raf);
+      window.removeEventListener('scroll', onScroll);
+    };
   }, [visible, spineEl]);
 
   if (!book) return <div ref={cardRef} className='cat-card' />;
@@ -131,18 +147,18 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl, onCardEnter, onCar
     pairs.push(['卷 页', `p.${progress[0]}/${progress[1] || '?'} <em>· ${pct}%</em>`]);
     pairs.push(['阅 时', formatDurationMs(book.totalReadTimeMs || 0)]);
     pairs.push(['上 次', book.lastReadAt ? new Date(book.lastReadAt).toLocaleDateString('zh-CN') : '—']);
-    if (book.groupName) pairs.push(['架 位', book.groupName]);
+    if (book.groupName) pairs.push(['架 位', escapeHtml(book.groupName)]);
   } else if (status === 'finished') {
     pairs.push(['卷 页', `全 ${progress[1] || '?'} 页`]);
     pairs.push(['阅 时', formatDurationMs(book.totalReadTimeMs || 0)]);
     pairs.push(['读 程', `${formatDate(book.lastReadAt)} → ${formatDate(book.finishedAt)}`]);
-    if (book.groupName) pairs.push(['架 位', book.groupName]);
+    if (book.groupName) pairs.push(['架 位', escapeHtml(book.groupName)]);
   } else {
     pairs.push(['卷 页', `${progress[1] || '?'} 页`]);
     pairs.push(['入 藏', formatDate(book.createdAt)]);
-    if (book.groupName) pairs.push(['架 位', book.groupName]);
+    if (book.groupName) pairs.push(['架 位', escapeHtml(book.groupName)]);
   }
-  if (book.format) pairs.push(['格 式', book.format]);
+  if (book.format) pairs.push(['格 式', escapeHtml(book.format)]);
   if (annotationCount > 0) pairs.push(['批 注', `¶ ${annotationCount} 则`]);
   if (book.isFavorite) pairs.push(['钤 印', '★ 收藏']);
 
@@ -159,10 +175,11 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl, onCardEnter, onCar
     rows.push(rowHtml);
   }
 
+  const quoteText = randomNote ? randomNote.text || randomNote.note || '' : '';
   const quoteHtml = randomNote ? `
     <div class="cc-quote">
-      <div class="qt">❝ ${(randomNote.text || randomNote.note || '').slice(0, 50)}${(randomNote.text || randomNote.note || '').length > 50 ? '…' : ''} ❞</div>
-      ${randomNote.note ? `<div class="cc-note-text">${randomNote.note.slice(0, 40)}${randomNote.note.length > 40 ? '…' : ''}</div>` : ''}
+      <div class="qt">❝ ${escapeHtml(quoteText.slice(0, 50))}${quoteText.length > 50 ? '…' : ''} ❞</div>
+      ${randomNote.note ? `<div class="cc-note-text">${escapeHtml(randomNote.note.slice(0, 40))}${randomNote.note.length > 40 ? '…' : ''}</div>` : ''}
       <span class="qs">— ch.${randomNote.cfi?.match(/\/(\d+)!/)?.[1] || '?'} · ${formatDate(randomNote.updatedAt || randomNote.createdAt)}</span>
     </div>
   ` : '';

@@ -3,7 +3,7 @@
 import './styles/morgan.css';
 
 import clsx from 'clsx';
-import React, { useState, useRef, useEffect, Suspense, useCallback } from 'react';
+import React, { useState, useRef, useEffect, Suspense, useCallback, useMemo } from 'react';
 import { ReadonlyURLSearchParams, useRouter, useSearchParams } from 'next/navigation';
 import { OverlayScrollbarsComponent, OverlayScrollbarsComponentRef } from 'overlayscrollbars-react';
 import 'overlayscrollbars/overlayscrollbars.css';
@@ -101,7 +101,11 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   const [isSelectAll, setIsSelectAll] = useState(false);
   const [isSelectNone, setIsSelectNone] = useState(false);
   const [showDetailsBook, setShowDetailsBook] = useState<Book | null>(null);
-  const [currentGroupPath, setCurrentGroupPath] = useState<string | undefined>(undefined);
+  // 惰性初始化：首渲染即有分组名，避免 Bookshelf 第一帧用未过滤书单（后续由 effect 持续同步）
+  const [currentGroupPath, setCurrentGroupPath] = useState<string | undefined>(() => {
+    const g = searchParams?.get('group') || '';
+    return g ? getGroupName(g) : undefined;
+  });
   const [pendingNavigationBookIds, setPendingNavigationBookIds] = useState<string[] | null>(null);
   const [view, setView] = useState<'catalogue' | 'marginalia'>('catalogue');
   const isInitiating = useRef(false);
@@ -255,7 +259,9 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     initLogin();
     initLibrary();
     return () => { setCheckOpenWithBooks(false); setCheckLastOpenBooks(false); isInitiating.current = false; };
-  }, [searchParams]);
+    // 仅挂载时初始化：searchParams 变化（搜索/过滤/分组导航）不得触发书库与批注全量重载
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const group = searchParams?.get('group') || '';
@@ -275,7 +281,8 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     }
   }, [demoBooks, libraryLoaded]);
 
-  const importBooks = async (files: SelectedFile[], groupId?: string) => {
+  // 引用稳定化（useCallback）：作为 prop 传入后 Bookshelf(React.memo) 的浅比较才生效
+  const importBooks = useCallback(async (files: SelectedFile[], groupId?: string) => {
     setLoading(true);
     const { library } = useLibraryStore.getState();
     const failedImports: Array<{ filename: string; errorMessage: string }> = [];
@@ -333,23 +340,22 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       eventDispatcher.dispatch('toast', { message: _('Successfully imported {{count}} book(s)', { count: successfulImports.length }), timeout: 2000, type: 'success' });
     }
     setLoading(false);
-  };
+  }, [_, appService, envConfig, getGroupId, getGroupName, updateBooks, pushLibrary]);
 
-  const handleBookDelete = () => {
-    return async (book: Book, syncBooks = true) => {
-      try {
-        await appService?.deleteBook(book, 'both');
-        await updateBook(envConfig, book);
-        clearBookData(book.hash);
-        if (syncBooks) pushLibrary();
-        eventDispatcher.dispatch('toast', { type: 'info', timeout: 1000, message: _('Book deleted: {{title}}', { title: book.title }) });
-        return true;
-      } catch {
-        eventDispatcher.dispatch('toast', { type: 'error', message: _('Failed to delete book: {{title}}', { title: book.title }) });
-        return false;
-      }
-    };
-  };
+  // useCallback：直接产出可传递的稳定函数（原先在 JSX 里调用工厂，每渲染新闭包）
+  const handleBookDelete = useCallback(async (book: Book, syncBooks = true) => {
+    try {
+      await appService?.deleteBook(book, 'both');
+      await updateBook(envConfig, book);
+      clearBookData(book.hash);
+      if (syncBooks) pushLibrary();
+      eventDispatcher.dispatch('toast', { type: 'info', timeout: 1000, message: _('Book deleted: {{title}}', { title: book.title }) });
+      return true;
+    } catch {
+      eventDispatcher.dispatch('toast', { type: 'error', message: _('Failed to delete book: {{title}}', { title: book.title }) });
+      return false;
+    }
+  }, [_, appService, envConfig, updateBook, clearBookData, pushLibrary]);
 
   const handleUpdateMetadata = async (book: Book, metadata: BookMetadata) => {
     book.metadata = metadata;
@@ -367,14 +373,14 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     await updateBook(envConfig, book);
   };
 
-  const handleImportBooksFromFiles = async () => {
+  const handleImportBooksFromFiles = useCallback(async () => {
     setIsSelectMode(false);
     selectFiles({ type: 'books', multiple: true }).then((result) => {
       if (result.files.length === 0 || result.error) return;
       const groupId = searchParams?.get('group') || '';
       importBooks(result.files, groupId);
     });
-  };
+  }, [selectFiles, searchParams, importBooks]);
 
   const handleImportBooksFromDirectory = async () => {
     if (!appService || !isTauriAppPlatform()) return;
@@ -395,16 +401,16 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     importBooks(toImportFiles, undefined);
   };
 
-  const handleSetSelectMode = (selectMode: boolean) => {
+  const handleSetSelectMode = useCallback((selectMode: boolean) => {
     if (selectMode && appService?.hasHaptics) impactFeedback('medium');
     setIsSelectMode(selectMode);
     setIsSelectAll(false);
     setIsSelectNone(false);
-  };
+  }, [appService]);
 
   const handleSelectAll = () => { setIsSelectAll(true); setIsSelectNone(false); };
   const handleDeselectAll = () => { setIsSelectNone(true); setIsSelectAll(false); };
-  const handleShowDetailsBook = (book: Book) => setShowDetailsBook(book);
+  const handleShowDetailsBook = useCallback((book: Book) => setShowDetailsBook(book), []);
 
   const handleNavigateToPath = (path: string | undefined) => {
     const group = path ? getGroupId(path) : '';
@@ -420,7 +426,18 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   }
 
   const showBookshelf = libraryLoaded || libraryBooks.length > 0;
-  const visibleBooks = libraryBooks.filter((b) => !b.deletedAt);
+  // 稳定引用（P1）：否则每次渲染生成新数组，下游 Bookshelf/MorganSidebar/ChronicleBand/MarginaliaView 的全部 useMemo 被毒化失效
+  const visibleBooks = useMemo(() => libraryBooks.filter((b) => !b.deletedAt), [libraryBooks]);
+  // 馆牌统计预计算：单遍循环替代渲染体内的 filter+reduce 与 map+filter+sort
+  const headerStats = useMemo(() => {
+    let totalPages = 0;
+    let earliest: number | undefined;
+    for (const b of visibleBooks) {
+      if (b.progress?.[1]) totalPages += b.progress[1];
+      if (b.createdAt && (!earliest || b.createdAt < earliest)) earliest = b.createdAt;
+    }
+    return { total: visibleBooks.length, totalPages, earliest };
+  }, [visibleBooks]);
 
   return (
     <div
@@ -441,17 +458,17 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
           </div>
           <div className='morgan-header-meta'>
             <div className='item'>
-              <div className='num'>{visibleBooks.length}</div>
+              <div className='num'>{headerStats.total}</div>
               <div className='lbl'>藏 书</div>
             </div>
             <div className='item'>
-              <div className='num'>{visibleBooks.filter(b => b.progress?.[1]).reduce((s, b) => s + (b.progress?.[1] || 0), 0)}</div>
+              <div className='num'>{headerStats.totalPages}</div>
               <div className='lbl'>卷 帙 · 页</div>
             </div>
             <div className='item'>
               <div className='num'>
                 {(() => {
-                  const earliest = visibleBooks.map(b => b.createdAt).filter(Boolean).sort()[0];
+                  const earliest = headerStats.earliest;
                   if (!earliest) return '—';
                   const days = Math.floor((Date.now() - earliest) / 86400000);
                   const y = Math.floor(days / 365), m = Math.floor((days % 365) / 30);
@@ -545,42 +562,42 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
 
               {/* 主区 */}
               <div className='morgan-content'>
-                {/* 馆藏目录视图 */}
-                <div className='view-catalogue'>
-                  {visibleBooks.length > 0 && searchParams?.get('landing') !== '1' && (
-                    <>
-                      <ChronicleBand libraryBooks={visibleBooks} />
-                      <Bookshelf
-                        libraryBooks={visibleBooks}
-                        isSelectMode={isSelectMode}
-                        isSelectAll={isSelectAll}
-                        isSelectNone={isSelectNone}
-                        handleImportBooks={handleImportBooksFromFiles}
-                        handleBookDelete={handleBookDelete()}
-                        handleSetSelectMode={handleSetSelectMode}
-                        handleShowDetailsBook={handleShowDetailsBook}
-                        handlePushLibrary={pushLibrary}
-                      />
-                    </>
-                  )}
-                  {(visibleBooks.length === 0 || searchParams?.get('landing') === '1') && (
-                    <LandingHero onImport={handleImportBooksFromFiles} />
-                  )}
-                </div>
-
-                {/* 标注拾遗视图 */}
-                <div className='view-marginalia'>
-                  {/* 返回按钮——流式排在拾遗标题上方 */}
-                  {view === 'marginalia' && (
+                {/* 馆藏目录视图 / 标注拾遗视图——条件渲染：未打开的视图不渲染不计算，避免两套 DOM 与 useMemo 常驻 */}
+                {view === 'catalogue' ? (
+                  <div className='view-catalogue'>
+                    {visibleBooks.length > 0 && searchParams?.get('landing') !== '1' && (
+                      <>
+                        <ChronicleBand libraryBooks={visibleBooks} />
+                        <Bookshelf
+                          libraryBooks={visibleBooks}
+                          isSelectMode={isSelectMode}
+                          isSelectAll={isSelectAll}
+                          isSelectNone={isSelectNone}
+                          handleImportBooks={handleImportBooksFromFiles}
+                          handleBookDelete={handleBookDelete}
+                          handleSetSelectMode={handleSetSelectMode}
+                          handleShowDetailsBook={handleShowDetailsBook}
+                          handlePushLibrary={pushLibrary}
+                          currentGroupPath={currentGroupPath}
+                        />
+                      </>
+                    )}
+                    {(visibleBooks.length === 0 || searchParams?.get('landing') === '1') && (
+                      <LandingHero onImport={handleImportBooksFromFiles} />
+                    )}
+                  </div>
+                ) : (
+                  <div className='view-marginalia'>
+                    {/* 返回按钮——流式排在拾遗标题上方 */}
                     <button
                       onClick={() => setView('catalogue')}
                       className='morgan-back-btn'
                     >
                       ← 返回馆藏
                     </button>
-                  )}
-                  <MarginaliaView libraryBooks={visibleBooks} />
-                </div>
+                    <MarginaliaView libraryBooks={visibleBooks} />
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -593,7 +610,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
           isOpen={!!showDetailsBook}
           book={showDetailsBook}
           onClose={() => setShowDetailsBook(null)}
-          handleBookDelete={handleBookDelete()}
+          handleBookDelete={handleBookDelete}
           handleBookMetadataUpdate={handleUpdateMetadata}
         />
       )}

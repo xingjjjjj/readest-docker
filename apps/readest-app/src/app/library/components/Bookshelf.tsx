@@ -10,7 +10,7 @@ import { useSettingsStore } from '@/store/settingsStore';
 import { useLibraryStore } from '@/store/libraryStore';
 import { useTranslation } from '@/hooks/useTranslation';
 import { navigateToReader, navigateToLibrary, showReaderWindow } from '@/utils/nav';
-import { createBookFilter, createBookSorter, getBookReadStatus } from '../utils/libraryUtils';
+import { createBookFilter, getBookReadStatus } from '../utils/libraryUtils';
 import { getBookProgressPercentage } from '../utils/libraryUtils';
 import { formatAuthors, formatTitle } from '@/utils/book';
 import { eventDispatcher } from '@/utils/event';
@@ -32,6 +32,159 @@ import Spinner from '@/components/Spinner';
 
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII', 'XVIII', 'XIX', 'XX'];
 
+// P6 decorate-sort-undecorate：预计算排序键，避免比较器内每次比较重复执行 formatTitle/formatAuthors
+// 行为与原 createBookSorter 保持一致（含 published 无日期 '0001-01-01' 兜底、无法解析时退化字符串比较）
+const sortBooks = (books: Book[], sortBy: string, sortOrder: string): Book[] => {
+  let keyFn: (b: Book) => string | number;
+  switch (sortBy) {
+    case 'title':
+      keyFn = (b) => formatTitle(b.title);
+      break;
+    case 'author':
+      keyFn = (b) => formatAuthors(b.author, b?.primaryLanguage || 'en', true);
+      break;
+    case 'updated':
+      keyFn = (b) => new Date(b.updatedAt).getTime();
+      break;
+    case 'format':
+      keyFn = (b) => b.format;
+      break;
+    case 'published':
+      keyFn = (b) => {
+        const published = b.metadata?.published || '0001-01-01';
+        const time = new Date(published).getTime();
+        return isNaN(time) ? `zz:${published}` : time;
+      };
+      break;
+    case 'created':
+      keyFn = (b) => new Date(b.createdAt).getTime();
+      break;
+    default:
+      keyFn = (b) => new Date(b.updatedAt).getTime();
+      break;
+  }
+  const decorated = books.map((b) => ({ b, key: keyFn(b) }));
+  decorated.sort((x, y) => {
+    if (typeof x.key === 'number' && typeof y.key === 'number') return x.key - y.key;
+    return String(x.key).localeCompare(String(y.key), 'zh');
+  });
+  const sorted = decorated.map((d) => d.b);
+  return sortOrder === 'desc' ? sorted.reverse() : sorted;
+};
+
+// 书脊状态 class / 进度（纯函数，module 级）
+const spineStatusClass = (book: Book) => {
+  const status = getBookReadStatus(book);
+  if (status === 'reading') return 'st-reading';
+  if (status === 'finished') return 'st-read';
+  if (status === 'unread') return 'st-unread';
+  return 'st-shelved';
+};
+
+const spineProgress = (book: Book) => getBookProgressPercentage(book);
+
+interface SpineItemProps {
+  book: Book;
+  isSelected: boolean;
+  onBookClick: (book: Book) => void;
+  onSpineContextMenu: (book: Book) => void;
+  onSpineHover: (book: Book, el: HTMLElement) => void;
+  onSpineLeave: () => void;
+  onToggleFinished: (e: React.MouseEvent, book: Book) => void;
+  onToggleFavorite: (e: React.MouseEvent, book: Book) => void;
+  onShowDetails: (book: Book) => void;
+}
+
+// P5：书脊卡片独立组件 + React.memo + 稳定回调——hover/选中状态变化时，未受影响的书脊直接跳过重渲染
+const SpineItem = React.memo(({
+  book,
+  isSelected,
+  onBookClick,
+  onSpineContextMenu,
+  onSpineHover,
+  onSpineLeave,
+  onToggleFinished,
+  onToggleFavorite,
+  onShowDetails,
+}: SpineItemProps) => {
+  const _ = useTranslation();
+  const stCls = spineStatusClass(book);
+  const pct = spineProgress(book);
+  const authorShort = (book.author || '').split(/[·,]/).pop()?.trim() || '';
+  const status = getBookReadStatus(book);
+  const hasCover = !!book.coverImageUrl;
+
+  return (
+    <div
+      className={clsx('morgan-spine', stCls, isSelected && 'selected')}
+      style={{ ['--p' as any]: `${pct}%` }}
+      tabIndex={0}
+      onClick={() => onBookClick(book)}
+      onContextMenu={(e) => { e.preventDefault(); onSpineContextMenu(book); }}
+      onMouseEnter={(e) => onSpineHover(book, e.currentTarget)}
+      onMouseLeave={onSpineLeave}
+      onFocus={(e) => onSpineHover(book, e.currentTarget)}
+    >
+      <div className='spine-cover'>
+        {hasCover ? (
+          <img src={book.coverImageUrl!} alt={book.title} />
+        ) : (
+          <div className='spine-cover-fallback'>
+            <div className='fb-title'>{formatTitle(book.title)}</div>
+            <div className='fb-author'>{authorShort}</div>
+          </div>
+        )}
+      </div>
+      {status === 'finished' && (
+        <button
+          className='spine-finished-badge'
+          onClick={(e) => onToggleFinished(e, book)}
+          title={_('Mark as Unfinished')}
+        >
+          <MdCheck />
+        </button>
+      )}
+      {status !== 'finished' && (
+        <button
+          className='spine-finish-btn'
+          onClick={(e) => onToggleFinished(e, book)}
+          title={_('Mark as Finished')}
+        >
+          ✓
+        </button>
+      )}
+      <button
+        className={clsx('spine-fav-btn', book.isFavorite && 'favorited')}
+        onClick={(e) => onToggleFavorite(e, book)}
+        title={book.isFavorite ? _('Unfavorite') : _('Favorite')}
+      >
+        {book.isFavorite ? '♥' : '♡'}
+      </button>
+      {status === 'reading' && (
+        <div className='spine-reading-dot' title={_('Reading')} />
+      )}
+      <div className='spine-text'>
+        <span className='spine-title' title={book.title}>
+          {formatTitle(book.title)}
+        </span>
+      </div>
+      <button
+        className='spine-info-btn'
+        onClick={(e) => { e.stopPropagation(); onShowDetails(book); }}
+        title={_('Show Book Details')}
+      >
+        i
+      </button>
+      {status !== 'unread' && <span className='spine-progress' />}
+      {isSelected && (
+        <div className='spine-selected-overlay' />
+      )}
+    </div>
+  );
+});
+SpineItem.displayName = 'SpineItem';
+
+
 interface BookshelfProps {
   libraryBooks: Book[];
   isSelectMode: boolean;
@@ -42,6 +195,7 @@ interface BookshelfProps {
   handleSetSelectMode: (selectMode: boolean) => void;
   handleShowDetailsBook: (book: Book) => void;
   handlePushLibrary: () => Promise<void>;
+  currentGroupPath?: string;
 }
 
 const Bookshelf: React.FC<BookshelfProps> = ({
@@ -54,6 +208,7 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   handleSetSelectMode,
   handleShowDetailsBook,
   handlePushLibrary,
+  currentGroupPath,
 }) => {
   const _ = useTranslation();
   const router = useRouter();
@@ -62,6 +217,7 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   const { settings } = useSettingsStore();
   const { updateBook, toggleSelectedBook, setSelectedBooks } = useLibraryStore();
   const selectedBooksSet = useLibraryStore((s) => s.selectedBooks);
+  // 仅用于 SelectModeActions / GroupingModal 等需要数组的下游；书脊选中判定一律用 Set.has（P4）
   const selectedBooks = Array.from(selectedBooksSet);
   const queryTerm = searchParams?.get('q') || null;
   const rawFilter = searchParams?.get('filter') || 'all';
@@ -88,10 +244,9 @@ const groupId = searchParams?.get('group') || '';
   const filteredBooks = useMemo(() => {
     let books = libraryBooks.filter((b) => !b.deletedAt);
 
-    // Group filter
+    // Group filter（P17：用 prop 传入的分组名，替代渲染期 useLibraryStore.getState() 非响应式读取）
     if (groupId) {
-      const { getGroupName } = useLibraryStore.getState();
-      const groupName = getGroupName(groupId);
+      const groupName = currentGroupPath;
       if (groupName) {
         books = books.filter((b) => b.groupName === groupName || (b.groupName && b.groupName.startsWith(groupName + '/')));
       }
@@ -115,17 +270,13 @@ const groupId = searchParams?.get('group') || '';
       books = books.filter(filterFn);
     }
 
-    // Sort
-    const sorter = createBookSorter(sortBy, 'zh');
-    books.sort(sorter);
-    if (sortOrder === 'desc') books.reverse();
-
-    return books;
-  }, [libraryBooks, groupId, filter, queryTerm, sortBy, sortOrder]);
+    // Sort（P6）
+    return sortBooks(books, sortBy, sortOrder);
+  }, [libraryBooks, groupId, currentGroupPath, filter, queryTerm, sortBy, sortOrder]);
 
   // --- A. 分区陈列：按顶层分组分区 ---
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const currentGroupName = groupId ? useLibraryStore.getState().getGroupName(groupId) : null;
+  const currentGroupName = currentGroupPath || null;
 
   const bookSections = useMemo(() => {
     // "全部书架"视图：最近阅读分区放最上面，然后按顶层分组分区，未分组在最后
@@ -174,23 +325,52 @@ const groupId = searchParams?.get('group') || '';
   // --- D. 虚拟滚动：可视区外占位 ---
   const [visibleSet, setVisibleSet] = useState<Set<string>>(new Set());
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const sentinelElsRef = useRef(new Map<string, HTMLElement>());
 
-  // 当书单变化时重置可见集（先标记前 N 本可见，其余由 observer 接管）
+  // P3：仅在过滤/排序条件变化时重置"种子可见集"（数据更新不重置——已挂载书脊不再闪回占位符）
+  const visibleResetKey = `${groupId}|${filter}|${queryTerm}|${sortBy}|${sortOrder}|${filteredBooks.length}`;
   useEffect(() => {
-    if (filteredBooks.length <= 60) {
-      setVisibleSet(new Set(filteredBooks.map((b) => b.hash)));
-    } else {
-      setVisibleSet(new Set(filteredBooks.slice(0, 40).map((b) => b.hash)));
-    }
+    setVisibleSet((prev) => {
+      if (filteredBooks.length <= 60) {
+        const next = new Set(filteredBooks.map((b) => b.hash));
+        if (next.size === prev.size && filteredBooks.every((b) => prev.has(b.hash))) return prev;
+        return next;
+      }
+      // >60 册：前 40 册作种子，保留此前已进入过视口的书
+      const next = new Set(filteredBooks.slice(0, 40).map((b) => b.hash));
+      const valid = new Set(filteredBooks.map((b) => b.hash));
+      for (const h of prev) if (valid.has(h)) next.add(h);
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visibleResetKey]);
+
+  // P3：observer 生命周期独立管理——书单回到 ≤60 册时销毁；卸载时销毁（不再随每次渲染重建）
+  useEffect(() => {
+    if (filteredBooks.length > 60) return;
+    observerRef.current?.disconnect();
+    observerRef.current = null;
+    sentinelElsRef.current.clear();
+  }, [filteredBooks.length]);
+  useEffect(() => {
     return () => {
       observerRef.current?.disconnect();
       observerRef.current = null;
+      sentinelElsRef.current.clear();
     };
-  }, [filteredBooks]);
+  }, []);
 
   // IntersectionObserver：进入视口的占位符变为真实卡片
+  // P3：ref 回调收到 null（元素卸载）时显式 unobserve，杜绝 observer 持有已卸载元素引用
   const registerSpineSentinel = useCallback((bookHash: string, el: HTMLElement | null) => {
-    if (!el || filteredBooks.length <= 60) return;
+    const prevEl = sentinelElsRef.current.get(bookHash);
+    if (prevEl && prevEl !== el) observerRef.current?.unobserve(prevEl);
+    if (!el) {
+      sentinelElsRef.current.delete(bookHash);
+      return;
+    }
+    sentinelElsRef.current.set(bookHash, el);
+    if (filteredBooks.length <= 60) return;
     if (!observerRef.current) {
       observerRef.current = new IntersectionObserver(
         (entries) => {
@@ -250,25 +430,10 @@ const groupId = searchParams?.get('group') || '';
     [isSelectMode, appService, envConfig, updateBook, router, settings.openBookInNewWindow],
   );
 
-  // Spine rendering
-  const spineHeight = (book: Book) => {
-    const pages = book.progress?.[1] || 300;
-    return Math.round(190 + Math.min(pages, 1300) / 1300 * 44);
-  };
+  // spineHeight 原为死代码（渲染中无调用），已随 P5 重构一并移除；
+  // spineStatusClass / spineProgress 已上移为 module 级纯函数供 SpineItem 使用
 
-  const spineStatusClass = (book: Book) => {
-    const status = getBookReadStatus(book);
-    if (status === 'reading') return 'st-reading';
-    if (status === 'finished') return 'st-read';
-    if (status === 'unread') return 'st-unread';
-    return 'st-shelved';
-  };
-
-  const spineProgress = (book: Book) => {
-    return getBookProgressPercentage(book);
-  };
-
-  const handleToggleFinished = async (e: React.MouseEvent, book: Book) => {
+  const handleToggleFinished = useCallback(async (e: React.MouseEvent, book: Book) => {
     e.stopPropagation();
     const status = getBookReadStatus(book);
     const isFinished = status === 'finished';
@@ -280,21 +445,21 @@ const groupId = searchParams?.get('group') || '';
       lastReadAt: isFinished ? book.lastReadAt : now,
       updatedAt: now,
     });
-  };
+  }, [envConfig, updateBook]);
 
-  const handleToggleFavorite = async (e: React.MouseEvent, book: Book) => {
+  const handleToggleFavorite = useCallback(async (e: React.MouseEvent, book: Book) => {
     e.stopPropagation();
     await updateBook(envConfig, {
       ...book,
       isFavorite: !book.isFavorite,
       favoriteAt: !book.isFavorite ? Date.now() : undefined,
     });
-  };
+  }, [envConfig, updateBook]);
 
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleSpineHover = (book: Book, el: HTMLElement) => {
+  const handleSpineHover = useCallback((book: Book, el: HTMLElement) => {
     if (isSelectMode) return;
     // 清除离开定时器（鼠标又回到书脊上）
     if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
@@ -304,9 +469,9 @@ const groupId = searchParams?.get('group') || '';
       setHoverBook(book);
       setHoverEl(el);
     }, 60);
-  };
+  }, [isSelectMode]);
 
-  const handleSpineLeave = () => {
+  const handleSpineLeave = useCallback(() => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     // 延迟 150ms 清除——给鼠标留出"移到著录卡上"的时间
     if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
@@ -314,15 +479,15 @@ const groupId = searchParams?.get('group') || '';
       setHoverBook(null);
       setHoverEl(null);
     }, 150);
-  };
+  }, []);
 
   // 鼠标进入著录卡时保持显示（取消清除）
-  const handleCardEnter = () => {
+  const handleCardEnter = useCallback(() => {
     if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
-  };
+  }, []);
 
   // 右键菜单（详情/编辑/删除/收藏）
-  const handleSpineContextMenu = async (book: Book) => {
+  const handleSpineContextMenu = useCallback(async (book: Book) => {
     if (!appService?.hasContextMenu) {
       // Web 模式：直接打开详情弹窗
       handleShowDetailsBook(book);
@@ -365,7 +530,7 @@ const groupId = searchParams?.get('group') || '';
     menu.append(showBookInFinderMenuItem);
     menu.append(deleteBookMenuItem);
     menu.popup();
-  };
+  }, [_, appService, isSelectMode, handleSetSelectMode, toggleSelectedBook, handleShowDetailsBook, updateBook, envConfig, settings]);
 
   // Delete handling
   const confirmDelete = async () => {
@@ -417,7 +582,7 @@ const groupId = searchParams?.get('group') || '';
         <div className='morgan-list-view'>
           {filteredBooks.map((book) => {
             const status = getBookReadStatus(book);
-            const isSelected = isSelectMode && selectedBooks.includes(book.hash);
+            const isSelected = isSelectMode && selectedBooksSet.has(book.hash);
             const hasCover = !!book.coverImageUrl;
             const pct = getBookProgressPercentage(book);
             return (
@@ -498,84 +663,8 @@ const groupId = searchParams?.get('group') || '';
     );
   }
 
-  // 渲染单本书脊卡片（真实内容）
-  const renderSpine = (book: Book) => {
-    const stCls = spineStatusClass(book);
-    const pct = spineProgress(book);
-    const authorShort = (book.author || '').split(/[·,]/).pop()?.trim() || '';
-    const status = getBookReadStatus(book);
-    const isSelected = isSelectMode && selectedBooks.includes(book.hash);
-    const hasCover = !!book.coverImageUrl;
-
-    return (
-      <div
-        key={book.hash}
-        className={clsx('morgan-spine', stCls, isSelected && 'selected')}
-        style={{ ['--p' as any]: `${pct}%` }}
-        tabIndex={0}
-        onClick={() => handleBookClick(book)}
-        onContextMenu={(e) => { e.preventDefault(); handleSpineContextMenu(book); }}
-        onMouseEnter={(e) => handleSpineHover(book, e.currentTarget)}
-        onMouseLeave={handleSpineLeave}
-        onFocus={(e) => handleSpineHover(book, e.currentTarget)}
-      >
-        <div className='spine-cover'>
-          {hasCover ? (
-            <img src={book.coverImageUrl!} alt={book.title} />
-          ) : (
-            <div className='spine-cover-fallback'>
-              <div className='fb-title'>{formatTitle(book.title)}</div>
-              <div className='fb-author'>{authorShort}</div>
-            </div>
-          )}
-        </div>
-        {status === 'finished' && (
-          <button
-            className='spine-finished-badge'
-            onClick={(e) => handleToggleFinished(e, book)}
-            title={_('Mark as Unfinished')}
-          >
-            <MdCheck />
-          </button>
-        )}
-        {status !== 'finished' && (
-          <button
-            className='spine-finish-btn'
-            onClick={(e) => handleToggleFinished(e, book)}
-            title={_('Mark as Finished')}
-          >
-            ✓
-          </button>
-        )}
-        <button
-          className={clsx('spine-fav-btn', book.isFavorite && 'favorited')}
-          onClick={(e) => handleToggleFavorite(e, book)}
-          title={book.isFavorite ? _('Unfavorite') : _('Favorite')}
-        >
-          {book.isFavorite ? '♥' : '♡'}
-        </button>
-        {status === 'reading' && (
-          <div className='spine-reading-dot' title={_('Reading')} />
-        )}
-        <div className='spine-text'>
-          <span className='spine-title' title={book.title}>
-            {formatTitle(book.title)}
-          </span>
-        </div>
-        <button
-          className='spine-info-btn'
-          onClick={(e) => { e.stopPropagation(); handleShowDetailsBook(book); }}
-          title={_('Show Book Details')}
-        >
-          i
-        </button>
-        {status !== 'unread' && <span className='spine-progress' />}
-        {isSelected && (
-          <div className='spine-selected-overlay' />
-        )}
-      </div>
-    );
-  };
+  // 书脊卡片渲染已提取为 module 级 <SpineItem>（React.memo，见文件头部）——
+  // 原 renderSpine 内联函数会在每次渲染时重建整墙 JSX 与全部内联事件闭包
 
   // 渲染虚拟占位符（固定高度避免布局跳动）
   const renderSentinel = (book: Book) => (
@@ -612,7 +701,22 @@ const groupId = searchParams?.get('group') || '';
                   </div>
                   <div className='morgan-shelf recent-shelf'>
                     {sectionBooks.map((book) =>
-                      visibleSet.has(book.hash) ? renderSpine(book) : renderSentinel(book)
+                      visibleSet.has(book.hash) ? (
+                        <SpineItem
+                          key={book.hash}
+                          book={book}
+                          isSelected={isSelectMode && selectedBooksSet.has(book.hash)}
+                          onBookClick={handleBookClick}
+                          onSpineContextMenu={handleSpineContextMenu}
+                          onSpineHover={handleSpineHover}
+                          onSpineLeave={handleSpineLeave}
+                          onToggleFinished={handleToggleFinished}
+                          onToggleFavorite={handleToggleFavorite}
+                          onShowDetails={handleShowDetailsBook}
+                        />
+                      ) : (
+                        renderSentinel(book)
+                      )
                     )}
                   </div>
                 </div>
@@ -640,7 +744,22 @@ const groupId = searchParams?.get('group') || '';
               {/* 书脊墙 */}
               <div className='morgan-shelf'>
                 {sectionBooks.map((book) =>
-                  visibleSet.has(book.hash) ? renderSpine(book) : renderSentinel(book)
+                  visibleSet.has(book.hash) ? (
+                    <SpineItem
+                      key={book.hash}
+                      book={book}
+                      isSelected={isSelectMode && selectedBooksSet.has(book.hash)}
+                      onBookClick={handleBookClick}
+                      onSpineContextMenu={handleSpineContextMenu}
+                      onSpineHover={handleSpineHover}
+                      onSpineLeave={handleSpineLeave}
+                      onToggleFinished={handleToggleFinished}
+                      onToggleFavorite={handleToggleFavorite}
+                      onShowDetails={handleShowDetailsBook}
+                    />
+                  ) : (
+                    renderSentinel(book)
+                  )
                 )}
               </div>
             </section>
@@ -698,4 +817,5 @@ const groupId = searchParams?.get('group') || '';
   );
 };
 
-export default Bookshelf;
+// P5：React.memo——配合 page 侧 useCallback 化的 props 与 useMemo 稳定的 libraryBooks，父组件渲染时书脊墙整体跳过
+export default React.memo(Bookshelf);

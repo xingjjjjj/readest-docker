@@ -560,9 +560,29 @@ export const getThemeCode = () => {
   } as ThemeCode;
 };
 
+// P14：getStyles 结果缓存——viewSettings 值未变（浅比较）且主题未变（值比较）时返回同一字符串引用。
+// 消除两类浪费：①同一帧/同一次渲染内多次调用（FoliateViewer 两个 effect、各设置面板）的重复拼接；
+// ②viewSettings 每次重建新对象但值相同（拖动滑块的每个 tick）时，foliate setStyles 对内容完全相同的
+// 样式表重复解析。浅比较字段全为原始类型，比较失败只会少缓存、不会错缓存（保守正确）。
+let cachedViewSettings: ViewSettings | null = null;
+let cachedTheme: ThemeCode | null = null;
+let cachedResult: string | null = null;
+
+const sameThemeCode = (a: ThemeCode | null, b: ThemeCode | null) =>
+  a === b || (!!a && !!b && a.bg === b.bg && a.fg === b.fg && a.primary === b.primary && a.isDarkMode === b.isDarkMode);
+
+const sameViewSettings = (a: ViewSettings | null, b: ViewSettings) => {
+  if (!a) return false;
+  for (const key of Object.keys(b)) {
+    if ((a as any)[key] !== (b as any)[key]) return false;
+  }
+  return true;
+};
+
 export const getStyles = (viewSettings: ViewSettings, themeCode?: ThemeCode) => {
-  if (!themeCode) {
-    themeCode = getThemeCode();
+  const effectiveTheme = themeCode ?? getThemeCode();
+  if (cachedResult !== null && sameViewSettings(cachedViewSettings, viewSettings) && sameThemeCode(cachedTheme, effectiveTheme)) {
+    return cachedResult;
   }
   const layoutStyles = getLayoutStyles(
     viewSettings.overrideLayout!,
@@ -600,13 +620,17 @@ export const getStyles = (viewSettings: ViewSettings, themeCode?: ThemeCode) => 
   const colorStyles = getColorStyles(
     viewSettings.overrideColor!,
     viewSettings.invertImgColorInDark!,
-    themeCode,
+    effectiveTheme,
     viewSettings.backgroundTextureId,
     viewSettings.isEink,
   );
   const translationStyles = getTranslationStyles(viewSettings.showTranslateSource!);
   const userStylesheet = viewSettings.userStylesheet!;
-  return `${layoutStyles}\n${fontStyles}\n${colorStyles}\n${translationStyles}\n${userStylesheet}`;
+  const result = `${layoutStyles}\n${fontStyles}\n${colorStyles}\n${translationStyles}\n${userStylesheet}`;
+  cachedViewSettings = viewSettings;
+  cachedTheme = effectiveTheme;
+  cachedResult = result;
+  return result;
 };
 
 export const applyTranslationStyle = (viewSettings: ViewSettings) => {
