@@ -526,7 +526,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
                     searchParams={searchParams}
                   />
                 </div>
-                <div className='side-marg' style={{ marginTop: 'auto' }}>
+                <div className='side-marg'>
                   <div className='morgan-sidebar-title'>拾 遗 · Marginalia</div>
                   <ul className='nav-cat'>
                     <li>
@@ -567,22 +567,11 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
 
                 {/* 标注拾遗视图 */}
                 <div className='view-marginalia'>
-                  {/* 左上角返回按钮 */}
+                  {/* 返回按钮——流式排在拾遗标题上方 */}
                   {view === 'marginalia' && (
                     <button
                       onClick={() => setView('catalogue')}
-                      style={{
-                        position: 'fixed', top: 18, left: 244, zIndex: 70,
-                        display: 'flex', alignItems: 'center', gap: '6px',
-                        background: 'rgba(43,24,16,.9)', border: '1px solid rgba(201,169,97,.3)',
-                        borderRadius: '4px', padding: '7px 16px 7px 12px',
-                        color: '#C9A961', cursor: 'pointer',
-                        fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px',
-                        letterSpacing: '.15em', textTransform: 'uppercase',
-                        transition: 'all .2s',
-                      }}
-                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#C9A961'; e.currentTarget.style.color = '#E8C977'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(201,169,97,.3)'; e.currentTarget.style.color = '#C9A961'; }}
+                      className='morgan-back-btn'
                     >
                       ← 返回馆藏
                     </button>

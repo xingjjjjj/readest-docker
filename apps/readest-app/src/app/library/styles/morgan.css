@@ -200,10 +200,26 @@
 .morgan-library .view-marginalia { display: none; }
 .morgan-library.view-marg .view-catalogue { display: none; }
 .morgan-library.view-marg .view-marginalia { display: block; }
-.morgan-library .side-marg { display: block; margin-top: auto; }
+.morgan-library .side-marg { display: block; flex: 0 0 auto; }
 .morgan-library .side-marg .morgan-sidebar-title { margin-top: 28px; }
 /* marginalia 视图时隐藏目录索引，侧栏只留拾遗入口 */
 .morgan-library.view-marg .side-cat { display: none; }
+
+/* 返回馆藏按钮（拾遗视图顶部，流式不遮挡） */
+.morgan-library .morgan-back-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(43,24,16,.9);
+  border: 1px solid rgba(201,169,97,.3);
+  border-radius: 4px; padding: 7px 16px 7px 12px;
+  color: #C9A961; cursor: pointer;
+  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  letter-spacing: .15em; text-transform: uppercase;
+  transition: all .2s; margin-bottom: 14px;
+}
+.morgan-library .morgan-back-btn:hover {
+  border-color: #C9A961; color: #E8C977;
+  background: rgba(201,169,97,.08);
+}
 
 /* --- 主体 --- */
 .morgan-library .morgan-main {
@@ -223,7 +239,14 @@
   max-height: 100vh;
   overflow-y: auto;
   overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 130px);
+  box-sizing: border-box;
 }
+/* 目录索引区占满剩余空间，拾遗入口自然贴底 */
+.morgan-library .morgan-sidebar .side-cat { flex: 1 1 auto; }
+.morgan-library .morgan-sidebar .side-marg { flex: 0 0 auto; }
 .morgan-library .morgan-sidebar-title {
   font-family: 'IBM Plex Mono', monospace;
   font-size: 9px; letter-spacing: .3em; text-transform: uppercase;
