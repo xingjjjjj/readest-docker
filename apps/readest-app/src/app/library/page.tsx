@@ -59,7 +59,6 @@ import MorganSidebar from './components/MorganSidebar';
 import useShortcuts from '@/hooks/useShortcuts';
 
 // 摩根书房新组件
-import ResumeBar from './components/ResumeBar';
 import ChronicleBand from './components/ChronicleBand';
 import MarginaliaView from './components/MarginaliaView';
 import MorganOverviewBar from './components/LibraryOverviewBar';
@@ -479,22 +478,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       </header>
       <div className='gilt-rule' />
 
-      {/* 视图切换条 */}
-      <nav className='view-switcher'>
-        <button
-          className={clsx('view-tab', view === 'catalogue' && 'active')}
-          onClick={() => setView('catalogue')}
-        >
-          馆藏目录<span className='en'>Catalogue</span>
-        </button>
-        <button
-          className={clsx('view-tab', view === 'marginalia' && 'active')}
-          onClick={() => setView('marginalia')}
-        >
-          标注拾遗<span className='en'>Marginalia</span>
-        </button>
-      </nav>
-
       {/* 同步进度条 */}
       {isSyncing && (
         <progress
@@ -535,7 +518,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
             <div className='morgan-main'>
               {/* 侧栏 */}
               <aside className='morgan-sidebar'>
-                <div className='side-cat'>
+                <div className={clsx('side-cat', view === 'marginalia' && 'side-cat-hidden')}>
                   <MorganSidebar
                     libraryBooks={visibleBooks}
                     currentGroupPath={currentGroupPath}
@@ -543,11 +526,17 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
                     searchParams={searchParams}
                   />
                 </div>
-                <div className='side-marg'>
-                  <div className='morgan-sidebar-title'>维 度 · Dimension</div>
-                  <div style={{ padding: '0 14px', color: 'var(--parchment-dim)', fontStyle: 'italic' }}>
-                    批注以时间或图书维度陈列于右侧。
-                  </div>
+                <div className='side-marg' style={{ marginTop: 'auto' }}>
+                  <div className='morgan-sidebar-title'>拾 遗 · Marginalia</div>
+                  <ul className='nav-cat'>
+                    <li>
+                      <a onClick={() => setView(view === 'marginalia' ? 'catalogue' : 'marginalia')}>
+                        <span className='roman'>I</span>
+                        标注拾遗
+                        <span className='cnt'>↗</span>
+                      </a>
+                    </li>
+                  </ul>
                 </div>
               </aside>
 
@@ -557,7 +546,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
                 <div className='view-catalogue'>
                   {visibleBooks.length > 0 && searchParams?.get('landing') !== '1' && (
                     <>
-                      <ResumeBar libraryBooks={visibleBooks} />
                       <ChronicleBand libraryBooks={visibleBooks} />
                       <Bookshelf
                         libraryBooks={visibleBooks}
@@ -579,6 +567,26 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
 
                 {/* 标注拾遗视图 */}
                 <div className='view-marginalia'>
+                  {/* 左上角返回按钮 */}
+                  {view === 'marginalia' && (
+                    <button
+                      onClick={() => setView('catalogue')}
+                      style={{
+                        position: 'fixed', top: 18, left: 244, zIndex: 70,
+                        display: 'flex', alignItems: 'center', gap: '6px',
+                        background: 'rgba(43,24,16,.9)', border: '1px solid rgba(201,169,97,.3)',
+                        borderRadius: '4px', padding: '7px 16px 7px 12px',
+                        color: '#C9A961', cursor: 'pointer',
+                        fontFamily: "'IBM Plex Mono', monospace", fontSize: '10px',
+                        letterSpacing: '.15em', textTransform: 'uppercase',
+                        transition: 'all .2s',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#C9A961'; e.currentTarget.style.color = '#E8C977'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'rgba(201,169,97,.3)'; e.currentTarget.style.color = '#C9A961'; }}
+                    >
+                      ← 返回馆藏
+                    </button>
+                  )}
                   <MarginaliaView libraryBooks={visibleBooks} />
                 </div>
               </div>

@@ -67,7 +67,7 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   const rawFilter = searchParams?.get('filter') || 'all';
   const filter = rawFilter === 'want' ? 'finished' : rawFilter;
   const viewMode = (searchParams?.get('view') || settings.libraryViewMode || 'grid') as LibraryViewModeType;
-  const sortBy = (searchParams?.get('sort') || settings.librarySortBy || 'updated') as any;
+  const sortBy = (searchParams?.get('sort') || settings.librarySortBy || 'created') as any;
   const sortOrder = searchParams?.get('order') || (settings.librarySortAscending ? 'asc' : 'desc');
   const coverFit = (searchParams?.get('cover') || settings.libraryCoverFit || 'crop') as LibraryCoverFitType;
 
@@ -128,12 +128,22 @@ const groupId = searchParams?.get('group') || '';
   const currentGroupName = groupId ? useLibraryStore.getState().getGroupName(groupId) : null;
 
   const bookSections = useMemo(() => {
+    // "全部书架"视图：最近阅读分区放最上面，然后按顶层分组分区，未分组在最后
+    const sections: { name: string; books: Book[]; topLevel: boolean }[] = [];
+
+    // 最近阅读分区：有 lastReadAt 的书按时间降序取前 6
+    const recent = filteredBooks
+      .filter((b) => b.lastReadAt)
+      .sort((a, b) => (b.lastReadAt || 0) - (a.lastReadAt || 0))
+      .slice(0, 6);
+    if (recent.length > 0 && !currentGroupName) {
+      sections.push({ name: '最近阅读', books: recent, topLevel: false });
+    }
+
     // 已在具体分组视图时不分区
     if (currentGroupName) {
       return [{ name: currentGroupName, books: filteredBooks, topLevel: false }];
     }
-    // "全部书架"视图：按顶层分组分区，未分组在最后
-    const sections: { name: string; books: Book[]; topLevel: boolean }[] = [];
     const byTop: Record<string, Book[]> = {};
     for (const b of filteredBooks) {
       const gn = (b.groupName || '').trim() || BOOK_UNGROUPED_NAME;

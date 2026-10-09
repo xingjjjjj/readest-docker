@@ -200,9 +200,10 @@
 .morgan-library .view-marginalia { display: none; }
 .morgan-library.view-marg .view-catalogue { display: none; }
 .morgan-library.view-marg .view-marginalia { display: block; }
+.morgan-library .side-marg { display: block; margin-top: auto; }
+.morgan-library .side-marg .morgan-sidebar-title { margin-top: 28px; }
+/* marginalia 视图时隐藏目录索引，侧栏只留拾遗入口 */
 .morgan-library.view-marg .side-cat { display: none; }
-.morgan-library.view-marg .side-marg { display: block; }
-.morgan-library .side-marg { display: none; }
 
 /* --- 主体 --- */
 .morgan-library .morgan-main {
