@@ -521,11 +521,11 @@ export interface ThemeCode {
 
 export const getThemeCode = () => {
   let themeMode = 'auto';
-  let themeColor = 'default';
+  let themeColor = 'morgan';
   let systemIsDarkMode = false;
   let customThemes: CustomTheme[] = [];
   if (typeof window !== 'undefined') {
-    themeColor = localStorage.getItem('themeColor') || 'default';
+    themeColor = localStorage.getItem('themeColor') || 'morgan';
     themeMode = localStorage.getItem('themeMode') || 'auto';
     customThemes = JSON.parse(localStorage.getItem('customThemes') || '[]');
     systemIsDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
