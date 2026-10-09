@@ -22,6 +22,35 @@
   --leather: #5C3A21;
   --ribbon-red: #A83226;
 
+  /* D1: 字号阶梯 — 1.25 模数（衬线） + mono 两档 */
+  --fs-label: 10px;        /* mono 标签唯一小字号 */
+  --fs-label-lg: 11px;     /* mono 标签强调 */
+  --fs-caption: 12px;      /* 衬线小注/书名 */
+  --fs-body: 14px;         /* 衬线正文/列表 */
+  --fs-subtitle: 17px;     /* 衬线分区名/弹窗标题 */
+  --fs-title: 21px;        /* 衬线大标题/馆名 */
+  --fs-display: 26px;      /* 衬线展示级 */
+
+  /* D2: 间距 — 8pt 栅格 */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-gutter: 56px;    /* 书斋留白 */
+
+  /* D10: 语义色 token */
+  --gilt-08: rgba(201,169,97,.08);
+  --gilt-10: rgba(201,169,97,.10);
+  --gilt-12: rgba(201,169,97,.12);
+  --gilt-15: rgba(201,169,97,.15);
+  --gilt-20: rgba(201,169,97,.20);
+  --gilt-25: rgba(201,169,97,.25);
+  --gilt-30: rgba(201,169,97,.30);
+  --gilt-40: rgba(201,169,97,.40);
+  --danger: #A83226;       /* 体系内危险色 = 丝带红 */
+
   font-family: 'EB Garamond', Georgia, serif;
   color: var(--parchment);
   background: linear-gradient(180deg, var(--wood-darkest) 0%, var(--wood-deep) 40%, var(--wood) 100%);
@@ -58,29 +87,29 @@
   border-radius: 50%; display: grid; place-items: center;
   font-family: 'Cormorant Garamond', serif; font-size: 16px;
   color: var(--gilt); font-style: italic; font-weight: 600;
-  box-shadow: inset 0 0 10px rgba(201,169,97,.15);
+  box-shadow: inset 0 0 10px var(--gilt-15);
 }
 .morgan-library .morgan-crest-text h1 {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 21px; font-weight: 600; letter-spacing: .06em;
+  font-size: var(--fs-title); font-weight: 600; letter-spacing: .06em;
   color: var(--gilt-bright); line-height: 1; margin: 0;
 }
 .morgan-library .morgan-crest-sub {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px; letter-spacing: .32em; text-transform: uppercase;
+  font-size: var(--fs-label); letter-spacing: .32em; text-transform: uppercase;
   color: var(--gilt-dim); margin-top: 5px;
 }
 .morgan-library .morgan-header-meta { display: flex; gap: 32px; align-items: baseline; }
 .morgan-library .morgan-header-meta .item { text-align: right; }
 .morgan-library .morgan-header-meta .num {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 22px; font-weight: 500; color: var(--gilt);
+  font-size: var(--fs-title); font-weight: 500; color: var(--gilt);
   line-height: 1; letter-spacing: .02em;
 }
-.morgan-library .morgan-header-meta .num small { font-size: 12px; font-style: italic; }
+.morgan-library .morgan-header-meta .num small { font-size: var(--fs-caption); font-style: italic; }
 .morgan-library .morgan-header-meta .lbl {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8px; letter-spacing: .28em; text-transform: uppercase;
+  font-size: var(--fs-label); letter-spacing: .28em; text-transform: uppercase;
   color: var(--parchment-dim); margin-top: 4px;
 }
 
@@ -102,21 +131,21 @@
 .morgan-library .morgan-icon-btn:hover {
   color: var(--gilt-bright);
   border-color: var(--gilt-dim);
-  background: rgba(201,169,97,.08);
-  box-shadow: 0 0 8px rgba(201,169,97,.15);
+  background: var(--gilt-08);
+  box-shadow: 0 0 8px var(--gilt-15);
 }
 .morgan-library .morgan-icon-btn.active {
   color: var(--gilt-bright);
   border-color: var(--gilt);
-  background: rgba(201,169,97,.12);
+  background: var(--gilt-12);
 }
 .morgan-library .morgan-icon-btn .tooltip {
   position: absolute; bottom: -28px; left: 50%;
   transform: translateX(-50%); white-space: nowrap;
-  font-family: 'IBM Plex Mono', monospace; font-size: 8px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   letter-spacing: .15em; text-transform: uppercase;
   color: var(--gilt-dim); background: var(--wood-darkest);
-  border: 1px solid rgba(201,169,97,.2); padding: 3px 8px;
+  border: 1px solid var(--gilt-20); padding: 3px 8px;
   border-radius: 2px; pointer-events: none;
   opacity: 0; transition: opacity .2s; z-index: 200;
 }
@@ -126,7 +155,7 @@
   position: absolute; top: calc(100% + 6px); right: 0;
   z-index: 200; min-width: 180px;
   background: linear-gradient(180deg, var(--wood) 0%, var(--wood-deep) 100%);
-  border: 1px solid rgba(201,169,97,.25);
+  border: 1px solid var(--gilt-25);
   box-shadow: 0 12px 36px rgba(0,0,0,.6), 0 0 0 1px rgba(0,0,0,.3);
   border-radius: 3px; padding: 6px 0;
   font-family: 'EB Garamond', serif;
@@ -134,7 +163,7 @@
 .morgan-library .morgan-dropdown .dd-item {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 16px; cursor: pointer;
-  color: var(--parchment-dim); font-size: 14px;
+  color: var(--parchment-dim); font-size: var(--fs-body);
   transition: all .2s; white-space: nowrap;
 }
 .morgan-library .morgan-dropdown .dd-item:hover {
@@ -145,10 +174,10 @@
 }
 .morgan-library .morgan-dropdown .dd-sep {
   height: 1px; margin: 4px 8px;
-  background: linear-gradient(90deg, transparent, rgba(201,169,97,.15), transparent);
+  background: linear-gradient(90deg, transparent, var(--gilt-15), transparent);
 }
 .morgan-library .morgan-dropdown .dd-label {
-  font-family: 'IBM Plex Mono', monospace; font-size: 8px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   letter-spacing: .2em; text-transform: uppercase;
   color: var(--gilt-dim); padding: 6px 16px 4px;
 }
@@ -176,11 +205,11 @@
   position: relative; z-index: 2;
   max-width: 1440px; margin: 0 auto;
   display: flex; gap: 0; padding: 0 56px;
-  border-bottom: 1px solid rgba(201,169,97,.1);
+  border-bottom: 1px solid var(--gilt-10);
 }
 .morgan-library .view-tab {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 15px; color: var(--parchment-dim);
+  font-size: var(--fs-body); color: var(--parchment-dim);
   padding: 8px 26px 7px; cursor: pointer;
   background: none; border: none;
   border-bottom: 2px solid transparent;
@@ -188,7 +217,7 @@
   display: flex; align-items: baseline; gap: 9px;
 }
 .morgan-library .view-tab .en {
-  font-family: 'IBM Plex Mono', monospace; font-size: 8px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   letter-spacing: .22em; color: var(--gilt-dim);
   text-transform: uppercase;
 }
@@ -209,16 +238,16 @@
 .morgan-library .morgan-back-btn {
   display: inline-flex; align-items: center; gap: 6px;
   background: rgba(43,24,16,.9);
-  border: 1px solid rgba(201,169,97,.3);
+  border: 1px solid var(--gilt-30);
   border-radius: 4px; padding: 7px 16px 7px 12px;
-  color: #C9A961; cursor: pointer;
-  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  color: var(--gilt); cursor: pointer;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label-lg);
   letter-spacing: .15em; text-transform: uppercase;
   transition: all .2s; margin-bottom: 14px;
 }
 .morgan-library .morgan-back-btn:hover {
-  border-color: #C9A961; color: #E8C977;
-  background: rgba(201,169,97,.08);
+  border-color: var(--gilt); color: var(--gilt-bright);
+  background: var(--gilt-08);
 }
 
 /* --- 主体 --- */
@@ -231,7 +260,7 @@
 
 /* --- 侧栏 --- */
 .morgan-library .morgan-sidebar {
-  border-right: 1px solid rgba(201,169,97,.12);
+  border-right: 1px solid var(--gilt-12);
   padding: 24px 0 28px 40px;
   position: sticky;
   top: 0;
@@ -249,21 +278,21 @@
 .morgan-library .morgan-sidebar .side-marg { flex: 0 0 auto; }
 .morgan-library .morgan-sidebar-title {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px; letter-spacing: .3em; text-transform: uppercase;
+  font-size: var(--fs-label); letter-spacing: .3em; text-transform: uppercase;
   color: var(--gilt-dim); margin-bottom: 16px;
   padding-bottom: 10px;
-  border-bottom: 1px solid rgba(201,169,97,.1);
+  border-bottom: 1px solid var(--gilt-10);
 }
 .morgan-library .nav-group-title {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8.5px; letter-spacing: .24em; text-transform: uppercase;
+  font-size: var(--fs-label); letter-spacing: .24em; text-transform: uppercase;
   color: var(--gilt-dim); opacity: .85;
   margin: 20px 0 8px 14px;
   display: flex; align-items: center; gap: 8px;
 }
 .morgan-library .nav-group-title::after {
   content: ''; flex: 1; height: 1px;
-  background: linear-gradient(90deg, rgba(201,169,97,.25), transparent);
+  background: linear-gradient(90deg, var(--gilt-25), transparent);
 }
 
 /* --- 侧栏导航项（套皮到现有 GroupSidebar） --- */
@@ -279,13 +308,13 @@
 }
 .morgan-library .morgan-sidebar .nav-cat a .roman {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 12px; color: var(--gilt-dim);
+  font-size: var(--fs-caption); color: var(--gilt-dim);
   font-style: italic; min-width: 26px;
 }
 .morgan-library .morgan-sidebar .nav-cat a .cnt {
   margin-left: auto;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px; color: var(--gilt-dim);
+  font-size: var(--fs-label-lg); color: var(--gilt-dim);
 }
 .morgan-library .morgan-sidebar .nav-cat a:hover {
   color: var(--gilt-bright);
@@ -297,7 +326,7 @@
 .morgan-library .morgan-sidebar .nav-cat a.active {
   color: var(--gilt-bright);
   border-left-color: var(--gilt);
-  background: rgba(201,169,97,.08);
+  background: var(--gilt-08);
 }
 /* 分组树展开/缩进 */
 .morgan-library .morgan-sidebar .nav-cat .nav-cat {
@@ -305,7 +334,7 @@
 }
 /* 分组树折叠箭头：静态样式收敛到 CSS（组件仅保留动态 transform 内联） */
 .morgan-library .morgan-sidebar .nav-cat .group-chevron {
-  display: inline-block; width: 12px; font-size: 10px;
+  display: inline-block; width: 12px; font-size: var(--fs-label-lg);
   color: var(--gilt-dim); margin-right: 4px;
   font-family: 'IBM Plex Mono', monospace;
   transition: transform .2s ease; cursor: pointer;
@@ -342,7 +371,7 @@
 .morgan-library .morgan-niche {
   position: relative;
   background: linear-gradient(180deg, var(--wood) 0%, var(--wood-deep) 100%);
-  border: 1px solid rgba(201,169,97,.15);
+  border: 1px solid var(--gilt-15);
   border-radius: 3px;
   padding: 10px 18px;
   margin-bottom: 14px;
@@ -356,7 +385,7 @@
   box-shadow: 0 3px 8px rgba(0,0,0,.5);
   display: grid; place-items: center;
   font-family: 'Cormorant Garamond', serif;
-  color: var(--gilt); font-style: italic; font-size: 7px;
+  color: var(--gilt); font-style: italic; font-size: var(--fs-label);
   writing-mode: vertical-rl; letter-spacing: .06em;
   overflow: hidden;
 }
@@ -374,43 +403,43 @@
 }
 .morgan-library .morgan-niche-label {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8px; letter-spacing: .3em; text-transform: uppercase;
+  font-size: var(--fs-label); letter-spacing: .3em; text-transform: uppercase;
   color: var(--gilt-dim); white-space: nowrap;
 }
 .morgan-library .morgan-niche-title {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 18px; font-weight: 600;
+  font-size: var(--fs-subtitle); font-weight: 600;
   color: var(--gilt-bright); line-height: 1.1;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   max-width: 320px;
 }
 .morgan-library .morgan-niche-author {
   font-family: 'EB Garamond', serif; font-style: italic;
-  font-size: 12px; color: var(--parchment-dim);
+  font-size: var(--fs-caption); color: var(--parchment-dim);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   max-width: 180px;
 }
 .morgan-library .morgan-niche-progress { display: flex; align-items: center; gap: 10px; flex-wrap: nowrap; }
 .morgan-library .morgan-progress-track {
   flex: none; width: 120px; height: 2px;
-  background: rgba(201,169,97,.15);
+  background: var(--gilt-15);
   position: relative;
 }
 .morgan-library .morgan-progress-fill {
   position: absolute; left: 0; top: 0; bottom: 0;
   background: var(--gilt);
-  box-shadow: 0 0 8px rgba(201,169,97,.4);
+  box-shadow: 0 0 8px var(--gilt-40);
 }
 .morgan-library .morgan-progress-pct {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px; color: var(--gilt); letter-spacing: .04em; white-space: nowrap;
+  font-size: var(--fs-label-lg); color: var(--gilt); letter-spacing: .04em; white-space: nowrap;
 }
 .morgan-library .morgan-progress-loc {
-  font-family: 'IBM Plex Mono', monospace; font-size: 9.5px; color: var(--parchment-dim); white-space: nowrap;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label); color: var(--parchment-dim); white-space: nowrap;
 }
 .morgan-library .morgan-niche-meta {
   display: flex; flex-wrap: wrap; gap: 4px 0; align-items: baseline;
-  font-family: 'IBM Plex Mono', monospace; font-size: 9.5px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   color: var(--parchment-dim);
 }
 .morgan-library .morgan-niche-meta .m {
@@ -422,7 +451,7 @@
 .morgan-library .morgan-niche-meta b { color: var(--gilt); font-weight: 500; }
 .morgan-library .morgan-niche-resume {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 13px; font-style: italic;
+  font-size: var(--fs-body); font-style: italic;
   color: var(--gilt-bright); text-decoration: none;
   border: 1px solid var(--gilt-dim);
   padding: 6px 18px; letter-spacing: .05em;
@@ -434,24 +463,24 @@
 /* --- 阅读纪事字带 --- */
 .morgan-library .chronicle-band {
   display: flex; align-items: center; flex-wrap: wrap;
-  border-top: 1px solid rgba(201,169,97,.12);
-  border-bottom: 1px solid rgba(201,169,97,.12);
+  border-top: 1px solid var(--gilt-12);
+  border-bottom: 1px solid var(--gilt-12);
   padding: 6px 2px;
   margin-bottom: 14px;
   font-family: 'IBM Plex Mono', monospace;
 }
 .morgan-library .cb-title {
-  font-size: 8.5px; letter-spacing: .3em; text-transform: uppercase;
+  font-size: var(--fs-label); letter-spacing: .3em; text-transform: uppercase;
   color: var(--gilt-dim); padding-right: 18px; white-space: nowrap;
 }
 .morgan-library .cb-item { display: inline-flex; align-items: baseline; gap: 6px; white-space: nowrap; overflow: hidden; }
 .morgan-library .cb-num {
-  font-size: 11.5px; font-weight: 500; color: var(--gilt);
+  font-size: var(--fs-label-lg); font-weight: 500; color: var(--gilt);
   letter-spacing: .02em;
 }
-.morgan-library .cb-num small { font-size: 9px; font-weight: 400; color: var(--gilt-dim); }
+.morgan-library .cb-num small { font-size: var(--fs-label); font-weight: 400; color: var(--gilt-dim); }
 .morgan-library .cb-lbl {
-  font-size: 8.5px; letter-spacing: .16em;
+  font-size: var(--fs-label); letter-spacing: .16em;
   color: var(--parchment-dim);
 }
 .morgan-library .cb-sep {
@@ -466,9 +495,9 @@
 .morgan-library .morgan-search { flex: 1; min-width: 140px; position: relative; }
 .morgan-library .morgan-search input {
   width: 100%; background: transparent; border: none;
-  border-bottom: 1px solid rgba(201,169,97,.2);
+  border-bottom: 1px solid var(--gilt-20);
   padding: 7px 0 7px 24px;
-  font-family: 'EB Garamond', serif; font-size: 14px;
+  font-family: 'EB Garamond', serif; font-size: var(--fs-body);
   color: var(--parchment); outline: none; letter-spacing: .01em;
 }
 .morgan-library .morgan-search input::placeholder { color: var(--gilt-dim); font-style: italic; }
@@ -480,24 +509,24 @@
 }
 .morgan-library .morgan-sort-btn {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9.5px; letter-spacing: .18em; text-transform: uppercase;
+  font-size: var(--fs-label); letter-spacing: .18em; text-transform: uppercase;
   color: var(--parchment-dim); background: transparent;
-  border: 1px solid rgba(201,169,97,.15);
+  border: 1px solid var(--gilt-15);
   padding: 6px 12px; cursor: pointer; transition: all .25s;
   white-space: nowrap;
 }
 .morgan-library .morgan-sort-btn:hover { color: var(--gilt); border-color: var(--gilt-dim); }
-.morgan-library .morgan-sort-btn.active { color: var(--gilt-bright); border-color: var(--gilt); background: rgba(201,169,97,.1); }
+.morgan-library .morgan-sort-btn.active { color: var(--gilt-bright); border-color: var(--gilt); background: var(--gilt-10); }
 .morgan-library .morgan-filterbar {
   display: flex; align-items: baseline; gap: 10px;
-  font-family: 'IBM Plex Mono', monospace; font-size: 9.5px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   letter-spacing: .12em; color: var(--parchment-dim);
   margin: 0 0 0 auto; padding-left: 10px;
   border-left: 1px solid rgba(201,169,97,.18);
   min-height: 0; white-space: nowrap;
 }
 .morgan-library .morgan-filterbar .fb-main {
-  font-family: 'Cormorant Garamond', serif; font-size: 14px;
+  font-family: 'Cormorant Garamond', serif; font-size: var(--fs-body);
   color: var(--gilt); letter-spacing: .03em;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   max-width: 200px;
@@ -505,8 +534,8 @@
 .morgan-library .morgan-filterbar .fb-dim { color: var(--gilt-dim); opacity: .85; }
 .morgan-library .morgan-filterbar .fb-clear {
   margin-left: 6px; cursor: pointer; color: var(--parchment-dim);
-  border: 1px solid rgba(201,169,97,.15); padding: 2px 8px;
-  font-size: 8.5px; letter-spacing: .18em; transition: all .25s;
+  border: 1px solid var(--gilt-15); padding: 2px 8px;
+  font-size: var(--fs-label); letter-spacing: .18em; transition: all .25s;
   text-transform: uppercase;
 }
 .morgan-library .morgan-filterbar .fb-clear:hover { color: var(--gilt-bright); border-color: var(--gilt); }
@@ -516,7 +545,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
   gap: 18px;
-  border-top: 1px solid rgba(201,169,97,.1);
+  border-top: 1px solid var(--gilt-10);
   border-bottom: 6px solid var(--wood-light);
   padding: 20px 16px 24px;
   box-shadow: 0 4px 20px rgba(0,0,0,.4);
@@ -526,7 +555,7 @@
   position: relative;
   height: auto;
   display: flex; flex-direction: column;
-  border: 1px solid rgba(201,169,97,.2);
+  border: 1px solid var(--gilt-20);
   border-radius: 4px;
   cursor: pointer;
   transition: transform .3s ease, box-shadow .3s ease, border-color .3s ease;
@@ -563,14 +592,14 @@
 }
 .morgan-library .morgan-spine .spine-cover-fallback .fb-title {
   font-family: 'Cormorant Garamond', serif;
-  color: var(--gilt); font-size: 13px; font-weight: 600;
+  color: var(--gilt); font-size: var(--fs-body); font-weight: 600;
   letter-spacing: .04em; line-height: 1.2;
   word-break: break-word; overflow: hidden;
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
 }
 .morgan-library .morgan-spine .spine-cover-fallback .fb-author {
   font-family: 'EB Garamond', serif; font-style: italic;
-  color: var(--parchment-dim); font-size: 10px;
+  color: var(--parchment-dim); font-size: var(--fs-label-lg);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   max-width: 100%;
 }
@@ -584,26 +613,26 @@
 .morgan-library .morgan-spine .spine-title {
   font-family: 'Cormorant Garamond', serif;
   color: var(--gilt-bright);
-  font-size: 12px; font-weight: 600;
+  font-size: var(--fs-caption); font-weight: 600;
   letter-spacing: .03em; line-height: 1.25;
   overflow: hidden;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
 .morgan-library .morgan-spine .spine-author {
   font-family: 'EB Garamond', serif; font-style: italic;
-  font-size: 10px; color: var(--parchment-dim);
+  font-size: var(--fs-label-lg); color: var(--parchment-dim);
   letter-spacing: .02em;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .morgan-library .morgan-spine .spine-marks {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8.5px; color: var(--gilt-dim);
+  font-size: var(--fs-label); color: var(--gilt-dim);
   letter-spacing: .05em; white-space: nowrap;
 }
 .morgan-library .morgan-spine .spine-marks .para { color: var(--gilt); }
 .morgan-library .morgan-spine .spine-progress {
   position: relative; width: 100%; height: 4px;
-  background: rgba(201,169,97,.15); z-index: 2;
+  background: var(--gilt-15); z-index: 2;
   border-radius: 0; margin-top: 0; overflow: hidden;
   flex: none;
 }
@@ -612,7 +641,7 @@
   height: 100%; width: var(--p, 60%);
   background: linear-gradient(90deg, var(--gilt-dim), var(--gilt), var(--gilt-bright));
   border-radius: 0; transition: width .3s ease;
-  box-shadow: 0 0 6px rgba(201,169,97,.4);
+  box-shadow: 0 0 6px var(--gilt-40);
 }
 .morgan-library .morgan-spine.st-read .spine-progress::after {
   background: linear-gradient(90deg, var(--gilt), var(--gilt-bright));
@@ -644,7 +673,7 @@
 .morgan-library .cat-card::-webkit-scrollbar-thumb { background: var(--gilt-dim); border-radius: 2px; }
 .morgan-library .cc-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 5px; }
 .morgan-library .cc-status {
-  font-family: 'IBM Plex Mono', monospace; font-size: 8px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   letter-spacing: .2em; color: var(--paper-ink-dim);
   border: 1.5px solid currentColor; padding: 2px 6px 2px 8px;
   transform: rotate(-4deg); text-transform: uppercase;
@@ -654,18 +683,18 @@
 .morgan-library .cc-status.su { color: #8B8070; border-style: dashed; }
 .morgan-library .cc-status.ss { color: #6E6459; border-style: dotted; }
 .morgan-library .cc-rating {
-  font-family: 'IBM Plex Mono', monospace; font-size: 10px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label-lg);
   color: #8A6B2B; letter-spacing: .08em;
 }
 .morgan-library .cc-title {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 17px; font-weight: 600; line-height: 1.15;
+  font-size: var(--fs-subtitle); font-weight: 600; line-height: 1.15;
   color: var(--paper-ink);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .morgan-library .cc-author {
   font-family: 'EB Garamond', serif; font-style: italic;
-  font-size: 11px; color: var(--paper-ink-dim);
+  font-size: var(--fs-label-lg); color: var(--paper-ink-dim);
   margin: 1px 0 7px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -679,38 +708,38 @@
   font-family: 'IBM Plex Mono', monospace;
 }
 .morgan-library .cc-grid .k {
-  font-size: 10px; letter-spacing: .1em; color: var(--gilt-dim);
+  font-size: var(--fs-label-lg); letter-spacing: .1em; color: var(--gilt-dim);
   padding-top: 1px; text-transform: uppercase;
 }
-.morgan-library .cc-grid .v { font-size: 10px; color: var(--paper-ink); line-height: 1.4; }
+.morgan-library .cc-grid .v { font-size: var(--fs-label-lg); color: var(--paper-ink); line-height: 1.4; }
 .morgan-library .cc-grid .v em { font-style: normal; color: var(--paper-ink-dim); }
 .morgan-library .cc-quote {
   margin-top: 7px; padding: 5px 8px 5px;
   border-left: 2px solid var(--gilt-dim);
-  background: rgba(201,169,97,.1);
+  background: var(--gilt-10);
   max-height: 100px; overflow-y: auto;
 }
 .morgan-library .cc-quote::-webkit-scrollbar { width: 3px; }
 .morgan-library .cc-quote::-webkit-scrollbar-thumb { background: rgba(156,126,62,.5); border-radius: 1px; }
 .morgan-library .cc-quote .qt {
   font-family: 'EB Garamond', serif; font-style: italic;
-  font-size: 12px; line-height: 1.45; color: var(--paper-ink);
+  font-size: var(--fs-caption); line-height: 1.45; color: var(--paper-ink);
   display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
 }
 .morgan-library .cc-quote .cc-note-text {
-  font-family: 'EB Garamond', serif; font-size: 10.5px;
+  font-family: 'EB Garamond', serif; font-size: var(--fs-label-lg);
   color: #8A6B2B; margin-top: 3px; padding: 2px 5px;
   background: rgba(185,138,47,.08); border-radius: 2px;
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
 }
 .morgan-library .cc-quote .qs {
   display: block; margin-top: 2px; text-align: right;
-  font-family: 'IBM Plex Mono', monospace; font-size: 8px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   color: var(--paper-ink-dim);
 }
 .morgan-library .cc-code {
   position: absolute; bottom: 6px; right: 10px;
-  font-family: 'IBM Plex Mono', monospace; font-size: 7px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   letter-spacing: .12em; color: rgba(107,90,62,.55);
 }
 
@@ -722,27 +751,27 @@
 }
 .morgan-library .marg-subhead h2 {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 24px; font-weight: 500; color: var(--gilt-bright);
+  font-size: var(--fs-display); font-weight: 500; color: var(--gilt-bright);
   letter-spacing: .04em; margin: 0;
 }
 .morgan-library .marg-subhead .en {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px; letter-spacing: .3em; text-transform: uppercase;
+  font-size: var(--fs-label); letter-spacing: .3em; text-transform: uppercase;
   color: var(--gilt-dim);
 }
 .morgan-library .marg-subhead .note {
   font-family: 'EB Garamond', serif; font-style: italic;
-  font-size: 13px; color: var(--parchment-dim); opacity: .8;
+  font-size: var(--fs-body); color: var(--parchment-dim); opacity: .8;
 }
 .morgan-library .marg-subhead .count {
   margin-left: auto; font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px; color: var(--gilt-dim); letter-spacing: .1em;
+  font-size: var(--fs-label-lg); color: var(--gilt-dim); letter-spacing: .1em;
 }
 
 /* 按时间: 纵向时间轴 */
 .morgan-library .marg-tl-month {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 18px; font-weight: 600; color: var(--gilt);
+  font-size: var(--fs-subtitle); font-weight: 600; color: var(--gilt);
   letter-spacing: .06em;
   margin: 32px 0 16px; padding-bottom: 8px;
   border-bottom: 1px solid rgba(201,169,97,.18);
@@ -750,13 +779,13 @@
 }
 .morgan-library .marg-tl-month:first-child { margin-top: 4px; }
 .morgan-library .marg-tl-month .mn-en {
-  font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   letter-spacing: .24em; color: var(--gilt-dim);
   text-transform: uppercase;
 }
 .morgan-library .marg-tl-month .mn-cnt {
   margin-left: auto; font-family: 'IBM Plex Mono', monospace;
-  font-size: 10px; color: var(--parchment-dim); letter-spacing: .1em;
+  font-size: var(--fs-label-lg); color: var(--parchment-dim); letter-spacing: .1em;
 }
 .morgan-library .marg-tl-row {
   display: grid; grid-template-columns: 96px 1fr; gap: 22px;
@@ -768,7 +797,7 @@
 }
 .morgan-library .marg-tl-row:last-child::before { display: none; }
 .morgan-library .marg-tl-date {
-  font-family: 'IBM Plex Mono', monospace; font-size: 10.5px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label-lg);
   color: var(--gilt); text-align: right; letter-spacing: .04em;
   padding-top: 9px; position: relative;
 }
@@ -782,29 +811,29 @@
   color: var(--paper-ink);
   padding: 14px 18px 12px;
   box-shadow: 0 8px 22px rgba(0,0,0,.45);
-  border: 1px solid rgba(201,169,97,.3);
+  border: 1px solid var(--gilt-30);
   position: relative;
 }
 .morgan-library .marg-tl-card .excerpt {
   font-family: 'EB Garamond', serif; font-style: italic;
-  font-size: 15px; line-height: 1.6; color: var(--paper-ink);
+  font-size: var(--fs-body); line-height: 1.6; color: var(--paper-ink);
 }
 .morgan-library .marg-tl-card .user-note {
   font-family: 'EB Garamond', serif;
-  font-size: 13px; line-height: 1.6; color: var(--paper-ink-dim);
+  font-size: var(--fs-body); line-height: 1.6; color: var(--paper-ink-dim);
   margin-top: 8px; padding: 6px 10px;
   border-left: 2px solid #B98A2F;
   background: rgba(185,138,47,.08);
 }
 .morgan-library .marg-tl-card .note-label {
-  font-family: 'IBM Plex Mono', monospace; font-size: 8px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   letter-spacing: .2em; color: #B98A2F; text-transform: uppercase;
   margin-bottom: 4px;
 }
 .morgan-library .marg-tl-src {
   margin-top: 9px; padding-top: 7px;
   border-top: 1px solid rgba(139,107,46,.22);
-  font-family: 'IBM Plex Mono', monospace; font-size: 9.5px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   color: var(--paper-ink-dim); letter-spacing: .04em;
   display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap;
 }
@@ -813,7 +842,7 @@
 /* 按图书: 分组 */
 .morgan-library .marg-bybook { display: grid; gap: 30px; }
 .morgan-library .marg-book-group {
-  border-left: 2px solid rgba(201,169,97,.25);
+  border-left: 2px solid var(--gilt-25);
   padding-left: 22px; position: relative;
 }
 .morgan-library .marg-book-head {
@@ -821,21 +850,21 @@
   margin-bottom: 14px;
 }
 .morgan-library .marg-book-head .bt {
-  font-family: 'Cormorant Garamond', serif; font-size: 21px;
+  font-family: 'Cormorant Garamond', serif; font-size: var(--fs-title);
   font-weight: 600; color: var(--gilt-bright); letter-spacing: .03em;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   max-width: 400px;
 }
 .morgan-library .marg-book-head .ba {
   font-family: 'EB Garamond', serif; font-style: italic;
-  font-size: 13px; color: var(--parchment-dim);
+  font-size: var(--fs-body); color: var(--parchment-dim);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   max-width: 200px;
 }
 .morgan-library .marg-book-head .bn {
   margin-left: auto; font-family: 'IBM Plex Mono', monospace;
-  font-size: 9.5px; color: var(--gilt); letter-spacing: .1em;
-  border: 1px solid rgba(201,169,97,.25); padding: 3px 9px;
+  font-size: var(--fs-label); color: var(--gilt); letter-spacing: .1em;
+  border: 1px solid var(--gilt-25); padding: 3px 9px;
 }
 .morgan-library .marg-book-quotes { display: grid; gap: 12px; }
 .morgan-library .marg-q-item {
@@ -847,18 +876,18 @@
 }
 .morgan-library .marg-q-item .excerpt {
   font-family: 'EB Garamond', serif; font-style: italic;
-  font-size: 14.5px; line-height: 1.6; color: var(--paper-ink);
+  font-size: var(--fs-body); line-height: 1.6; color: var(--paper-ink);
 }
 .morgan-library .marg-q-item .user-note {
   font-family: 'EB Garamond', serif;
-  font-size: 12.5px; line-height: 1.6; color: var(--paper-ink-dim);
+  font-size: var(--fs-caption); line-height: 1.6; color: var(--paper-ink-dim);
   margin-top: 6px; padding: 5px 8px;
   border-left: 2px solid #B98A2F;
   background: rgba(185,138,47,.08);
 }
 .morgan-library .marg-q-meta {
   margin-top: 6px;
-  font-family: 'IBM Plex Mono', monospace; font-size: 9.5px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   color: var(--paper-ink-dim); letter-spacing: .04em;
 }
 
@@ -866,11 +895,11 @@
 .morgan-library .morgan-footer {
   position: relative; z-index: 2; text-align: center;
   padding: 26px 32px 30px;
-  border-top: 1px solid rgba(201,169,97,.1);
+  border-top: 1px solid var(--gilt-10);
 }
 .morgan-library .morgan-footer-mark {
   font-family: 'Cormorant Garamond', serif; font-style: italic;
-  font-size: 13px; color: var(--gilt-dim); letter-spacing: .1em;
+  font-size: var(--fs-body); color: var(--gilt-dim); letter-spacing: .1em;
 }
 
 /* --- 响应式 --- */
@@ -891,7 +920,7 @@
 .morgan-library .morgan-sidebar .group-tree-item.active,
 .morgan-library .morgan-sidebar [class*='active'] {
   color: var(--gilt-bright) !important;
-  background: rgba(201,169,97,.08) !important;
+  background: var(--gilt-08) !important;
 }
 .morgan-library .morgan-sidebar .group-chevron,
 .morgan-library .morgan-sidebar [class*='chevron'] {
@@ -919,7 +948,7 @@
 }
 .morgan-library .morgan-sidebar hr,
 .morgan-library .morgan-sidebar [class*='divider'] {
-  border-color: rgba(201,169,97,.12) !important;
+  border-color: var(--gilt-12) !important;
 }
 /* GroupSidebar 中的按钮和输入框 */
 .morgan-library .morgan-sidebar input[type='text'],
@@ -935,14 +964,14 @@
   background: transparent !important;
 }
 .morgan-library .morgan-sidebar button:hover {
-  background: rgba(201,169,97,.1) !important;
+  background: var(--gilt-10) !important;
   color: var(--gilt-bright) !important;
 }
 
 /* --- 标注拾遗中的封面缩略图 --- */
 .morgan-library .marg-tl-card .marg-cover {
   width: 40px; height: 56px; flex: none; overflow: hidden;
-  border: 1px solid rgba(201,169,97,.3); float: right;
+  border: 1px solid var(--gilt-30); float: right;
   margin-left: 12px; box-shadow: 0 3px 8px rgba(0,0,0,.3);
 }
 .morgan-library .marg-tl-card .marg-cover img {
@@ -951,11 +980,11 @@
 .morgan-library .marg-tl-card .marg-cover-fallback {
   width: 100%; height: 100%; background: linear-gradient(135deg, var(--leather), var(--wood-light));
   display: grid; place-items: center; color: var(--gilt-dim);
-  font-size: 7px; font-family: 'Cormorant Garamond', serif; font-style: italic;
+  font-size: var(--fs-label); font-family: 'Cormorant Garamond', serif; font-style: italic;
 }
 .morgan-library .marg-q-item .marg-cover {
   width: 32px; height: 44px; flex: none; overflow: hidden;
-  border: 1px solid rgba(201,169,97,.2); float: right;
+  border: 1px solid var(--gilt-20); float: right;
   margin-left: 10px; box-shadow: 0 2px 6px rgba(0,0,0,.3);
 }
 .morgan-library .marg-q-item .marg-cover img {
@@ -964,7 +993,7 @@
 .morgan-library .marg-q-item .marg-cover-fallback {
   width: 100%; height: 100%; background: linear-gradient(135deg, var(--leather), var(--wood-light));
   display: grid; place-items: center; color: var(--gilt-dim);
-  font-size: 6px; font-family: 'Cormorant Garamond', serif; font-style: italic;
+  font-size: var(--fs-label); font-family: 'Cormorant Garamond', serif; font-style: italic;
 }
 .morgan-library .marg-tl-card.clickable,
 .morgan-library .marg-q-item.clickable {
@@ -980,14 +1009,14 @@
 .morgan-library .morgan-spine .spine-fav-btn {
   position: absolute; top: 8px; right: 8px; z-index: 4;
   width: 22px; height: 22px; border-radius: 50%;
-  background: rgba(31,19,10,.7); border: 1px solid rgba(201,169,97,.3);
-  color: var(--gilt-dim); cursor: pointer; font-size: 12px;
+  background: rgba(31,19,10,.7); border: 1px solid var(--gilt-30);
+  color: var(--gilt-dim); cursor: pointer; font-size: var(--fs-caption);
   display: none; align-items: center; justify-content: center;
   transition: all .2s; line-height: 1; padding: 0;
 }
 .morgan-library .morgan-spine:hover .spine-fav-btn { display: flex; }
 .morgan-library .morgan-spine .spine-fav-btn:hover {
-  background: rgba(201,169,97,.15); border-color: var(--gilt);
+  background: var(--gilt-15); border-color: var(--gilt);
   color: var(--gilt-bright);
 }
 .morgan-library .morgan-spine .spine-fav-btn.favorited {
@@ -1002,14 +1031,14 @@
 .morgan-library .morgan-spine .spine-finish-btn {
   position: absolute; top: 8px; left: 8px; z-index: 4;
   width: 22px; height: 22px; border-radius: 50%;
-  background: rgba(31,19,10,.7); border: 1px solid rgba(201,169,97,.3);
-  color: var(--gilt-dim); cursor: pointer; font-size: 11px;
+  background: rgba(31,19,10,.7); border: 1px solid var(--gilt-30);
+  color: var(--gilt-dim); cursor: pointer; font-size: var(--fs-label-lg);
   display: none; align-items: center; justify-content: center;
   transition: all .2s; line-height: 1; padding: 0;
 }
 .morgan-library .morgan-spine:hover .spine-finish-btn { display: flex; }
 .morgan-library .morgan-spine .spine-finish-btn:hover {
-  background: rgba(201,169,97,.15); border-color: var(--gilt);
+  background: var(--gilt-15); border-color: var(--gilt);
   color: var(--gilt-bright);
 }
 
@@ -1020,7 +1049,7 @@
   width: 22px; height: 22px; border-radius: 50%;
   background: rgba(34,197,94,.85); border: 1.5px solid rgba(255,255,255,.3);
   display: flex; align-items: center; justify-content: center;
-  color: white; font-size: 13px; font-weight: bold; line-height: 1;
+  color: white; font-size: var(--fs-body); font-weight: bold; line-height: 1;
   box-shadow: 0 2px 6px rgba(0,0,0,.4);
   cursor: pointer; transition: all .2s; padding: 0;
 }
@@ -1044,8 +1073,8 @@
 .morgan-library .morgan-spine .spine-info-btn {
   position: absolute; bottom: 12px; right: 8px; z-index: 4;
   width: 20px; height: 20px; border-radius: 50%;
-  background: rgba(31,19,10,.7); border: 1px solid rgba(201,169,97,.3);
-  color: var(--gilt-dim); font-size: 11px; cursor: pointer;
+  background: rgba(31,19,10,.7); border: 1px solid var(--gilt-30);
+  color: var(--gilt-dim); font-size: var(--fs-label-lg); cursor: pointer;
   display: none; align-items: center; justify-content: center;
   transition: all .2s; line-height: 1; padding: 0;
   font-family: 'Cormorant Garamond', serif; font-style: italic;
@@ -1059,7 +1088,7 @@
 .morgan-library .morgan-spine .spine-context-hint {
   position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
   z-index: 3; font-family: 'IBM Plex Mono', monospace;
-  font-size: 7px; color: var(--gilt-dim); letter-spacing: .1em;
+  font-size: var(--fs-label); color: var(--gilt-dim); letter-spacing: .1em;
   opacity: 0; transition: opacity .2s; white-space: nowrap;
 }
 .morgan-library .morgan-spine:hover .spine-context-hint { opacity: .6; }
@@ -1074,9 +1103,9 @@
 .morgan-library .modal-box,
 .morgan-library dialog[class*='modal'] {
   background: linear-gradient(180deg, var(--wood) 0%, var(--wood-deep) 100%) !important;
-  border: 1px solid rgba(201,169,97,.25) !important;
+  border: 1px solid var(--gilt-25) !important;
   border-radius: 6px !important;
-  box-shadow: 0 24px 60px rgba(0,0,0,.7), 0 0 0 1px rgba(201,169,97,.1) !important;
+  box-shadow: 0 24px 60px rgba(0,0,0,.7), 0 0 0 1px var(--gilt-10) !important;
   color: var(--parchment) !important;
   font-family: 'EB Garamond', Georgia, serif !important;
 }
@@ -1088,7 +1117,7 @@
   font-size: 20px !important;
   font-weight: 600 !important;
   letter-spacing: .04em !important;
-  border-bottom: 1px solid rgba(201,169,97,.2) !important;
+  border-bottom: 1px solid var(--gilt-20) !important;
   padding-bottom: 10px !important;
   margin-bottom: 16px !important;
 }
@@ -1108,19 +1137,19 @@
   width: 100%; height: 100%;
   background: linear-gradient(135deg, var(--leather), var(--wood-light));
   display: flex; align-items: center; justify-content: center;
-  color: var(--gilt-dim); font-size: 10px; font-style: italic;
+  color: var(--gilt-dim); font-size: var(--fs-label-lg); font-style: italic;
   font-family: 'Cormorant Garamond', serif;
 }
 .morgan-detail-view .detail-title {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 22px; font-weight: 600; color: var(--gilt-bright);
+  font-size: var(--fs-title); font-weight: 600; color: var(--gilt-bright);
   line-height: 1.2; letter-spacing: .03em;
   overflow: hidden; display: -webkit-box;
   -webkit-line-clamp: 2; -webkit-box-orient: vertical;
 }
 .morgan-detail-view .detail-author {
   font-family: 'EB Garamond', serif; font-style: italic;
-  font-size: 14px; color: var(--parchment-dim); margin-top: 4px;
+  font-size: var(--fs-body); color: var(--parchment-dim); margin-top: 4px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .morgan-detail-view .detail-actions {
@@ -1128,9 +1157,9 @@
 }
 .morgan-detail-view .detail-action-btn {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px; letter-spacing: .15em; text-transform: uppercase;
+  font-size: var(--fs-label); letter-spacing: .15em; text-transform: uppercase;
   color: var(--parchment-dim); background: transparent;
-  border: 1px solid rgba(201,169,97,.2); border-radius: 3px;
+  border: 1px solid var(--gilt-20); border-radius: 3px;
   padding: 6px 12px; cursor: pointer; transition: all .25s;
   display: inline-flex; align-items: center; gap: 5px;
 }
@@ -1138,27 +1167,27 @@
   color: var(--gilt-bright); border-color: var(--gilt-dim);
   background: rgba(201,169,97,.06);
 }
-.morgan-detail-view .detail-action-btn.danger { color: #d4726a; border-color: rgba(212,114,106,.3); }
-.morgan-detail-view .detail-action-btn.danger:hover { color: #ff8a80; border-color: #d4726a; background: rgba(212,114,106,.08); }
+.morgan-detail-view .detail-action-btn.danger { color: var(--danger); border-color: rgba(212,114,106,.3); }
+.morgan-detail-view .detail-action-btn.danger:hover { color: var(--gilt-bright); border-color: var(--danger); background: rgba(212,114,106,.08); }
 .morgan-detail-view .detail-action-btn svg { width: 13px; height: 13px; }
 
 /* 元数据网格 */
 .morgan-detail-view .detail-meta-grid {
   display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
   margin: 20px 0; padding: 16px 0;
-  border-top: 1px solid rgba(201,169,97,.12);
-  border-bottom: 1px solid rgba(201,169,97,.12);
+  border-top: 1px solid var(--gilt-12);
+  border-bottom: 1px solid var(--gilt-12);
 }
 .morgan-detail-view .detail-meta-item {
   display: flex; flex-direction: column; gap: 4px; overflow: hidden;
 }
 .morgan-detail-view .detail-meta-label {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8px; letter-spacing: .2em; text-transform: uppercase;
+  font-size: var(--fs-label); letter-spacing: .2em; text-transform: uppercase;
   color: var(--gilt-dim);
 }
 .morgan-detail-view .detail-meta-value {
-  font-family: 'EB Garamond', serif; font-size: 14px;
+  font-family: 'EB Garamond', serif; font-size: var(--fs-body);
   color: var(--parchment);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -1167,11 +1196,11 @@
 }
 .morgan-detail-view .detail-desc-label {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8px; letter-spacing: .2em; text-transform: uppercase;
+  font-size: var(--fs-label); letter-spacing: .2em; text-transform: uppercase;
   color: var(--gilt-dim); margin-bottom: 8px;
 }
 .morgan-detail-view .detail-desc-body {
-  font-family: 'EB Garamond', serif; font-size: 13px;
+  font-family: 'EB Garamond', serif; font-size: var(--fs-body);
   color: var(--parchment-dim); line-height: 1.7;
   max-height: 200px; overflow-y: auto; padding-right: 8px;
 }
@@ -1196,16 +1225,16 @@
   display: flex; gap: 6px; margin-top: 8px;
 }
 .morgan-detail-edit .edit-cover-btn {
-  font-family: 'IBM Plex Mono', monospace; font-size: 8px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   letter-spacing: .12em; text-transform: uppercase;
   color: var(--gilt-dim); background: transparent;
-  border: 1px solid rgba(201,169,97,.2); border-radius: 2px;
+  border: 1px solid var(--gilt-20); border-radius: 2px;
   padding: 4px 8px; cursor: pointer; transition: all .2s;
   display: inline-flex; align-items: center; gap: 3px;
 }
 .morgan-detail-edit .edit-cover-btn:hover { color: var(--gilt-bright); border-color: var(--gilt-dim); }
 .morgan-detail-edit .edit-cover-btn svg { width: 11px; height: 11px; }
-.morgan-detail-edit .edit-cover-btn.danger { color: #d4726a; border-color: rgba(212,114,106,.3); }
+.morgan-detail-edit .edit-cover-btn.danger { color: var(--danger); border-color: rgba(212,114,106,.3); }
 .morgan-detail-edit .edit-cover-btn.locked { color: #4ade80; border-color: rgba(74,222,128,.3); }
 
 /* 表单字段摩根化 */
@@ -1213,17 +1242,17 @@
   display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px;
 }
 .morgan-detail-edit .morgan-field-label {
-  font-family: 'IBM Plex Mono', monospace; font-size: 8px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   letter-spacing: .18em; text-transform: uppercase; color: var(--gilt-dim);
   display: flex; align-items: center; justify-content: space-between;
 }
 .morgan-detail-edit .morgan-field-label .lock-indicator {
-  color: #4ade80; font-size: 10px; display: inline-flex; align-items: center; gap: 3px;
+  color: #4ade80; font-size: var(--fs-label-lg); display: inline-flex; align-items: center; gap: 3px;
 }
 .morgan-detail-edit .morgan-field-input {
-  width: 100%; background: rgba(0,0,0,.2); border: 1px solid rgba(201,169,97,.15);
+  width: 100%; background: rgba(0,0,0,.2); border: 1px solid var(--gilt-15);
   border-radius: 3px; padding: 7px 10px; color: var(--parchment);
-  font-family: 'EB Garamond', serif; font-size: 14px; outline: none;
+  font-family: 'EB Garamond', serif; font-size: var(--fs-body); outline: none;
   transition: border-color .2s;
 }
 .morgan-detail-edit .morgan-field-input:focus { border-color: var(--gilt-dim); }
@@ -1238,11 +1267,11 @@
 .morgan-detail-edit .morgan-field-lock-btn:hover { color: var(--gilt-bright); }
 .morgan-detail-edit .morgan-field-lock-btn.locked { color: #4ade80; }
 .morgan-detail-edit .morgan-field-error {
-  font-family: 'IBM Plex Mono', monospace; font-size: 9px;
-  color: #ff8a80; margin-top: 2px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
+  color: var(--gilt-bright); margin-top: 2px;
 }
 .morgan-detail-edit .morgan-field-source {
-  font-family: 'IBM Plex Mono', monospace; font-size: 8px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   color: var(--gilt-dim); text-align: right; margin-top: 2px;
 }
 
@@ -1250,15 +1279,15 @@
 .morgan-detail-edit .edit-actions {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; margin-top: 20px; padding-top: 16px;
-  border-top: 1px solid rgba(201,169,97,.15);
+  border-top: 1px solid var(--gilt-15);
 }
 .morgan-detail-edit .edit-actions-left { display: flex; gap: 8px; }
 .morgan-detail-edit .edit-actions-right { display: flex; gap: 10px; }
 .morgan-detail-edit .edit-btn {
-  font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   letter-spacing: .15em; text-transform: uppercase;
   color: var(--parchment-dim); background: transparent;
-  border: 1px solid rgba(201,169,97,.2); border-radius: 3px;
+  border: 1px solid var(--gilt-20); border-radius: 3px;
   padding: 7px 16px; cursor: pointer; transition: all .25s;
   display: inline-flex; align-items: center; gap: 5px;
 }
@@ -1266,8 +1295,8 @@
 .morgan-detail-edit .edit-btn svg { width: 12px; height: 12px; }
 .morgan-detail-edit .edit-btn.primary { color: var(--gilt); border-color: var(--gilt-dim); }
 .morgan-detail-edit .edit-btn.primary:hover { background: var(--gilt); color: var(--wood-darkest); border-color: var(--gilt); }
-.morgan-detail-edit .edit-btn.danger { color: #d4726a; border-color: rgba(212,114,106,.3); }
-.morgan-detail-edit .edit-btn.danger:hover { color: #ff8a80; border-color: #d4726a; background: rgba(212,114,106,.08); }
+.morgan-detail-edit .edit-btn.danger { color: var(--danger); border-color: rgba(212,114,106,.3); }
+.morgan-detail-edit .edit-btn.danger:hover { color: var(--gilt-bright); border-color: var(--danger); background: rgba(212,114,106,.08); }
 
 
 /* SettingsMenu 摩根风格覆盖 */
@@ -1279,7 +1308,7 @@
 .morgan-library .morgan-settings-dropdown .dropdown-content,
 .morgan-library .morgan-settings-dropdown [class*='dropdown-content'] {
   background: linear-gradient(180deg, var(--wood) 0%, var(--wood-deep) 100%) !important;
-  border: 1px solid rgba(201,169,97,.25) !important;
+  border: 1px solid var(--gilt-25) !important;
   border-radius: 4px !important;
   box-shadow: 0 12px 36px rgba(0,0,0,.6) !important;
   color: var(--parchment) !important;
@@ -1322,7 +1351,7 @@
   border: none !important;
   height: 1px !important;
   margin: 4px 12px !important;
-  background: linear-gradient(90deg, transparent, rgba(201,169,97,.15), transparent) !important;
+  background: linear-gradient(90deg, transparent, var(--gilt-15), transparent) !important;
 }
 .morgan-library .morgan-settings-dropdown .menu-item .toggle,
 .morgan-library .morgan-settings-dropdown [class*='toggle'] {
@@ -1365,7 +1394,7 @@
 .morgan-library .alert-box,
 .morgan-library .alert {
   background: linear-gradient(180deg, var(--wood) 0%, var(--wood-deep) 100%) !important;
-  border: 1px solid rgba(201,169,97,.25) !important;
+  border: 1px solid var(--gilt-25) !important;
   border-radius: 6px !important;
   color: var(--parchment) !important;
   font-family: 'EB Garamond', serif !important;
@@ -1381,7 +1410,7 @@
   font-family: 'IBM Plex Mono', monospace !important;
   font-size: 9px !important; letter-spacing: .15em !important;
   text-transform: uppercase !important;
-  border: 1px solid rgba(201,169,97,.2) !important;
+  border: 1px solid var(--gilt-20) !important;
   background: transparent !important; color: var(--parchment-dim) !important;
   border-radius: 3px !important; padding: 7px 16px !important;
   cursor: pointer !important; transition: all .25s !important;
@@ -1393,11 +1422,11 @@
 }
 .morgan-library .alert-box button.alert-confirm,
 .morgan-library .alert button.alert-confirm {
-  color: #d4726a !important; border-color: rgba(212,114,106,.3) !important;
+  color: var(--danger) !important; border-color: rgba(212,114,106,.3) !important;
 }
 .morgan-library .alert-box button.alert-confirm:hover,
 .morgan-library .alert button.alert-confirm:hover {
-  color: #ff8a80 !important; border-color: #d4726a !important;
+  color: var(--gilt-bright) !important; border-color: var(--danger) !important;
   background: rgba(212,114,106,.08) !important;
 }
 
@@ -1414,15 +1443,15 @@
   position: absolute; inset: 0; z-index: 5;
   border: 2px solid var(--gilt);
   border-radius: 4px;
-  background: rgba(201,169,97,.08);
+  background: var(--gilt-08);
   pointer-events: none;
-  box-shadow: 0 0 12px rgba(201,169,97,.3), inset 0 0 20px rgba(201,169,97,.1);
+  box-shadow: 0 0 12px var(--gilt-30), inset 0 0 20px var(--gilt-10);
 }
 .morgan-library .morgan-spine .spine-selected-overlay::after {
   content: '✓'; position: absolute; top: -1px; right: -1px;
   width: 20px; height: 20px; border-radius: 50%;
   background: var(--gilt); color: var(--wood-darkest);
-  font-size: 12px; font-weight: bold; display: flex;
+  font-size: var(--fs-caption); font-weight: bold; display: flex;
   align-items: center; justify-content: center;
   box-shadow: 0 2px 6px rgba(0,0,0,.4);
 }
@@ -1435,23 +1464,23 @@
 .morgan-library .morgan-list-item {
   display: flex; gap: 14px; padding: 10px 12px;
   background: linear-gradient(180deg, #3a2a18, #241510);
-  border: 1px solid rgba(201,169,97,.12);
+  border: 1px solid var(--gilt-12);
   border-radius: 4px; cursor: pointer; position: relative;
   transition: all .25s;
 }
 .morgan-library .morgan-list-item:hover {
-  border-color: rgba(201,169,97,.3);
+  border-color: var(--gilt-30);
   box-shadow: 0 4px 12px rgba(0,0,0,.3);
   transform: translateY(-1px);
 }
 .morgan-library .morgan-list-item.selected {
   border-color: var(--gilt);
-  box-shadow: 0 0 12px rgba(201,169,97,.25);
+  box-shadow: 0 0 12px var(--gilt-25);
 }
 .morgan-library .morgan-list-item .list-item-cover {
   width: 48px; aspect-ratio: 2/3; flex: none;
   overflow: hidden; border-radius: 2px;
-  border: 1px solid rgba(201,169,97,.15);
+  border: 1px solid var(--gilt-15);
   box-shadow: 0 2px 6px rgba(0,0,0,.3);
 }
 .morgan-library .morgan-list-item .list-item-cover img {
@@ -1460,24 +1489,24 @@
 .morgan-library .morgan-list-item .list-cover-fallback {
   width: 100%; height: 100%; background: linear-gradient(135deg, var(--leather), var(--wood-light));
   display: flex; align-items: center; justify-content: center;
-  color: var(--gilt-dim); font-size: 8px; font-style: italic;
+  color: var(--gilt-dim); font-size: var(--fs-label); font-style: italic;
   font-family: 'Cormorant Garamond', serif;
 }
 .morgan-library .morgan-list-item .list-item-body {
   flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px;
 }
 .morgan-library .morgan-list-item .list-item-title {
-  font-family: 'Cormorant Garamond', serif; font-size: 15px; font-weight: 600;
+  font-family: 'Cormorant Garamond', serif; font-size: var(--fs-body); font-weight: 600;
   color: var(--gilt-bright); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .morgan-library .morgan-list-item .list-item-author {
   font-family: 'EB Garamond', serif; font-style: italic;
-  font-size: 12px; color: var(--parchment-dim);
+  font-size: var(--fs-caption); color: var(--parchment-dim);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .morgan-library .morgan-list-item .list-item-meta {
   display: flex; gap: 12px; align-items: baseline;
-  font-family: 'IBM Plex Mono', monospace; font-size: 9px;
+  font-family: 'IBM Plex Mono', monospace; font-size: var(--fs-label);
   color: var(--parchment-dim);
 }
 .morgan-library .morgan-list-item .list-item-status {
@@ -1494,8 +1523,8 @@
 }
 .morgan-library .morgan-list-item .list-action-btn {
   width: 24px; height: 24px; border-radius: 50%;
-  background: rgba(31,19,10,.5); border: 1px solid rgba(201,169,97,.25);
-  color: var(--gilt-dim); font-size: 11px; cursor: pointer;
+  background: rgba(31,19,10,.5); border: 1px solid var(--gilt-25);
+  color: var(--gilt-dim); font-size: var(--fs-label-lg); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   font-family: 'Cormorant Garamond', serif; font-style: italic;
   transition: all .2s;
@@ -1505,7 +1534,7 @@
 }
 .morgan-library .morgan-list-item .list-item-progress {
   position: absolute; bottom: 0; left: 0; right: 0; height: 2px;
-  background: rgba(201,169,97,.12); overflow: hidden;
+  background: var(--gilt-12); overflow: hidden;
 }
 .morgan-library .morgan-list-item .list-item-progress > div {
   height: 100%; background: var(--gilt); transition: width .3s;
@@ -1521,11 +1550,11 @@
   font-family: 'Cormorant Garamond', serif;
 }
 .morgan-library .morgan-empty-shelf .empty-title {
-  font-family: 'Cormorant Garamond', serif; font-size: 22px; font-weight: 600;
+  font-family: 'Cormorant Garamond', serif; font-size: var(--fs-title); font-weight: 600;
   color: var(--gilt); letter-spacing: .05em; margin-bottom: 8px;
 }
 .morgan-library .morgan-empty-shelf .empty-hint {
-  font-family: 'EB Garamond', serif; font-style: italic; font-size: 14px;
+  font-family: 'EB Garamond', serif; font-style: italic; font-size: var(--fs-body);
   color: var(--parchment-dim); opacity: .7;
 }
 
@@ -1557,23 +1586,23 @@
 }
 .morgan-library .section-recent .recent-label {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 15px; font-weight: 600;
+  font-size: var(--fs-body); font-weight: 600;
   color: var(--gilt);
   letter-spacing: .06em; white-space: nowrap;
 }
 .morgan-library .section-recent .recent-line {
   flex: 1; height: 1px;
-  background: linear-gradient(90deg, rgba(201,169,97,.3), transparent);
+  background: linear-gradient(90deg, var(--gilt-30), transparent);
 }
 .morgan-library .section-recent .recent-hint {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 8px; letter-spacing: .3em; text-transform: uppercase;
+  font-size: var(--fs-label); letter-spacing: .3em; text-transform: uppercase;
   color: var(--gilt-dim);
   white-space: nowrap;
 }
 .morgan-library .section-recent .recent-shelf {
   grid-auto-flow: column;
-  grid-auto-columns: 110px;
+  grid-auto-columns: 104px;
   grid-template-columns: none;
   overflow-x: auto;
   padding: 4px 12px 14px;
@@ -1581,18 +1610,18 @@
 }
 .morgan-library .section-recent .recent-shelf::-webkit-scrollbar { height: 4px; }
 .morgan-library .section-recent .recent-shelf::-webkit-scrollbar-thumb { background: var(--gilt-dim); border-radius: 2px; }
-.morgan-library .section-recent .recent-shelf .morgan-spine { width: 110px; }
+.morgan-library .section-recent .recent-shelf .morgan-spine { width: 104px; }
 .morgan-library .section-recent .recent-shelf .spine-text { padding: 8px 6px 10px; }
-.morgan-library .section-recent .recent-shelf .spine-title { font-size: 12px; -webkit-line-clamp: 1; }
+.morgan-library .section-recent .recent-shelf .spine-title { font-size: var(--fs-caption); -webkit-line-clamp: 1; }
 .morgan-library .section-recent .recent-shelf .morgan-spine {
-  border: 1px solid rgba(201,169,97,.15);
+  border: 1px solid var(--gilt-15);
   background: linear-gradient(180deg, #4a3826, #33221a);
 }
 
 /* --- 侧栏标注拾遗入口（与分类区分） --- */
 .morgan-library .side-marg-divider {
   height: 1px; margin: 12px 14px 10px 14px;
-  background: linear-gradient(90deg, rgba(201,169,97,.3), transparent);
+  background: linear-gradient(90deg, var(--gilt-30), transparent);
 }
 .morgan-library .side-marg .nav-cat a.side-marg-link {
   border-left: none;
@@ -1604,16 +1633,16 @@
 }
 .morgan-library .side-marg .nav-cat a.side-marg-link:hover {
   border-color: var(--gilt-dim);
-  background: rgba(201,169,97,.08);
+  background: var(--gilt-08);
 }
 .morgan-library .side-marg .nav-cat a.side-marg-link.active {
   border-color: var(--gilt);
-  background: rgba(201,169,97,.1);
+  background: var(--gilt-10);
   color: var(--gilt-bright);
 }
 .morgan-library .side-marg-link .marg-icon {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 15px; font-style: italic; font-weight: 700;
+  font-size: var(--fs-body); font-style: italic; font-weight: 700;
   color: var(--ribbon-red);
   min-width: 24px;
 }
@@ -1625,26 +1654,26 @@
 }
 .morgan-library .morgan-shelf-section .section-roman {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 13px; font-style: italic; font-weight: 600;
+  font-size: var(--fs-body); font-style: italic; font-weight: 600;
   color: var(--gilt-dim);
   min-width: 22px; white-space: nowrap;
 }
 .morgan-library .morgan-shelf-section .section-name {
   font-family: 'Cormorant Garamond', serif;
-  font-size: 17px; font-weight: 600; color: var(--gilt);
+  font-size: var(--fs-subtitle); font-weight: 600; color: var(--gilt);
   letter-spacing: .05em; white-space: nowrap;
 }
 .morgan-library .morgan-shelf-section .section-line {
   flex: 1; height: 1px;
-  background: linear-gradient(90deg, rgba(201,169,97,.3), transparent);
+  background: linear-gradient(90deg, var(--gilt-30), transparent);
 }
 .morgan-library .morgan-shelf-section .section-count {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 9px; color: var(--gilt-dim); letter-spacing: .15em;
+  font-size: var(--fs-label); color: var(--gilt-dim); letter-spacing: .15em;
   white-space: nowrap;
 }
 .morgan-library .morgan-shelf-section .section-chevron {
-  font-size: 10px; color: var(--gilt-dim);
+  font-size: var(--fs-label-lg); color: var(--gilt-dim);
   transition: transform .25s ease;
 }
 .morgan-library .morgan-shelf-section .section-chevron.collapsed {
@@ -1656,17 +1685,21 @@
   box-shadow: none; background: none;
   padding: 4px 8px 8px;
 }
-/* 分组内的书脊等比缩小（最近阅读横带保持110px不变） */
+/* D6: 分区间距——"章"的呼吸 ≥32px */
+.morgan-library .morgan-shelf-section {
+  margin-bottom: 32px;
+}
+/* D6: 书脊宽度统一为 104px——recent 和分组不再两套 */
 .morgan-library .morgan-shelf-section > .morgan-shelf {
   grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
   gap: 12px;
 }
 .morgan-library .morgan-shelf-section > .morgan-shelf .morgan-spine .spine-title {
-  font-size: 12px;
+  font-size: var(--fs-caption);
 }
 /* 分区之间的分隔线 */
 .morgan-library .morgan-shelf-section + .morgan-shelf-section {
-  border-top: 1px solid rgba(201,169,97,.08);
+  border-top: 1px solid var(--gilt-08);
   margin-top: 4px;
 }
 
@@ -1678,10 +1711,25 @@
   pointer-events: none;
 }
 
+
+/* D12: 平板窄屏 720px——书脊两列、字带换行 */
+@media (max-width: 720px) {
+  .morgan-library .morgan-shelf-section > .morgan-shelf,
+  .morgan-library .morgan-shelf {
+    grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+    gap: 10px;
+  }
+  .morgan-library .chronicle-band {
+    gap: 4px 12px;
+  }
+  .morgan-library .cb-sep { display: none; }
+  .morgan-library .cb-item { width: 50%; }
+  .morgan-library .morgan-content { padding: 16px; }
+}
 @media (max-width: 980px) {
   .morgan-library .morgan-main { grid-template-columns: 1fr; }
   .morgan-library .morgan-sidebar {
-    border-right: none; border-bottom: 1px solid rgba(201,169,97,.12); padding: 24px;
+    border-right: none; border-bottom: 1px solid var(--gilt-12); padding: 24px;
   }
   .morgan-library .morgan-content { padding: 24px; }
   .morgan-library .morgan-niche { flex-wrap: wrap; }
@@ -1690,7 +1738,7 @@
   .morgan-library .chronicle-band { gap: 4px 0; }
   .morgan-library .cb-sep { margin: 0 8px; }
   .morgan-library .view-switcher { padding: 0 24px; }
-  .morgan-library .view-tab { padding: 6px 18px 5px; font-size: 14px; }
+  .morgan-library .view-tab { padding: 6px 18px 5px; font-size: var(--fs-body); }
   .morgan-library .morgan-header-inner { padding: 10px 24px 8px; flex-wrap: wrap; gap: 12px; }
   .morgan-library .morgan-toolbar { flex-wrap: wrap; }
   .morgan-library .morgan-sort-btn { padding: 5px 10px; }
@@ -1699,3 +1747,95 @@
   .morgan-library .marg-tl-row::before { left: 80px; }
   .morgan-library .marg-tl-date::after { right: -20px; }
 }
+
+
+/* --- D5: .morgan-modal 基元——统一弹窗骨架 --- */
+.morgan-library .morgan-modal-box {
+  background: linear-gradient(180deg, var(--wood) 0%, var(--wood-deep) 100%);
+  border: 1px solid var(--gilt-25);
+  border-radius: 6px;
+  color: var(--parchment);
+  font-family: 'EB Garamond', Georgia, serif;
+  box-shadow: 0 24px 60px rgba(0,0,0,.6);
+}
+.morgan-library .morgan-modal-title {
+  font-family: 'Cormorant Garamond', serif;
+  color: var(--gilt-bright);
+  font-size: var(--fs-title);
+  font-weight: 600;
+  letter-spacing: .04em;
+  text-align: center;
+  border-bottom: 1px solid var(--gilt-20);
+  padding-bottom: 12px;
+  margin-bottom: 16px;
+}
+.morgan-library .morgan-modal-btn {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: var(--fs-label);
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--gilt);
+  background: transparent;
+  border: 1px solid var(--gilt-20);
+  border-radius: 3px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: all .25s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.morgan-library .morgan-modal-btn:hover {
+  color: var(--gilt-bright);
+  border-color: var(--gilt-dim);
+  background: var(--gilt-08);
+}
+.morgan-library .morgan-modal-btn:disabled {
+  opacity: .35;
+  cursor: not-allowed;
+}
+.morgan-library .morgan-modal-input {
+  background: rgba(0,0,0,.25);
+  border: 1px solid var(--gilt-20);
+  border-radius: 3px;
+  color: var(--parchment);
+  font-family: 'EB Garamond', serif;
+  font-size: var(--fs-body);
+  padding: 7px 12px;
+  outline: none;
+  width: 100%;
+  box-sizing: border-box;
+}
+.morgan-library .morgan-modal-input:focus {
+  border-color: var(--gilt-dim);
+}
+.morgan-library .morgan-modal-list-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+  border-radius: 3px;
+  color: var(--parchment-dim);
+  transition: all .2s;
+  font-family: 'EB Garamond', serif;
+  font-size: var(--fs-body);
+}
+.morgan-library .morgan-modal-list-item:hover {
+  color: var(--gilt-bright);
+  background: var(--gilt-08);
+}
+
+/* --- D8: MarginaliaView 引号伪元素 + 封面尺寸差异 --- */
+.morgan-library .marg-tl-card .excerpt::before,
+.morgan-library .marg-q-item .excerpt::before {
+  content: '\201C'; font-family: 'Cormorant Garamond', serif;
+  font-size: 1.4em; color: var(--gilt-dim); margin-right: 4px; line-height: 1;
+}
+.morgan-library .marg-tl-card .excerpt::after,
+.morgan-library .marg-q-item .excerpt::after {
+  content: '\201D'; font-family: 'Cormorant Garamond', serif;
+  font-size: 1.4em; color: var(--gilt-dim); margin-left: 4px; line-height: 1;
+}
+.morgan-library .marg-cover-lg { width: 44px; height: 62px; }
+.morgan-library .marg-cover-sm { width: 34px; height: 48px; }

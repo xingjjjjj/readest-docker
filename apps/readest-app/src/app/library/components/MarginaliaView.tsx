@@ -27,7 +27,7 @@ const extractPageFromCfi = (cfi: string): string => {
 };
 
 const renderCover = (book: Book, size: 'lg' | 'sm') => {
-  const cls = size === 'lg' ? 'marg-cover' : 'marg-cover';
+  const cls = size === 'lg' ? 'marg-cover marg-cover-lg' : 'marg-cover marg-cover-sm';
   const fallbackSize = size === 'lg' ? '7px' : '6px';
   return (
     <div className={cls}>
@@ -109,7 +109,7 @@ const MarginaliaView: React.FC<MarginaliaViewProps> = ({ libraryBooks }) => {
 
   const renderExcerptAndNote = (note: BookNote) => (
     <>
-      {note.text && <div className='excerpt'>❝ {note.text} ❞</div>}
+      {note.text && <div className='excerpt'>{note.text}</div>}
       {note.note && (
         <div className='user-note'>
           <div className='note-label'>批注</div>

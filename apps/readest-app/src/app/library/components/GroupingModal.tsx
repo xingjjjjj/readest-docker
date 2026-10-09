@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import clsx from 'clsx';
 import React, { useEffect, useRef, useState } from 'react';
@@ -195,91 +195,32 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 摩根风格样式
-  const morganStyle: React.CSSProperties = {
-    background: 'linear-gradient(180deg, #3D2817 0%, #2B1810 100%)',
-    border: '1px solid rgba(201,169,97,.25)',
-    borderRadius: '6px',
-    color: '#F4ECD8',
-    fontFamily: "'EB Garamond', Georgia, serif",
-    boxShadow: '0 24px 60px rgba(0,0,0,.6)',
-  };
-  const morganTitle: React.CSSProperties = {
-    fontFamily: "'Cormorant Garamond', serif",
-    color: '#E8C977',
-    fontSize: '20px',
-    fontWeight: 600,
-    letterSpacing: '.04em',
-    textAlign: 'center',
-    borderBottom: '1px solid rgba(201,169,97,.2)',
-    paddingBottom: '12px',
-    marginBottom: '16px',
-  };
-  const morganBtn: React.CSSProperties = {
-    fontFamily: "'IBM Plex Mono', monospace",
-    fontSize: '10px',
-    letterSpacing: '.15em',
-    textTransform: 'uppercase',
-    color: '#C9A961',
-    background: 'transparent',
-    border: '1px solid rgba(201,169,97,.2)',
-    borderRadius: '3px',
-    padding: '8px 14px',
-    cursor: 'pointer',
-    transition: 'all .25s',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '6px',
-  };
-  const morganInput: React.CSSProperties = {
-    background: 'rgba(0,0,0,.25)',
-    border: '1px solid rgba(201,169,97,.2)',
-    borderRadius: '3px',
-    color: '#F4ECD8',
-    fontFamily: "'EB Garamond', serif",
-    fontSize: '14px',
-    padding: '7px 12px',
-    outline: 'none',
-    width: '100%',
-    boxSizing: 'border-box',
-  };
-  const morganListItem: React.CSSProperties = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '8px 12px',
-    cursor: 'pointer',
-    borderRadius: '3px',
-    color: '#D9CDB0',
-    transition: 'all .2s',
-    fontFamily: "'EB Garamond', serif",
-    fontSize: '14px',
-  };
+  // D5: 样式已收编到 morgan.css 的 .morgan-modal 基元体系
 
   return (
     <div className='fixed inset-0 z-50 flex items-center justify-center' style={{ background: 'rgba(15,8,4,.75)', backdropFilter: 'blur(2px)' }}>
       <div
         ref={divRef}
-        style={morganStyle}
+        className='morgan-modal-box'
         className='overflow-y-auto p-6 max-h-[85%] w-[95%] min-w-64 max-w-[440px] sm:w-[70%]'
       >
-        <h2 style={morganTitle}>{_('Group Books')}</h2>
+        <h2 className='morgan-modal-title'>{_('Group Books')}</h2>
 
         {/* Action buttons */}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '16px' }}>
           <button
             onClick={handleRemoveFromGroup}
-            style={{ ...morganBtn, opacity: !isSelectedBooksHasGroup ? 0.4 : 1, cursor: !isSelectedBooksHasGroup ? 'not-allowed' : 'pointer' }}
+            className='morgan-modal-btn' style={{ opacity: !isSelectedBooksHasGroup ? 0.4 : 1, cursor: !isSelectedBooksHasGroup ? 'not-allowed' : 'pointer' }}
             disabled={!isSelectedBooksHasGroup}
           >
             <HiOutlineFolderRemove size={14} /> {_('Remove From Group')}
           </button>
-          <button onClick={handleCreateGroup} style={morganBtn}>
+          <button onClick={handleCreateGroup} className='morgan-modal-btn'>
             <HiOutlineFolderAdd size={14} /> {_('Create New Group')}
           </button>
           <button
             onClick={handleRenameGroup}
-            style={{ ...morganBtn, opacity: !canRenameGroup ? 0.4 : 1, cursor: !canRenameGroup ? 'not-allowed' : 'pointer' }}
+            className='morgan-modal-btn' style={{ opacity: !canRenameGroup ? 0.4 : 1, cursor: !canRenameGroup ? 'not-allowed' : 'pointer' }}
             disabled={!canRenameGroup}
           >
             <MdEdit size={14} /> {_('Rename Group')}
@@ -300,10 +241,10 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
                 e.stopPropagation();
               }}
               placeholder={_('Enter group name')}
-              style={morganInput}
+              className='morgan-modal-input'
             />
             <button
-              style={{ ...morganBtn, opacity: editGroupName ? 1 : 0.4 }}
+              className='morgan-modal-btn' style={{ opacity: editGroupName ? 1 : 0.4 }}
               onClick={handleConfirmCreateGroup}
               disabled={!editGroupName}
             >
@@ -347,11 +288,11 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
             return (
               <li key={index} style={{ display: 'flex', gap: '4px' }}>
                 <button
+                  className='morgan-modal-list-item'
                   style={{
-                    ...morganListItem,
                     flex: 1,
                     background: selectedGroup?.id === group.id ? 'rgba(201,169,97,.12)' : 'transparent',
-                    color: selectedGroup?.id === group.id ? '#E8C977' : '#D9CDB0',
+                    color: selectedGroup?.id === group.id ? 'var(--gilt-bright)' : 'var(--parchment-dim)',
                     border: selectedGroup?.id === group.id ? '1px solid rgba(201,169,97,.3)' : '1px solid transparent',
                   }}
                   onClick={() => handleToggleSelectGroup(group)}
@@ -377,12 +318,12 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
 
         {/* Footer */}
         <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid rgba(201,169,97,.15)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-          <button onClick={onCancel} style={morganBtn}>
+          <button onClick={onCancel} className='morgan-modal-btn'>
             {_('Cancel')}
           </button>
           <button
             onClick={handleConfirmGrouping}
-            style={{ ...morganBtn, opacity: !selectedGroup && !newGroup ? 0.4 : 1, cursor: !selectedGroup && !newGroup ? 'not-allowed' : 'pointer', color: '#E8C977', borderColor: '#9C7E3E' }}
+            className='morgan-modal-btn' style={{ opacity: !selectedGroup && !newGroup ? 0.4 : 1, cursor: !selectedGroup && !newGroup ? 'not-allowed' : 'pointer', color: '#E8C977', borderColor: '#9C7E3E' }}
             disabled={!selectedGroup && !newGroup}
           >
             {_('Confirm')}

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useMemo } from 'react';
 import { Book } from '@/types/book';
@@ -72,13 +72,11 @@ const ChronicleBand: React.FC<ChronicleBandProps> = ({ libraryBooks }) => {
     return `${diff} 日前`;
   };
 
+  // D3: 字带收敛到 4 项——术语只留 册/页/日 三单位
   const items = [
-    { n: String(stats.monthDone), l: '本月卷终' },
-    { n: String(stats.yearDone), l: '今年卷终' },
+    { n: String(stats.monthDone), l: '本月读完' },
     { n: `¶${stats.totalAnnotations}`, l: '累计批注' },
-    { n: `${stats.totalHours.toFixed(0)}<small> 时</small>`, l: '总阅读时长' },
-    { n: `${stats.totalReadDays}<small> 日</small>`, l: '累计卷读' },
-    { n: String(stats.pace), l: '页日均速' },
+    { n: `${stats.totalHours.toFixed(0)}<small> 时</small>`, l: '阅读时长' },
     { n: relDay(stats.lastReadAt), l: '上次翻卷' },
   ];
 

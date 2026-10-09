@@ -446,39 +446,36 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     >
       <div className='wood-grain' />
 
-      {/* 馆牌 */}
+      {/* 馆牌 — D3: 只承担题铭不承担统计；D11: 修掉虚构年份 */}
       <header className='morgan-header'>
         <div className='morgan-header-inner'>
           <div className='morgan-crest'>
             <div className='morgan-crest-mark'>M</div>
             <div className='morgan-crest-text'>
               <h1>书房 · Bibliotheca Privata</h1>
-              <div className='morgan-crest-sub'>Catalogue · Est. MMXXIV</div>
+              <div className='morgan-crest-sub'>Catalogue</div>
             </div>
           </div>
           <div className='morgan-header-meta'>
             <div className='item'>
               <div className='num'>{headerStats.total}</div>
-              <div className='lbl'>藏 书</div>
+              <div className='lbl'>册</div>
             </div>
             <div className='item'>
               <div className='num'>{headerStats.totalPages}</div>
-              <div className='lbl'>卷 帙 · 页</div>
-            </div>
-            <div className='item'>
-              <div className='num'>
-                {(() => {
-                  const earliest = headerStats.earliest;
-                  if (!earliest) return '—';
-                  const days = Math.floor((Date.now() - earliest) / 86400000);
-                  const y = Math.floor(days / 365), m = Math.floor((days % 365) / 30);
-                  if (y > 0 && m === 0) return y;
-                  return (y > 0 ? `${y}年` : '') + (m > 0 ? `${m}月` : '');
-                })()}
-              </div>
-              <div className='lbl'>入 藏 跨 度</div>
+              <div className='lbl'>页</div>
             </div>
           </div>
+          {/* D9: 拾遗视图时在馆牌面包屑位显示返回 */}
+          {view === 'marginalia' && (
+            <button
+              onClick={() => setView('catalogue')}
+              className='morgan-back-btn'
+              style={{ marginLeft: '16px' }}
+            >
+              ← 馆藏
+            </button>
+          )}
           {/* 功能按钮区 */}
           <MorganOverviewBar
             isSelectMode={isSelectMode}
@@ -588,13 +585,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
                   </div>
                 ) : (
                   <div className='view-marginalia'>
-                    {/* 返回按钮——流式排在拾遗标题上方 */}
-                    <button
-                      onClick={() => setView('catalogue')}
-                      className='morgan-back-btn'
-                    >
-                      ← 返回馆藏
-                    </button>
                     <MarginaliaView libraryBooks={visibleBooks} />
                   </div>
                 )}
