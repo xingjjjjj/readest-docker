@@ -595,27 +595,32 @@ const groupId = searchParams?.get('group') || '';
         className='morgan-shelf-wrap'
         onMouseLeave={handleSpineLeave}
       >
-        {bookSections.map((section, si) => {
+        {(() => {
+          let groupIdx = 0; // 分组罗马数字独立计数（最近阅读不占号）
+          return bookSections.map((section) => {
           const isCollapsed = collapsedGroups.has(section.name);
           const sectionBooks = isCollapsed ? [] : section.books;
-          const roman = ROMAN[si] || `${si + 1}`;
           if (section.isRecent) {
-            // 最近阅读——独立视觉：小标签+横向滚动书带，与分组分区区分
+            // 最近阅读——独立视觉：背景框+横向滚动书带，与分组分区区分
             return (
               <section key={section.name} className='morgan-shelf-section section-recent'>
-                <div className='recent-header'>
-                  <span className='recent-label'>最近阅读</span>
-                  <span className='recent-line' />
-                  <span className='recent-hint'>RECENT</span>
-                </div>
-                <div className='morgan-shelf recent-shelf'>
-                  {sectionBooks.map((book) =>
-                    visibleSet.has(book.hash) ? renderSpine(book) : renderSentinel(book)
-                  )}
+                <div className='recent-shelf-box'>
+                  <div className='recent-header'>
+                    <span className='recent-label'>最近阅读</span>
+                    <span className='recent-line' />
+                    <span className='recent-hint'>RECENT</span>
+                  </div>
+                  <div className='morgan-shelf recent-shelf'>
+                    {sectionBooks.map((book) =>
+                      visibleSet.has(book.hash) ? renderSpine(book) : renderSentinel(book)
+                    )}
+                  </div>
                 </div>
               </section>
             );
           }
+          const roman = ROMAN[groupIdx] || `${groupIdx + 1}`;
+          groupIdx++;
           return (
             <section key={section.name} className='morgan-shelf-section'>
               {/* 分区标题横带 */}
@@ -640,7 +645,8 @@ const groupId = searchParams?.get('group') || '';
               </div>
             </section>
           );
-        })}
+          });
+        })()}
       </div>
 
       {filteredBooks.length === 0 && (
