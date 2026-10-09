@@ -125,23 +125,39 @@ const SpineCard: React.FC<SpineCardProps> = ({ book, spineEl, onCardEnter, onCar
   const pct = getBookProgressPercentage(book);
   const progress = book.progress || [0, 0];
 
-  const rows: string[] = [];
+  // 信息对数组——每 2 对并排一行
+  const pairs: [string, string][] = [];
   if (status === 'reading') {
-    rows.push(`<span class="k">卷 页</span><span class="v">p.${progress[0]}/${progress[1] || '?'} <em>· ${pct}%</em></span>`);
-    rows.push(`<span class="k">上 次</span><span class="v">${book.lastReadAt ? new Date(book.lastReadAt).toLocaleDateString('zh-CN') : '—'}</span>`);
-    rows.push(`<span class="k">阅 时</span><span class="v">${formatDurationMs(book.totalReadTimeMs || 0)}</span>`);
+    pairs.push(['卷 页', `p.${progress[0]}/${progress[1] || '?'} <em>· ${pct}%</em>`]);
+    pairs.push(['阅 时', formatDurationMs(book.totalReadTimeMs || 0)]);
+    pairs.push(['上 次', book.lastReadAt ? new Date(book.lastReadAt).toLocaleDateString('zh-CN') : '—']);
+    if (book.groupName) pairs.push(['架 位', book.groupName]);
   } else if (status === 'finished') {
-    rows.push(`<span class="k">卷 页</span><span class="v">全 ${progress[1] || '?'} 页</span>`);
-    rows.push(`<span class="k">读 程</span><span class="v">${formatDate(book.lastReadAt)} → ${formatDate(book.finishedAt)}</span>`);
-    rows.push(`<span class="k">阅 时</span><span class="v">${formatDurationMs(book.totalReadTimeMs || 0)}</span>`);
+    pairs.push(['卷 页', `全 ${progress[1] || '?'} 页`]);
+    pairs.push(['阅 时', formatDurationMs(book.totalReadTimeMs || 0)]);
+    pairs.push(['读 程', `${formatDate(book.lastReadAt)} → ${formatDate(book.finishedAt)}`]);
+    if (book.groupName) pairs.push(['架 位', book.groupName]);
   } else {
-    rows.push(`<span class="k">卷 页</span><span class="v">${progress[1] || '?'} 页</span>`);
-    rows.push(`<span class="k">入 藏</span><span class="v">${formatDate(book.createdAt)}</span>`);
+    pairs.push(['卷 页', `${progress[1] || '?'} 页`]);
+    pairs.push(['入 藏', formatDate(book.createdAt)]);
+    if (book.groupName) pairs.push(['架 位', book.groupName]);
   }
-  if (book.groupName) rows.push(`<span class="k">架 位</span><span class="v">${book.groupName}</span>`);
-  if (book.format) rows.push(`<span class="k">格 式</span><span class="v">${book.format}</span>`);
-  if (annotationCount > 0) rows.push(`<span class="k">批 注</span><span class="v">¶ ${annotationCount} 则</span>`);
-  if (book.isFavorite) rows.push(`<span class="k">钤 印</span><span class="v">★</span>`);
+  if (book.format) pairs.push(['格 式', book.format]);
+  if (annotationCount > 0) pairs.push(['批 注', `¶ ${annotationCount} 则`]);
+  if (book.isFavorite) pairs.push(['钤 印', '★ 收藏']);
+
+  // 组装成 HTML——每行 2 组键值对并排
+  const rows: string[] = [];
+  for (let i = 0; i < pairs.length; i += 2) {
+    const rowPairs = pairs.slice(i, i + 2);
+    let rowHtml = '';
+    for (const [k, v] of rowPairs) {
+      rowHtml += `<span class="k">${k}</span><span class="v">${v}</span>`;
+    }
+    // 奇数个时补一个空占位保持对齐
+    if (rowPairs.length === 1) rowHtml += `<span class="k"></span><span class="v"></span>`;
+    rows.push(rowHtml);
+  }
 
   const quoteHtml = randomNote ? `
     <div class="cc-quote">
