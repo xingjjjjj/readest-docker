@@ -115,12 +115,16 @@ const getColorStyles = (
   isEink: boolean,
 ) => {
   let { bg, fg, primary, isDarkMode } = themeCode;
-  // 深色模式下阅读内容区统一使用护眼暖灰纸底色
-  // 不依赖具体主题名/色值——任何主题深色模式都替换为护眼配色
-  // （对比度 ~7:1，色温偏暖约3400K，长时间阅读不易视疲劳）
+  // 阅读内容区统一护眼配色——不依赖主题名/色值/明暗模式
+  // 浅色模式: 柔和羊皮纸底(色温偏暖,类似纸张反光),墨色文字
+  // 深色模式: 柔和暖灰纸底(对比度~7:1,暖白文字),降低眩光
+  // （localStorage 可能存任意主题,这里无条件覆盖保证护眼）
   if (isDarkMode) {
     bg = '#3B382E';
     fg = '#E6DCC3';
+  } else {
+    bg = '#F4ECD8';
+    fg = '#2B2015';
   }
   const colorStyles = `
     html {
