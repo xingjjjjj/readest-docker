@@ -1568,8 +1568,8 @@
   grid-auto-columns: 110px;
   grid-template-columns: none;
   overflow-x: auto;
-  padding: 4px 12px 12px;
-  gap: 8px;
+  padding: 4px 12px 14px;
+  gap: 16px;
 }
 .morgan-library .section-recent .recent-shelf::-webkit-scrollbar { height: 4px; }
 .morgan-library .section-recent .recent-shelf::-webkit-scrollbar-thumb { background: var(--gilt-dim); border-radius: 2px; }
