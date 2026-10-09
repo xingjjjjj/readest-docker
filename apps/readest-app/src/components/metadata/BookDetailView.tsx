@@ -1,9 +1,12 @@
 ﻿import React, { useState } from 'react';
-import { MdOutlineDelete, MdOutlineEdit, MdSaveAlt, MdFolder } from 'react-icons/md';
+import { MdOutlineDelete, MdOutlineEdit, MdSaveAlt, MdFolder, MdCheckCircle, MdOutlineCheckCircle } from 'react-icons/md';
 import { Book } from '@/types/book';
 import { BookMetadata } from '@/libs/document';
 import { useTranslation } from '@/hooks/useTranslation';
+import { useEnv } from '@/context/EnvContext';
+import { useLibraryStore } from '@/store/libraryStore';
 import { formatAuthors, formatDate, formatBytes, formatLanguage, formatPublisher, formatTitle } from '@/utils/book';
+import { getBookReadStatus } from '@/app/library/utils/libraryUtils';
 
 interface BookDetailViewProps {
   book: Book;
@@ -17,7 +20,22 @@ interface BookDetailViewProps {
 
 const BookDetailView: React.FC<BookDetailViewProps> = ({ book, metadata, fileSize, onEdit, onDelete, onExport, onGroup }) => {
   const _ = useTranslation();
+  const { envConfig } = useEnv();
+  const { updateBook } = useLibraryStore();
   const hasCover = !!(book.coverImageUrl || metadata?.coverImageUrl);
+  const isFinished = getBookReadStatus(book) === 'finished';
+
+  // D7: 从书脊按钮移入详情弹窗
+  const handleToggleFinished = async () => {
+    const now = Date.now();
+    await updateBook(envConfig, {
+      ...book,
+      finishedAt: isFinished ? undefined : now,
+      progress: isFinished ? ([0, 0] as [number, number]) : ([1, 1] as [number, number]),
+      lastReadAt: isFinished ? book.lastReadAt : now,
+      updatedAt: now,
+    });
+  };
 
   const metaItems = [
     { label: _('Publisher'), value: formatPublisher(metadata?.publisher || '') || _('Unknown') },
@@ -50,6 +68,11 @@ const BookDetailView: React.FC<BookDetailViewProps> = ({ book, metadata, fileSiz
             </div>
           )}
           <div className='detail-actions'>
+            {/* D7: 标记已读/取消——从书脊按钮移入 */}
+            <button className='detail-action-btn' onClick={handleToggleFinished}>
+              {isFinished ? <MdOutlineCheckCircle /> : <MdCheckCircle />}
+              {isFinished ? _('Unfinished') : _('Finished')}
+            </button>
             {onGroup && (
               <button className='detail-action-btn' onClick={onGroup}>
                 <MdFolder /> {_('Group')}
