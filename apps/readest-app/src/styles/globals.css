@@ -721,149 +721,27 @@ foliate-fxl {
 [data-theme='morgan-light'] ::-webkit-scrollbar-thumb { background: #B9A15F; border-radius: 3px; }
 [data-theme='morgan-light'] ::selection { background: rgba(156,126,62,.25); }
 
-
-
-
-/* ================= Morgan 闃呰鍣ㄧ簿淇紙绗簩鎵?绗笁鎵归拡瀵规€ф牱寮忥級 ================= */
-
-/* --- 闃呰鍣ㄩ《鏍?搴曟爮锛氭繁鏈ㄨ壊娓愬彉鑳屾櫙+閲戣壊搴曢儴绾?--- */
-[data-theme='morgan-dark'] .header-bar {
-  background: linear-gradient(180deg, #33221a 0%, #2B1810 100%) !important;
-  border-bottom: 1px solid rgba(201,169,97,.15);
+/* ================= Morgan 精简版：仅补主题变量做不到的三样 ================= */
+/* 1. 衬线字体（标题类） */
+[data-theme='morgan-dark'] .header-title,
+[data-theme='morgan-dark'] .modal-title,
+[data-theme='morgan-dark'] .toc-item,
+[data-theme='morgan-dark'] .sidebar-title,
+[data-theme='morgan-dark'] .notebook-title {
+  font-family: 'Cormorant Garamond', 'Noto Serif SC', serif;
 }
-[data-theme='morgan-dark'] .footer-bar {
-  background: linear-gradient(0deg, #241510 0%, #2B1810 100%) !important;
-  border-top: 1px solid rgba(201,169,97,.12);
-}
-[data-theme='morgan-dark'] .header-title {
-  font-family: 'Cormorant Garamond', 'Noto Serif SC', serif !important;
-  color: #C9A961 !important;
-  letter-spacing: .04em;
-}
-
-/* --- 闃呰鍣ㄤ晶鏍?--- */
-[data-theme='morgan-dark'] .sidebar-container {
-  background: linear-gradient(180deg, #33221a 0%, #2B1810 100%) !important;
-  border-right: 1px solid rgba(201,169,97,.12) !important;
-}
-[data-theme='morgan-dark'] .sidebar-container .tab-navigation button {
-  color: #9C7E3E !important;
-  border-bottom-color: transparent;
-}
-[data-theme='morgan-dark'] .sidebar-container .tab-navigation button.active {
-  color: #E8C977 !important;
-  border-bottom-color: #C9A961 !important;
-}
-/* TOC 鏉＄洰 */
-[data-theme='morgan-dark'] .toc-item, [data-theme='morgan-dark'] .toc-item-selected {
-  font-family: 'EB Garamond', 'Noto Serif SC', serif !important;
-  color: #D9CDB0 !important;
-  border-left: 2px solid transparent;
-}
-[data-theme='morgan-dark'] .toc-item-selected {
-  color: #E8C977 !important;
-  border-left-color: #C9A961 !important;
-  background: rgba(201,169,97,.06) !important;
-}
-/* 鎼滅储缁撴灉楂樹寒 */
-[data-theme='morgan-dark'] .search-result-item em,
-[data-theme='morgan-dark'] .search-results em {
-  background: rgba(201,169,97,.3) !important;
-  color: #E8C977 !important;
+/* 2. 渐变背景（顶栏/底栏/侧栏） */
+[data-theme='morgan-dark'] .header-bar { background: linear-gradient(180deg, #33221a, #2B1810); }
+[data-theme='morgan-dark'] .footer-bar { background: linear-gradient(0deg, #241510, #2B1810); }
+[data-theme='morgan-dark'] .sidebar-container { background: linear-gradient(180deg, #33221a, #2B1810); }
+/* 3. 金线分隔 */
+[data-theme='morgan-dark'] .header-bar { border-bottom: 1px solid rgba(201,169,97,.15); }
+[data-theme='morgan-dark'] .footer-bar { border-top: 1px solid rgba(201,169,97,.12); }
+[data-theme='morgan-dark'] .sidebar-container { border-right: 1px solid rgba(201,169,97,.12); }
+/* 选中态金色（低特异性，无 !important——靠级联自然覆盖 DaisyUI 默认） */
+[data-theme='morgan-dark'] .toc-item-selected { border-left-color: #C9A961; }
+[data-theme='morgan-dark'] .search-result em, [data-theme='morgan-dark'] .search-results em {
+  background: rgba(201,169,97,.3);
   border-bottom: 1px solid #C9A961;
   font-style: normal;
 }
-
-/* --- 鏍囨敞寮圭獥锛堥€変腑鏂囧瓧宸ュ叿妗嗭級 --- */
-[data-theme='morgan-dark'] .selection-popup {
-  background: linear-gradient(180deg, #3D2817 0%, #2B1810 100%) !important;
-  border: 1px solid rgba(201,169,97,.25) !important;
-  box-shadow: 0 12px 36px rgba(0,0,0,.6) !important;
-}
-[data-theme='morgan-dark'] .selection-popup .selection-buttons button {
-  color: #C9A961 !important;
-}
-[data-theme='morgan-dark'] .selection-popup .selection-buttons button:hover {
-  color: #E8C977 !important;
-  background: rgba(201,169,97,.08) !important;
-}
-
-/* --- 绗旇鏈紙鎵规敞闈㈡澘锛?--- */
-[data-theme='morgan-dark'] .notebook-container,
-[data-theme='morgan-dark'] [class*='notebook'] {
-  background: #2B1810 !important;
-}
-[data-theme='morgan-dark'] .notebook-container .booknote-item,
-[data-theme='morgan-dark'] [class*='booknote-item'] {
-  background: linear-gradient(178deg, #F4ECD8 0%, #E8DDBE 100%) !important;
-  color: #2B2015 !important;
-  border: 1px solid rgba(201,169,97,.25) !important;
-  border-radius: 4px !important;
-}
-[data-theme='morgan-dark'] .booknote-item .note-text {
-  color: #2B2015 !important;
-}
-
-/* --- TTS 闈㈡澘 --- */
-[data-theme='morgan-dark'] [class*='tts-popup'],
-[data-theme='morgan-dark'] [class*='tts-panel'] {
-  background: linear-gradient(180deg, #3D2817 0%, #2B1810 100%) !important;
-  border: 1px solid rgba(201,169,97,.25) !important;
-}
-[data-theme='morgan-dark'] [class*='tts-popup'] .btn {
-  border-color: rgba(201,169,97,.3) !important;
-  color: #C9A961 !important;
-}
-
-/* --- Toast 鎻愮ず --- */
-[data-theme='morgan-dark'] .toast {
-  background: #2B1810 !important;
-  border: 1px solid rgba(201,169,97,.3) !important;
-  color: #F4ECD8 !important;
-  box-shadow: 0 8px 24px rgba(0,0,0,.5) !important;
-}
-
-/* --- 鑴氭敞寮圭獥 --- */
-[data-theme='morgan-dark'] [class*='footnote-popup'] {
-  background: linear-gradient(178deg, #F4ECD8 0%, #E8DDBE 100%) !important;
-  color: #2B2015 !important;
-  border: 1px solid rgba(201,169,97,.35) !important;
-}
-
-/* --- 鏇存柊鍣?閿欒椤?--- */
-[data-theme='morgan-dark'] .modal-box {
-  background: linear-gradient(180deg, #3D2817 0%, #2B1810 100%) !important;
-  border: 1px solid rgba(201,169,97,.25) !important;
-  color: #F4ECD8 !important;
-  font-family: 'EB Garamond', 'Noto Serif SC', serif !important;
-}
-[data-theme='morgan-dark'] .modal-box .modal-title,
-[data-theme='morgan-dark'] .modal-box h2, [data-theme='morgan-dark'] .modal-box h3 {
-  font-family: 'Cormorant Garamond', 'Noto Serif SC', serif !important;
-  color: #E8C977 !important;
-  border-bottom: 1px solid rgba(201,169,97,.2);
-  padding-bottom: 10px;
-}
-
-/* --- 鏍囨敞鎬昏椤碉紙annotations 鐙珛椤甸潰锛?--- */
-[data-theme='morgan-dark'] [class*='annotation-card'],
-[data-theme='morgan-dark'] [class*='annotation-item'] {
-  background: linear-gradient(178deg, #F4ECD8 0%, #E8DDBE 100%) !important;
-  color: #2B2015 !important;
-  border: 1px solid rgba(201,169,97,.25) !important;
-  border-radius: 4px !important;
-  box-shadow: 0 4px 12px rgba(0,0,0,.3) !important;
-}
-
-/* --- 鐢ㄦ埛椤碉紙钘忎功绁ㄩ鏍硷級 --- */
-[data-theme='morgan-dark'] [class*='user-profile'],
-[data-theme='morgan-dark'] [class*='profile-card'] {
-  background: #2B1810 !important;
-  border: 1px solid rgba(201,169,97,.2) !important;
-}
-
-/* --- 闃呰鍣ㄥ唴瀹瑰尯鏈€灏忓寲鏀瑰姩锛氱珷鑺傚垎闅旇楗?--- */
-[data-theme='morgan-dark'] .book-content ::selection {
-  background: rgba(201,169,97,.3);
-}
-
