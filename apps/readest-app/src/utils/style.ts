@@ -115,11 +115,15 @@ const getColorStyles = (
   isEink: boolean,
 ) => {
   let { bg, fg, primary, isDarkMode } = themeCode;
-  // 深色模式阅读内容区用中性灰黑（昨天 default 主题的观感）
-  // #222222 中性灰黑底 + #e0e0e0 浅灰文字
+  // 跟随系统明暗：深色=中性灰黑，浅色=羊皮纸护眼
+  // 深色: #222222 灰黑底 + #e0e0e0 浅灰字（default 主题观感）
+  // 浅色: #F4ECD8 羊皮纸底 + #2B2015 墨色字（对比度~13:1，修复浅灰字看不清）
   if (isDarkMode) {
     bg = '#222222';
     fg = '#e0e0e0';
+  } else {
+    bg = '#F4ECD8';
+    fg = '#2B2015';
   }
   const colorStyles = `
     html {
