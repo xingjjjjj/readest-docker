@@ -117,7 +117,8 @@ const getColorStyles = (
   let { bg, fg, primary, isDarkMode } = themeCode;
   // Morgan 深色模式护眼底色：柔和暖灰纸，比深胡桃木 UI 底色更护眼
   // （对比度 ~7:1，色温偏暖，长时间阅读不易视疲劳）
-  if (isDarkMode && bg === '#2B1810') {
+  // 同时命中 morgan 原底色和 morgan-base-200 衍生色，避免主题变体漏判
+  if (isDarkMode && (bg === '#2B1810' || bg === '#222222')) {
     bg = '#3B382E';
     fg = '#E6DCC3';
   }
