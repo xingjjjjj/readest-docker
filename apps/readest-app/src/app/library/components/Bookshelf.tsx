@@ -25,7 +25,7 @@ import { FILE_REVEAL_LABELS, FILE_REVEAL_PLATFORMS } from '@/utils/os';
 import { throttle } from '@/utils/throttle';
 import { useLongPress } from '@/hooks/useLongPress';
 import SpineCard from './SpineCard';
-import { MdCheckCircle, MdOutlineCheckCircle, MdCheck } from 'react-icons/md';
+import { MdCheckCircle, MdOutlineCheckCircle, MdFavorite, MdFavoriteBorder, MdCheck } from 'react-icons/md';
 import SelectModeActions from './SelectModeActions';
 import GroupingModal from './GroupingModal';
 import Alert from '@/components/Alert';
@@ -91,11 +91,12 @@ interface SpineItemProps {
   onSpineContextMenu: (book: Book) => void;
   onSpineHover: (book: Book, el: HTMLElement) => void;
   onSpineLeave: () => void;
+  onToggleFinished: (e: React.MouseEvent, book: Book) => void;
+  onToggleFavorite: (e: React.MouseEvent, book: Book) => void;
   onShowDetails: (book: Book) => void;
 }
 
 // P5：书脊卡片独立组件 + React.memo + 稳定回调——hover/选中状态变化时，未受影响的书脊直接跳过重渲染
-// D7：按钮全部移除——状态用体系内钤印标记，动作走右键/详情弹窗，hover 只做抽出隐喻
 const SpineItem = React.memo(({
   book,
   isSelected,
@@ -103,6 +104,8 @@ const SpineItem = React.memo(({
   onSpineContextMenu,
   onSpineHover,
   onSpineLeave,
+  onToggleFinished,
+  onToggleFavorite,
   onShowDetails,
 }: SpineItemProps) => {
   const _ = useTranslation();
@@ -133,26 +136,49 @@ const SpineItem = React.memo(({
           </div>
         )}
       </div>
-      {/* D7: 已读钤印——金圈印，替代绿色对号按钮 */}
       {status === 'finished' && (
-        <span className='spine-seal' title={_('Finished')}>印</span>
+        <button
+          className='spine-finished-badge'
+          onClick={(e) => onToggleFinished(e, book)}
+          title={_('Mark as Unfinished')}
+        >
+          <MdCheck />
+        </button>
       )}
-      {/* D7: 收藏钤记——烫金心印，替代圆形按钮 */}
-      {book.isFavorite && (
-        <span className='spine-fav-mark' title={_('Favorite')}>♥</span>
+      {status !== 'finished' && (
+        <button
+          className='spine-finish-btn'
+          onClick={(e) => onToggleFinished(e, book)}
+          title={_('Mark as Finished')}
+        >
+          ✓
+        </button>
       )}
-      {/* 在读红点保留 */}
+      <button
+        className={clsx('spine-fav-btn', book.isFavorite && 'favorited')}
+        onClick={(e) => onToggleFavorite(e, book)}
+        title={book.isFavorite ? _('Unfavorite') : _('Favorite')}
+      >
+        {book.isFavorite ? '♥' : '♡'}
+      </button>
       {status === 'reading' && (
-        <span className='spine-reading-dot' title={_('Reading')} />
+        <div className='spine-reading-dot' title={_('Reading')} />
       )}
       <div className='spine-text'>
         <span className='spine-title' title={book.title}>
           {formatTitle(book.title)}
         </span>
       </div>
+      <button
+        className='spine-info-btn'
+        onClick={(e) => { e.stopPropagation(); onShowDetails(book); }}
+        title={_('Show Book Details')}
+      >
+        i
+      </button>
       {status !== 'unread' && <span className='spine-progress' />}
       {isSelected && (
-        <span className='spine-selected-overlay' />
+        <div className='spine-selected-overlay' />
       )}
     </div>
   );
@@ -407,7 +433,29 @@ const groupId = searchParams?.get('group') || '';
 
   // spineHeight 原为死代码（渲染中无调用），已随 P5 重构一并移除；
   // spineStatusClass / spineProgress 已上移为 module 级纯函数供 SpineItem 使用
-  // D7: handleToggleFinished/handleToggleFavorite 已移入右键菜单和详情弹窗
+
+  const handleToggleFinished = useCallback(async (e: React.MouseEvent, book: Book) => {
+    e.stopPropagation();
+    const status = getBookReadStatus(book);
+    const isFinished = status === 'finished';
+    const now = Date.now();
+    await updateBook(envConfig, {
+      ...book,
+      finishedAt: isFinished ? undefined : now,
+      progress: isFinished ? ([0, 0] as [number, number]) : ([1, 1] as [number, number]),
+      lastReadAt: isFinished ? book.lastReadAt : now,
+      updatedAt: now,
+    });
+  }, [envConfig, updateBook]);
+
+  const handleToggleFavorite = useCallback(async (e: React.MouseEvent, book: Book) => {
+    e.stopPropagation();
+    await updateBook(envConfig, {
+      ...book,
+      isFavorite: !book.isFavorite,
+      favoriteAt: !book.isFavorite ? Date.now() : undefined,
+    });
+  }, [envConfig, updateBook]);
 
   const hoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -463,21 +511,6 @@ const groupId = searchParams?.get('group') || '';
         await updateBook(envConfig, updated);
       },
     });
-    // D7: 从书脊按钮移入右键菜单
-    const toggleFinishedMenuItem = await MenuItem.new({
-      text: getBookReadStatus(book) === 'finished' ? _('Mark as Unfinished') : _('Mark as Finished'),
-      action: async () => {
-        const isFinished = getBookReadStatus(book) === 'finished';
-        const now = Date.now();
-        await updateBook(envConfig, {
-          ...book,
-          finishedAt: isFinished ? undefined : now,
-          progress: isFinished ? ([0, 0] as [number, number]) : ([1, 1] as [number, number]),
-          lastReadAt: isFinished ? book.lastReadAt : now,
-          updatedAt: now,
-        });
-      },
-    });
     const showBookInFinderMenuItem = await MenuItem.new({
       text: _(fileRevealLabel),
       action: async () => {
@@ -494,7 +527,6 @@ const groupId = searchParams?.get('group') || '';
     const menu = await Menu.new();
     menu.append(selectBookMenuItem);
     menu.append(showBookDetailsMenuItem);
-    menu.append(toggleFinishedMenuItem);
     menu.append(toggleFavoriteMenuItem);
     menu.append(showBookInFinderMenuItem);
     menu.append(deleteBookMenuItem);
@@ -679,6 +711,8 @@ const groupId = searchParams?.get('group') || '';
                           onSpineContextMenu={handleSpineContextMenu}
                           onSpineHover={handleSpineHover}
                           onSpineLeave={handleSpineLeave}
+                          onToggleFinished={handleToggleFinished}
+                          onToggleFavorite={handleToggleFavorite}
                           onShowDetails={handleShowDetailsBook}
                         />
                       ) : (
@@ -720,6 +754,8 @@ const groupId = searchParams?.get('group') || '';
                       onSpineContextMenu={handleSpineContextMenu}
                       onSpineHover={handleSpineHover}
                       onSpineLeave={handleSpineLeave}
+                      onToggleFinished={handleToggleFinished}
+                      onToggleFavorite={handleToggleFavorite}
                       onShowDetails={handleShowDetailsBook}
                     />
                   ) : (

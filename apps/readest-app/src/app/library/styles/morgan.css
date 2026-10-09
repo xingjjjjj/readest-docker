@@ -648,7 +648,13 @@
   width: 100% !important;
 }
 .morgan-library .morgan-spine.st-shelved .spine-progress::after { background: #8a7f72; }
-/* D7: hover 规则已统一到下方抽出式效果 */
+.morgan-library .morgan-spine:hover, .morgan-library .morgan-spine:focus {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 36px rgba(0,0,0,.6), 0 0 0 1px var(--gilt);
+  border-color: var(--gilt);
+  z-index: 5;
+}
+.morgan-library .morgan-spine:hover::before, .morgan-library .morgan-spine:focus::before { opacity: 1; }
 
 /* --- hover 著录卡 --- */
 .morgan-library .cat-card {
@@ -999,65 +1005,83 @@
 }
 
 
-/* --- D7: 体系内钤印标记——替代全部按钮 --- */
-/* 已读钤印：金圈"印"字章，19世纪藏书楼风 */
-.morgan-library .morgan-spine .spine-seal {
-  position: absolute; top: 6px; left: 6px; z-index: 4;
-  width: 20px; height: 20px;
-  border: 1.5px solid var(--gilt); border-radius: 50%;
+/* 书脊上的收藏按钮（右上角，已收藏时常显示） */
+.morgan-library .morgan-spine .spine-fav-btn {
+  position: absolute; top: 8px; right: 8px; z-index: 4;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(31,19,10,.7); border: 1px solid var(--gilt-30);
+  color: var(--gilt-dim); cursor: pointer; font-size: var(--fs-caption);
+  display: none; align-items: center; justify-content: center;
+  transition: all .2s; line-height: 1; padding: 0;
+}
+.morgan-library .morgan-spine:hover .spine-fav-btn { display: flex; }
+.morgan-library .morgan-spine .spine-fav-btn:hover {
+  background: var(--gilt-15); border-color: var(--gilt);
+  color: var(--gilt-bright);
+}
+.morgan-library .morgan-spine .spine-fav-btn.favorited {
+  display: flex; color: #f87171; border-color: rgba(248,113,113,.4);
+  background: rgba(31,19,10,.6);
+}
+.morgan-library .morgan-spine .spine-fav-btn.favorited:hover {
+  background: rgba(248,113,113,.15); border-color: #f87171;
+}
+
+/* 书脊上的标记已读按钮（左上角，未读时 hover 显示） */
+.morgan-library .morgan-spine .spine-finish-btn {
+  position: absolute; top: 8px; left: 8px; z-index: 4;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(31,19,10,.7); border: 1px solid var(--gilt-30);
+  color: var(--gilt-dim); cursor: pointer; font-size: var(--fs-label-lg);
+  display: none; align-items: center; justify-content: center;
+  transition: all .2s; line-height: 1; padding: 0;
+}
+.morgan-library .morgan-spine:hover .spine-finish-btn { display: flex; }
+.morgan-library .morgan-spine .spine-finish-btn:hover {
+  background: var(--gilt-15); border-color: var(--gilt);
+  color: var(--gilt-bright);
+}
+
+
+/* 已读对号徽标（Jellyfin 式） */
+.morgan-library .morgan-spine .spine-finished-badge {
+  position: absolute; top: 8px; left: 8px; z-index: 4;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(34,197,94,.85); border: 1.5px solid rgba(255,255,255,.3);
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Cormorant Garamond', serif;
-  font-size: var(--fs-label); font-weight: 600; color: var(--gilt);
-  background: rgba(31,19,10,.35);
-  opacity: .9; pointer-events: none;
-  box-shadow: inset 0 1px 2px rgba(255,255,255,.1), 0 1px 3px rgba(0,0,0,.3);
+  color: white; font-size: var(--fs-body); font-weight: bold; line-height: 1;
+  box-shadow: 0 2px 6px rgba(0,0,0,.4);
+  cursor: pointer; transition: all .2s; padding: 0;
 }
-/* 收藏钤记：烫金心印 */
-.morgan-library .morgan-spine .spine-fav-mark {
-  position: absolute; top: 6px; right: 6px; z-index: 4;
-  font-size: var(--fs-body); color: var(--gilt);
-  text-shadow: 0 0 4px rgba(201,169,97,.4), 0 1px 2px rgba(0,0,0,.5);
-  pointer-events: none; opacity: .85;
+.morgan-library .morgan-spine .spine-finished-badge:hover {
+  background: rgba(34,197,94,.95);
+  transform: scale(1.1);
+  box-shadow: 0 4px 10px rgba(34,197,94,.4);
 }
-/* 在读红点保留 */
+.morgan-library .morgan-spine .spine-finished-badge svg {
+  width: 14px; height: 14px; color: white;
+}
+/* 在读的进度标记（封面右下角小圆点） */
 .morgan-library .morgan-spine .spine-reading-dot {
   position: absolute; bottom: 50px; right: 8px; z-index: 4;
   width: 10px; height: 10px; border-radius: 50%;
   background: var(--ribbon-red); border: 1.5px solid rgba(255,255,255,.4);
   box-shadow: 0 2px 4px rgba(0,0,0,.4);
-  pointer-events: none;
 }
 
-/* --- D7: 抽出式 hover——物理隐喻 --- */
-.morgan-library .morgan-spine {
-  transition: transform .25s cubic-bezier(.22,1,.36,1),
-              box-shadow .25s ease, border-color .25s ease;
+/* 书脊上的详情按钮（右下角） */
+.morgan-library .morgan-spine .spine-info-btn {
+  position: absolute; bottom: 12px; right: 8px; z-index: 4;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: rgba(31,19,10,.7); border: 1px solid var(--gilt-30);
+  color: var(--gilt-dim); font-size: var(--fs-label-lg); cursor: pointer;
+  display: none; align-items: center; justify-content: center;
+  transition: all .2s; line-height: 1; padding: 0;
+  font-family: 'Cormorant Garamond', serif; font-style: italic;
 }
-.morgan-library .morgan-spine:hover,
-.morgan-library .morgan-spine:focus {
-  transform: translateY(-8px) scale(1.04) rotate(-0.5deg);
-  box-shadow:
-    0 18px 44px rgba(0,0,0,.55),
-    0 4px 12px rgba(201,169,97,.2),
-    inset 0 0 0 1px var(--gilt);
-  border-color: var(--gilt);
-  z-index: 10;
-}
-.morgan-library .morgan-spine:hover .spine-cover img {
-  filter: brightness(1.12) saturate(1.1);
-  transition: filter .25s ease;
-}
-.morgan-library .morgan-spine:hover .spine-title {
-  color: var(--gilt-bright);
-  text-shadow: 0 1px 4px rgba(201,169,97,.2);
-}
-.morgan-library .morgan-spine:hover .spine-seal {
-  opacity: 1;
-  box-shadow: inset 0 1px 2px rgba(255,255,255,.2), 0 2px 6px rgba(201,169,97,.3);
-}
-.morgan-library .morgan-spine:hover .spine-fav-mark {
-  opacity: 1;
-  text-shadow: 0 0 6px rgba(201,169,97,.6), 0 1px 2px rgba(0,0,0,.5);
+.morgan-library .morgan-spine:hover .spine-info-btn { display: flex; }
+.morgan-library .morgan-spine .spine-info-btn:hover {
+  background: var(--gilt); color: var(--wood-darkest); border-color: var(--gilt);
 }
 
 /* 书脊右键菜单提示 */
