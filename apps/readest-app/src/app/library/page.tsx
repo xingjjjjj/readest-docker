@@ -466,16 +466,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
               <div className='lbl'>页</div>
             </div>
           </div>
-          {/* D9: 拾遗视图时在馆牌面包屑位显示返回 */}
-          {view === 'marginalia' && (
-            <button
-              onClick={() => setView('catalogue')}
-              className='morgan-back-btn'
-              style={{ marginLeft: '16px' }}
-            >
-              ← 馆藏
-            </button>
-          )}
           {/* 功能按钮区 */}
           <MorganOverviewBar
             isSelectMode={isSelectMode}
@@ -585,6 +575,13 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
                   </div>
                 ) : (
                   <div className='view-marginalia'>
+                    {/* 返回按钮——流式排在拾遗标题上方（回滚 D9） */}
+                    <button
+                      onClick={() => setView('catalogue')}
+                      className='morgan-back-btn'
+                    >
+                      ← 返回馆藏
+                    </button>
                     <MarginaliaView libraryBooks={visibleBooks} />
                   </div>
                 )}

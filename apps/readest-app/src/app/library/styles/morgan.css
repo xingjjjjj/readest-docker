@@ -1685,9 +1685,9 @@
   box-shadow: none; background: none;
   padding: 4px 8px 8px;
 }
-/* D6: 分区间距——"章"的呼吸 ≥32px */
+/* 分区间距（回滚 D6） */
 .morgan-library .morgan-shelf-section {
-  margin-bottom: 32px;
+  margin-bottom: 8px;
 }
 /* D6: 书脊宽度统一为 104px——recent 和分组不再两套 */
 .morgan-library .morgan-shelf-section > .morgan-shelf {
