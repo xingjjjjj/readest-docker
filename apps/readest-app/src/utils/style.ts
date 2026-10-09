@@ -115,16 +115,11 @@ const getColorStyles = (
   isEink: boolean,
 ) => {
   let { bg, fg, primary, isDarkMode } = themeCode;
-  // 阅读内容区统一护眼配色——不依赖主题名/色值/明暗模式
-  // 浅色模式: 柔和羊皮纸底(色温偏暖,类似纸张反光),墨色文字
-  // 深色模式: 柔和暖灰纸底(对比度~7:1,暖白文字),降低眩光
-  // （localStorage 可能存任意主题,这里无条件覆盖保证护眼）
+  // 最早版护眼逻辑（恢复）：仅深色模式强制护眼暖灰纸
+  // 浅色模式交回主题本身控制（morgan-light 自带羊皮纸 #F4ECD8）
   if (isDarkMode) {
     bg = '#3B382E';
     fg = '#E6DCC3';
-  } else {
-    bg = '#F4ECD8';
-    fg = '#2B2015';
   }
   const colorStyles = `
     html {
