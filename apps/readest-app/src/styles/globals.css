@@ -1,4 +1,4 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -707,3 +707,18 @@ foliate-fxl {
 .tungsten-mono {
   font-family: ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
 }
+
+/* ================= Morgan Library theme refinements ================= */
+[data-theme='morgan-dark'] ::-webkit-scrollbar { width: 6px; height: 6px; }
+[data-theme='morgan-dark'] ::-webkit-scrollbar-track { background: rgba(43,24,16,.5); }
+[data-theme='morgan-dark'] ::-webkit-scrollbar-thumb { background: #9C7E3E; border-radius: 3px; }
+[data-theme='morgan-dark'] ::-webkit-scrollbar-thumb:hover { background: #C9A961; }
+[data-theme='morgan-dark'] ::selection { background: rgba(201,169,97,.35); color: #F4ECD8; }
+[data-theme='morgan-dark'] .toggle { border-color: #9C7E3E; }
+[data-theme='morgan-dark'] .toggle:checked { background: #C9A961; border-color: #C9A961; }
+[data-theme='morgan-dark'] .progress { color: #C9A961; }
+[data-theme='morgan-dark'] .progress::-webkit-progress-value { background: linear-gradient(90deg,#9C7E3E,#C9A961); }
+[data-theme='morgan-light'] ::-webkit-scrollbar-thumb { background: #B9A15F; border-radius: 3px; }
+[data-theme='morgan-light'] ::selection { background: rgba(156,126,62,.25); }
+
+

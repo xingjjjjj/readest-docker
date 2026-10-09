@@ -54,7 +54,7 @@ const getInitialThemeMode = (): ThemeMode => {
 
 const getInitialThemeColor = (): string => {
   if (typeof window !== 'undefined' && localStorage) {
-    const defaultColor = window.__READEST_IS_EINK ? 'contrast' : 'default';
+    const defaultColor = window.__READEST_IS_EINK ? 'contrast' : 'morgan';
     return localStorage.getItem('themeColor') || defaultColor;
   }
   return 'default';

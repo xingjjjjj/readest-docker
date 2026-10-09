@@ -1,4 +1,4 @@
-import tinycolor from 'tinycolor2';
+﻿import tinycolor from 'tinycolor2';
 import { stubTranslation as _ } from '../utils/misc';
 import { getContrastHex, getContrastOklch, hexToOklch } from '../utils/color';
 
@@ -156,6 +156,16 @@ export const themes = [
     colors: {
       light: generateLightPalette({ fg: '#423126', bg: '#fff7f0', primary: '#fe6b64' }),
       dark: generateDarkPalette({ fg: '#f6e1d7', bg: '#3c2b25', primary: '#ff9c94' }),
+    },
+  },
+  {
+    name: 'morgan',
+    label: _('Morgan 摩根书房'),
+    colors: {
+      // 浅色模式：羊皮纸底+墨色文字+黄铜金
+      light: generateLightPalette({ fg: '#2B2015', bg: '#F4ECD8', primary: '#9C7E3E' }),
+      // 深色模式：深胡桃木底+羊皮文字+烫金
+      dark: generateDarkPalette({ fg: '#F4ECD8', bg: '#2B1810', primary: '#C9A961' }),
     },
   },
 ] as Theme[];
