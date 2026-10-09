@@ -1648,6 +1648,14 @@
   box-shadow: none; background: none;
   padding: 4px 8px 8px;
 }
+/* 分组内的书脊等比缩小（最近阅读横带保持110px不变） */
+.morgan-library .morgan-shelf-section > .morgan-shelf {
+  grid-template-columns: repeat(auto-fill, minmax(94px, 1fr));
+  gap: 12px;
+}
+.morgan-library .morgan-shelf-section > .morgan-shelf .morgan-spine .spine-title {
+  font-size: 11px;
+}
 /* 分区之间的分隔线 */
 .morgan-library .morgan-shelf-section + .morgan-shelf-section {
   border-top: 1px solid rgba(201,169,97,.08);
