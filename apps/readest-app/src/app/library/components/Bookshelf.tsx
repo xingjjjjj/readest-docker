@@ -1,7 +1,8 @@
 ﻿'use client';
 
 import clsx from 'clsx';
-import React, { useRouter, useSearchParams } from 'next/navigation';
+import React from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Book } from '@/types/book';
 import { LibraryCoverFitType, LibraryViewModeType } from '@/types/settings';
