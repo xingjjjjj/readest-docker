@@ -1,4 +1,4 @@
-import {
+﻿import {
   MONOSPACE_FONTS,
   SANS_SERIF_FONTS,
   SERIF_FONTS,
@@ -114,7 +114,13 @@ const getColorStyles = (
   backgroundTextureId: string,
   isEink: boolean,
 ) => {
-  const { bg, fg, primary, isDarkMode } = themeCode;
+  let { bg, fg, primary, isDarkMode } = themeCode;
+  // Morgan 深色模式护眼底色：柔和暖灰纸，比深胡桃木 UI 底色更护眼
+  // （对比度 ~7:1，色温偏暖，长时间阅读不易视疲劳）
+  if (isDarkMode && bg === '#2B1810') {
+    bg = '#3B382E';
+    fg = '#E6DCC3';
+  }
   const colorStyles = `
     html {
       --bg-texture-id: ${backgroundTextureId};
