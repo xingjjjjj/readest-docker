@@ -4,175 +4,62 @@ import { md5Fingerprint } from '@/utils/md5';
 
 export type FontFormat = 'ttf' | 'otf' | 'woff' | 'woff2';
 
-const basicGoogleFonts = [
-  { family: 'Bitter', weights: 'ital,wght@0,100..900;1,100..900' },
-  { family: 'Fira Code', weights: 'wght@300..700' },
-  { family: 'Literata', weights: 'ital,opsz,wght@0,7..72,200..900;1,7..72,200..900' },
-  { family: 'Merriweather', weights: 'ital,opsz,wght@0,18..144,300..900;1,18..144,300..900' },
-  { family: 'Noto Sans', weights: 'ital,wght@0,100..900;1,100..900' },
-  { family: 'Open Sans', weights: 'ital,wght@0,300..800;1,300..800' },
-  { family: 'Roboto', weights: 'ital,wght@0,100..900;1,100..900' },
-  { family: 'Roboto Slab', weights: 'ital,wght@0,100..900;1,100..900' },
-  { family: 'Vollkorn', weights: 'ital,wght@0,400..900;1,400..900' },
-  { family: 'PT Sans', weights: 'ital,wght@0,400;0,700;1,400;1,700' },
-  { family: 'PT Serif', weights: 'ital,wght@0,400;0,700;1,400;1,700' },
-  { family: 'PT Mono', weights: '' },
-];
-
-const cjkGoogleFonts = [
-  { family: 'LXGW WenKai TC', weights: '' },
-  { family: 'Noto Sans SC', weights: '' },
-  { family: 'Noto Sans TC', weights: '' },
-  { family: 'Noto Serif JP', weights: '' },
-];
-
-// Resource hints for faster font loading
-const getResourceHints = (includeCJK = false) => {
-  const basicHints = `
-  <!-- Preconnect to Google Fonts for faster DNS resolution and connection -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="dns-prefetch" href="https://fonts.googleapis.com">
-  <link rel="dns-prefetch" href="https://fonts.gstatic.com">
-`;
-
-  const cjkHints = `
-  <!-- Preconnect to CJK font CDNs -->
-  <link rel="preconnect" href="https://cdn.jsdelivr.net">
-  <link rel="preconnect" href="https://cdnjs.cloudflare.com">
-  <link rel="preconnect" href="https://ik.imagekit.io">
-  <link rel="preconnect" href="https://db.onlinewebfonts.com">
-  <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
-  <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
-  <link rel="dns-prefetch" href="https://ik.imagekit.io">
-  <link rel="dns-prefetch" href="https://db.onlinewebfonts.com">
-`;
-
-  return includeCJK ? basicHints + cjkHints : basicHints;
-};
-
-const getAdditionalBasicFontLinks = () => `
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?${basicGoogleFonts
-    .map(
-      ({ family, weights }) =>
-        `family=${encodeURIComponent(family)}${weights ? `:${weights}` : ''}`,
-    )
-    .join('&')}&display=swap" crossorigin="anonymous">
-`;
-
-const getAdditionalCJKFontLinks = () => `
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/misans-webfont@1.0.4/misans-l3/misans-l3/result.min.css" crossorigin="anonymous" />
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/lxgw-wenkai-screen-web/1.520.0/lxgwwenkaigbscreen/result.css" crossorigin="anonymous" />
-  <link rel='stylesheet' href='https://ik.imagekit.io/fonts131/packages/hwmct/dist/%E6%B1%87%E6%96%87%E6%98%8E%E6%9C%9D%E4%BD%93/result.css' crossorigin="anonymous" />
-  <link rel='stylesheet' href='https://ik.imagekit.io/fonts131/packages/jhlst/dist/%E4%BA%AC%E8%8F%AF%E8%80%81%E5%AE%8B%E4%BD%93v2_002/result.css' crossorigin="anonymous" />
-  <link rel='stylesheet' href='https://ik.imagekit.io/fonts131/packages/syst/dist/SourceHanSerifCN/result.css' crossorigin="anonymous" />
-  <link rel='stylesheet' href='https://ik.imagekit.io/fonts131/packages/GuanKiapTsingKhai/dist/GuanKiapTsingKhai-T/result.css' crossorigin="anonymous" />
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?${cjkGoogleFonts
-    .map(
-      ({ family, weights }) =>
-        `family=${encodeURIComponent(family)}${weights ? `:${weights}` : ''}`,
-    )
-    .join('&')}&display=swap" crossorigin="anonymous" />
-`;
-
-const getAdditionalCJKFontFaces = () => `
+/**
+ * CJK 字体自托管策略（零外链）：
+ * - 所有 @font-face 只用 local() 引用用户 OS 已安装的系统字体
+ * - 不再注入任何境外 CDN 样式表（Google Fonts/jsdelivr/cdnjs/imagekit/onlinewebfonts）
+ * - 系统字体在 Windows/macOS/Linux 均已内置（楷体/仿宋/黑体/宋体等）
+ * - 需要特殊字体的用户可通过"自定义字体"功能上传（已有功能）
+ */
+const getSystemCJKFontFaces = () => `
   @font-face {
     font-family: "FangSong";
     font-display: swap;
-    src: local("Fang Song"), local("FangSong"), local("Noto Serif CJK"), local("Source Han Serif SC VF"), url("https://db.onlinewebfonts.com/t/2ecbfe1d9bfc191c6f15c0ccc23cbd43.eot");
-    src: url("https://db.onlinewebfonts.com/t/2ecbfe1d9bfc191c6f15c0ccc23cbd43.eot?#iefix") format("embedded-opentype"),
-    url("https://db.onlinewebfonts.com/t/2ecbfe1d9bfc191c6f15c0ccc23cbd43.woff2") format("woff2"),
-    url("https://db.onlinewebfonts.com/t/2ecbfe1d9bfc191c6f15c0ccc23cbd43.woff") format("woff"),
-    url("https://db.onlinewebfonts.com/t/2ecbfe1d9bfc191c6f15c0ccc23cbd43.ttf") format("truetype"),
-    url("https://db.onlinewebfonts.com/t/2ecbfe1d9bfc191c6f15c0ccc23cbd43.svg#FangSong") format("svg");
+    src: local("Fang Song"), local("FangSong"), local("STFangsong"),
+         local("Noto Serif CJK"), local("Source Han Serif SC");
   }
   @font-face {
     font-family: "Kaiti";
     font-display: swap;
-    src: local("Kai"), local("KaiTi"), local("AR PL UKai"), local("LXGW WenKai GB Screen"), url("https://db.onlinewebfonts.com/t/1ee9941f1b8c128110ca4307dda59917.eot");
-    src: url("https://db.onlinewebfonts.com/t/1ee9941f1b8c128110ca4307dda59917.eot?#iefix")format("embedded-opentype"),
-    url("https://db.onlinewebfonts.com/t/1ee9941f1b8c128110ca4307dda59917.woff2")format("woff2"),
-    url("https://db.onlinewebfonts.com/t/1ee9941f1b8c128110ca4307dda59917.woff")format("woff"),
-    url("https://db.onlinewebfonts.com/t/1ee9941f1b8c128110ca4307dda59917.ttf")format("truetype"),
-    url("https://db.onlinewebfonts.com/t/1ee9941f1b8c128110ca4307dda59917.svg#STKaiti")format("svg");
+    src: local("Kai"), local("KaiTi"), local("STKaiti"),
+         local("AR PL UKai"), local("LXGW WenKai GB Screen");
   }
   @font-face {
     font-family: "Heiti";
     font-display: swap;
-    src: local("Hei"), local("SimHei"), local("WenQuanYi Zen Hei"), local("Source Han Sans SC VF"), url("https://db.onlinewebfonts.com/t/a4948b9d43a91468825a5251df1ec58d.eot");
-    src: url("https://db.onlinewebfonts.com/t/a4948b9d43a91468825a5251df1ec58d.eot?#iefix")format("embedded-opentype"),
-    url("https://db.onlinewebfonts.com/t/a4948b9d43a91468825a5251df1ec58d.woff2")format("woff2"),
-    url("https://db.onlinewebfonts.com/t/a4948b9d43a91468825a5251df1ec58d.woff")format("woff"),
-    url("https://db.onlinewebfonts.com/t/a4948b9d43a91468825a5251df1ec58d.ttf")format("truetype"),
-    url("https://db.onlinewebfonts.com/t/a4948b9d43a91468825a5251df1ec58d.svg#WenQuanYi Micro Hei")format("svg");
+    src: local("Hei"), local("SimHei"), local("Heiti SC"),
+         local("WenQuanYi Zen Hei"), local("Source Han Sans SC");
   }
   @font-face {
     font-family: "XiHeiti";
     font-display: swap;
-    src: local("PingFang SC"), local("Microsoft YaHei"), local("WenQuanYi Micro Hei"), local("FZHei-B01"), url("https://db.onlinewebfonts.com/t/4f0b783ba4a1b381fc7e7af81ecab481.eot");
-    src: url("https://db.onlinewebfonts.com/t/4f0b783ba4a1b381fc7e7af81ecab481.eot?#iefix")format("embedded-opentype"),
-    url("https://db.onlinewebfonts.com/t/4f0b783ba4a1b381fc7e7af81ecab481.woff2")format("woff2"),
-    url("https://db.onlinewebfonts.com/t/4f0b783ba4a1b381fc7e7af81ecab481.woff")format("woff"),
-    url("https://db.onlinewebfonts.com/t/4f0b783ba4a1b381fc7e7af81ecab481.ttf")format("truetype"),
-    url("https://db.onlinewebfonts.com/t/4f0b783ba4a1b381fc7e7af81ecab481.svg#STHeiti J Light")format("svg");
-}
+    src: local("PingFang SC"), local("Microsoft YaHei"),
+         local("WenQuanYi Micro Hei"), local("FZHei-B01");
+  }
+  @font-face {
+    font-family: "Songti";
+    font-display: swap;
+    src: local("SimSun"), local("Songti SC"), local("Noto Serif CJK SC"),
+         local("Source Han Serif SC");
+  }
+  @font-face {
+    font-family: "XiSongti";
+    font-display: swap;
+    src: local("STSong"), local("Songti SC"), local("Noto Serif CJK SC");
+  }
 `;
 
 export const mountAdditionalFonts = async (document: Document, isCJK = false) => {
   const mountCJKFonts = isCJK || isCJKEnv();
 
-  const hints = getResourceHints(mountCJKFonts);
-  const hintsParser = new DOMParser();
-  const hintsDocument = hintsParser.parseFromString(hints, 'text/html');
-
-  // Mount resource hints at the beginning of head for priority
-  Array.from(hintsDocument.head.children).forEach((child) => {
-    if (child.tagName === 'LINK') {
-      const link = document.createElement('link');
-      link.rel = child.getAttribute('rel') || '';
-      link.href = child.getAttribute('href') || '';
-      const crossorigin = child.getAttribute('crossorigin');
-      if (crossorigin) {
-        link.crossOrigin = crossorigin;
-      }
-
-      // Insert at the beginning of head for maximum priority
-      if (document.head.firstChild) {
-        document.head.insertBefore(link, document.head.firstChild);
-      } else {
-        document.head.appendChild(link);
-      }
-    }
-  });
-
-  // Mount font stylesheets and @font-face rules
-  let links = getAdditionalBasicFontLinks();
-  let fontFaces = '';
-
   if (mountCJKFonts) {
-    fontFaces = getAdditionalCJKFontFaces();
-    links = `${links}\n${getAdditionalCJKFontLinks()}`;
-  }
-
-  if (fontFaces) {
     const style = document.createElement('style');
-    style.textContent = fontFaces;
+    style.id = 'cjk-system-fonts';
+    style.textContent = getSystemCJKFontFaces();
     document.head.appendChild(style);
   }
-
-  const parser = new DOMParser();
-  const linksDocument = parser.parseFromString(links, 'text/html');
-
-  Array.from(linksDocument.head.children).forEach((child) => {
-    if (child.tagName === 'LINK') {
-      const link = document.createElement('link');
-      link.rel = child.getAttribute('rel') || '';
-      link.href = child.getAttribute('href') || '';
-      link.crossOrigin = child.getAttribute('crossorigin') || '';
-
-      document.head.appendChild(link);
-    }
-  });
+  // 不注入任何外部 CDN 字体链接——每翻一章节省 8-10 个境外请求
+  // 阅读器字体回退链: 系统衬线 → 系统无衬线 → monospace
 };
 
 export type FontStyle = 'normal' | 'italic' | 'oblique';

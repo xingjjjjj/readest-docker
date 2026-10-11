@@ -10,13 +10,10 @@ const config: Config = {
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
-  safelist: [
-    { pattern: /bg-./ },
-    { pattern: /text-./ },
-    { pattern: /fill-./ },
-    { pattern: /decoration-./ },
-    { pattern: /tooltip-./ },
-  ],
+  // CSS 瘦身：删除宽正则 safelist（/bg-./ 等会生成数千个未使用类定义）
+  // Tailwind scanner 自动扫描源码中出现的类名，不需要手动 safelist 全量
+  // 若后续发现动态构造的类缺失，可精准添加个别 pattern
+  safelist: [],
   theme: {
     extend: {
       colors: {
