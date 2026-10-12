@@ -13,7 +13,7 @@ import {
   ViewConfig,
   ViewSettings,
 } from '@/types/book';
-import { KOSyncSettings, ReadSettings, SystemSettings } from '@/types/settings';
+import { ReadSettings, SystemSettings } from '@/types/settings';
 import { UserStorageQuota, UserDailyTranslationQuota } from '@/types/quota';
 import { getDefaultMaxBlockSize, getDefaultMaxInlineSize } from '@/utils/config';
 import { stubTranslation as _ } from '@/utils/misc';
@@ -44,17 +44,6 @@ export const BOOK_UNGROUPED_ID = '';
 export const SUPPORTED_IMAGE_EXTS = ['png', 'jpg', 'jpeg'];
 export const IMAGE_ACCEPT_FORMATS = SUPPORTED_IMAGE_EXTS.map((ext) => `.${ext}`).join(', ');
 
-export const DEFAULT_KOSYNC_SETTINGS = {
-  serverUrl: 'https://sync.koreader.rocks/', // https://kosync.ak-team.com:3042/
-  username: '',
-  userkey: '',
-  deviceId: '',
-  deviceName: '',
-  checksumMethod: 'binary',
-  strategy: 'prompt',
-  enabled: false,
-} as KOSyncSettings;
-
 export const DEFAULT_SYSTEM_SETTINGS: Partial<SystemSettings> = {
   keepLogin: false,
   autoUpload: true,
@@ -77,8 +66,6 @@ export const DEFAULT_SYSTEM_SETTINGS: Partial<SystemSettings> = {
   libraryCoverFit: 'crop',
   libraryAutoColumns: true,
   libraryColumns: 6,
-
-  kosync: DEFAULT_KOSYNC_SETTINGS,
 
   lastSyncedAtBooks: 0,
   lastSyncedAtConfigs: 0,
@@ -662,9 +649,6 @@ export const READEST_CHANGELOG_FILE = `${LATEST_DOWNLOAD_BASE_URL}/release-notes
 // 如果没有配置环境变量，自动使用当前域名
 export const READEST_PUBLIC_STORAGE_BASE_URL = process.env['NEXT_PUBLIC_STORAGE_BASE_URL'] || getAutoBaseUrl() || 'https://storage.readest.com';
 
-export const SYNC_PROGRESS_INTERVAL_SEC = 3;
-export const SYNC_NOTES_INTERVAL_SEC = 5;
-export const SYNC_BOOKS_INTERVAL_SEC = 5;
 export const CHECK_UPDATE_INTERVAL_SEC = 24 * 60 * 60;
 
 export const MAX_ZOOM_LEVEL = 500;

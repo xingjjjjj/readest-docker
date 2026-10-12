@@ -19,7 +19,6 @@ import { useTranslation } from '@/hooks/useTranslation';
 import { useResponsiveSize } from '@/hooks/useResponsiveSize';
 import { useDeviceControlStore } from '@/store/deviceStore';
 import { useFoliateEvents } from '../../hooks/useFoliateEvents';
-import { useNotesSync } from '../../hooks/useNotesSync';
 import { useTextSelector } from '../../hooks/useTextSelector';
 import { Position, TextSelection } from '@/utils/sel';
 import { getPopupPosition, getPosition, getTextFromRange } from '@/utils/sel';
@@ -53,7 +52,6 @@ const Annotator: React.FC<{ bookKey: string }> = ({ bookKey }) => {
   const { setNotebookVisible, setNotebookNewAnnotation, setNotebookEditAnnotation } = useNotebookStore();
   const { listenToNativeTouchEvents } = useDeviceControlStore();
 
-  useNotesSync(bookKey);
 
   const osPlatform = getOSPlatform();
   const progress = getProgress(bookKey)!;

@@ -31,7 +31,6 @@ import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useTheme } from '@/hooks/useTheme';
 import { useUICSS } from '@/hooks/useUICSS';
 import { useDemoBooks } from './hooks/useDemoBooks';
-import { useBooksSync } from './hooks/useBooksSync';
 import { useBookDataStore } from '@/store/bookDataStore';
 import { useScreenWakeLock } from '@/hooks/useScreenWakeLock';
 import { useOpenWithBooks } from '@/hooks/useOpenWithBooks';
@@ -123,10 +122,8 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   useOpenWithBooks();
   useTransferQueue(libraryLoaded);
 
-  const { pullLibrary, pushLibrary } = useBooksSync();
   const { isDragging } = useDragDropImport();
 
-  usePullToRefresh(containerRef, pullLibrary);
   useScreenWakeLock(settings.screenWakeLock);
 
   useShortcuts({
@@ -162,6 +159,9 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
     setLibrary(library);
     await loadNotesData(envConfig);
   }, [envConfig, appService, loadNotesData]);
+
+  // 2026-10-12 摘除云同步空壳后，下拉刷新直接从服务端重拉库
+  usePullToRefresh(containerRef, handleRefreshLibrary);
 
   useEffect(() => {
     if (appService?.hasWindow) {
@@ -331,7 +331,6 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       const importedBooks = (await Promise.all(batch.map(processFile))).filter((book) => !!book);
       await updateBooks(envConfig, importedBooks);
     }
-    pushLibrary();
     if (failedImports.length > 0) {
       const filenames = failedImports.map((f) => f.filename);
       const errorMessage = failedImports.find((f) => f.errorMessage)?.errorMessage || '';
@@ -340,7 +339,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       eventDispatcher.dispatch('toast', { message: _('Successfully imported {{count}} book(s)', { count: successfulImports.length }), timeout: 2000, type: 'success' });
     }
     setLoading(false);
-  }, [_, appService, envConfig, getGroupId, getGroupName, updateBooks, pushLibrary]);
+  }, [_, appService, envConfig, getGroupId, getGroupName, updateBooks]);
 
   // useCallback：直接产出可传递的稳定函数（原先在 JSX 里调用工厂，每渲染新闭包）
   const handleBookDelete = useCallback(async (book: Book, syncBooks = true) => {
@@ -348,14 +347,13 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
       await appService?.deleteBook(book, 'both');
       await updateBook(envConfig, book);
       clearBookData(book.hash);
-      if (syncBooks) pushLibrary();
       eventDispatcher.dispatch('toast', { type: 'info', timeout: 1000, message: _('Book deleted: {{title}}', { title: book.title }) });
       return true;
     } catch {
       eventDispatcher.dispatch('toast', { type: 'error', message: _('Failed to delete book: {{title}}', { title: book.title }) });
       return false;
     }
-  }, [_, appService, envConfig, updateBook, clearBookData, pushLibrary]);
+  }, [_, appService, envConfig, updateBook, clearBookData]);
 
   const handleUpdateMetadata = async (book: Book, metadata: BookMetadata) => {
     book.metadata = metadata;
@@ -564,7 +562,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
                           handleBookDelete={handleBookDelete}
                           handleSetSelectMode={handleSetSelectMode}
                           handleShowDetailsBook={handleShowDetailsBook}
-                          handlePushLibrary={pushLibrary}
+                          handleRefreshLibrary={handleRefreshLibrary}
                           currentGroupPath={currentGroupPath}
                         />
                       </>

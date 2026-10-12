@@ -195,7 +195,7 @@ interface BookshelfProps {
   handleBookDelete: (book: Book, syncBooks?: boolean) => Promise<boolean>;
   handleSetSelectMode: (selectMode: boolean) => void;
   handleShowDetailsBook: (book: Book) => void;
-  handlePushLibrary: () => Promise<void>;
+  handleRefreshLibrary: () => Promise<void>;
   currentGroupPath?: string;
 }
 
@@ -208,7 +208,7 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   handleBookDelete,
   handleSetSelectMode,
   handleShowDetailsBook,
-  handlePushLibrary,
+  handleRefreshLibrary,
   currentGroupPath,
 }) => {
   const _ = useTranslation();
@@ -299,7 +299,7 @@ const groupId = searchParams?.get('group') || '';
     const byTop: Record<string, Book[]> = {};
     for (const b of filteredBooks) {
       const gn = (b.groupName || '').trim() || BOOK_UNGROUPED_NAME;
-      const top = gn.split('/')[0];
+      const top = gn.split('/')[0]!;
       if (!byTop[top]) byTop[top] = [];
       byTop[top].push(b);
     }
@@ -309,7 +309,7 @@ const groupId = searchParams?.get('group') || '';
       return a.localeCompare(b2, 'zh');
     });
     for (const top of tops) {
-      sections.push({ name: top, books: byTop[top], topLevel: true });
+      sections.push({ name: top, books: byTop[top]!, topLevel: true });
     }
     return sections;
   }, [filteredBooks, currentGroupName]);
@@ -379,7 +379,7 @@ const groupId = searchParams?.get('group') || '';
             let changed = false;
             const next = new Set(prev);
             for (const entry of entries) {
-              const hash = (entry.target as HTMLElement).dataset.bookHash;
+              const hash = (entry.target as HTMLElement).dataset['bookHash'];
               if (hash && entry.isIntersecting && !next.has(hash)) {
                 next.add(hash);
                 changed = true;
@@ -539,7 +539,7 @@ const groupId = searchParams?.get('group') || '';
       const book = libraryBooks.find((b) => b.hash === id);
       if (book) await handleBookDelete(book, false);
     }
-    await handlePushLibrary();
+    await handleRefreshLibrary();
     setBookIdsToDelete([]);
     setShowDeleteAlert(false);
     handleSetSelectMode(false);
@@ -645,10 +645,9 @@ const groupId = searchParams?.get('group') || '';
         )}
         {showDeleteAlert && (
           <Alert
-            open={showDeleteAlert}
             title={_('Delete Books')}
             message={_('Are you sure you want to delete the selected books?')}
-            onConfirm={confirmDelete}
+            onConfirm={() => void confirmDelete()}
             onCancel={() => setShowDeleteAlert(false)}
           />
         )}
@@ -796,10 +795,9 @@ const groupId = searchParams?.get('group') || '';
       {/* 删除确认 */}
       {showDeleteAlert && (
         <Alert
-          open={showDeleteAlert}
           title={_('Delete Books')}
           message={_('Are you sure you want to delete the selected books?')}
-          onConfirm={confirmDelete}
+          onConfirm={() => void confirmDelete()}
           onCancel={() => setShowDeleteAlert(false)}
         />
       )}
