@@ -201,8 +201,7 @@ const GroupingModal: React.FC<GroupingModalProps> = ({
     <div className='fixed inset-0 z-50 flex items-center justify-center' style={{ background: 'rgba(15,8,4,.75)', backdropFilter: 'blur(2px)' }}>
       <div
         ref={divRef}
-        className='morgan-modal-box'
-        className='overflow-y-auto p-6 max-h-[85%] w-[95%] min-w-64 max-w-[440px] sm:w-[70%]'
+        className='morgan-modal-box overflow-y-auto p-6 max-h-[85%] w-[95%] min-w-64 max-w-[440px] sm:w-[70%]'
       >
         <h2 className='morgan-modal-title'>{_('Group Books')}</h2>
 

@@ -1,7 +1,7 @@
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import { NextRequest, NextResponse } from 'next/server';
-import { isLocalStorageEnabled, resolveLocalPath } from '../_lib/localFs';
+import { isLocalStorageEnabled, resolveLocalPath, invalidateWalkFiles } from '../_lib/localFs';
 
 export async function POST(req: NextRequest) {
     if (!isLocalStorageEnabled()) {
@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
             }
         }
 
+        invalidateWalkFiles();
         return NextResponse.json({
             success: true,
             message: 'Book files successfully moved',

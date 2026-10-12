@@ -5,6 +5,7 @@ import {
     resolveLocalPath,
     ensureParentDir,
     TEMP_ROOT,
+    invalidateWalkFiles,
 } from '../_lib/localFs';
 import path from 'node:path';
 import { stat, rename, copyFile, unlink } from 'node:fs/promises';
@@ -69,6 +70,7 @@ export async function POST(req: NextRequest) {
             await unlink(tempFilePath);
         }
 
+        invalidateWalkFiles();
         return NextResponse.json({ ok: true, size: tempSize, filePath });
     } catch (error: any) {
         console.error('[CommitUpload] Error:', error?.message);

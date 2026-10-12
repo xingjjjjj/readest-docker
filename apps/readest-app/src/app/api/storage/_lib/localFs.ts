@@ -20,13 +20,16 @@ export const ensureRoots = async () => {
 // Keep user-provided relative paths intact; only trim leading slashes.
 const stripUserPrefix = (fileKey: string) => fileKey.replace(/^\/+/, '');
 
+// 2026-10-12 安全修复：startsWith 前缀判断存在 /baseX 绕过 /base 的边界问题
+const isInsideBase = (p: string, base: string) => p === base || p.startsWith(base + path.sep);
+
 export const resolveLocalPath = (fileKey: string, useTemp = false) => {
     const base = useTemp ? TEMP_ROOT : STORAGE_ROOT;
 
     // Allow absolute paths inside the storage root without re-prefixing.
     if (path.isAbsolute(fileKey)) {
         const fullPath = path.resolve(fileKey);
-        if (!fullPath.startsWith(base)) {
+        if (!isInsideBase(fullPath, base)) {
             throw new Error('Invalid file path');
         }
         const relPath = path.posix.normalize(path.relative(base, fullPath));
@@ -41,10 +44,9 @@ export const resolveLocalPath = (fileKey: string, useTemp = false) => {
         if (cleanKey === 'settings.json' || cleanKey === 'settings.json.bak') {
             const settingsRelPath = path.posix.normalize(`.readest/${cleanKey}`);
             const settingsFullPath = path.join(base, settingsRelPath);
-            if (!settingsFullPath.startsWith(base)) {
+            if (!isInsideBase(settingsFullPath, base)) {
                 throw new Error('Invalid file path');
             }
-            console.log('[LocalFS] Settings file routed:', cleanKey, '->', settingsRelPath);
             return { fullPath: settingsFullPath, relPath: settingsRelPath, basePath: base };
         }
 
@@ -52,15 +54,13 @@ export const resolveLocalPath = (fileKey: string, useTemp = false) => {
         if (cleanKey === 'library.json' || cleanKey === 'library.json.bak' || cleanKey === 'library_backup.json') {
             const libraryRelPath = path.posix.normalize(`.readest/${cleanKey}`);
             const libraryFullPath = path.join(base, libraryRelPath);
-            if (!libraryFullPath.startsWith(base)) {
+            if (!isInsideBase(libraryFullPath, base)) {
                 throw new Error('Invalid file path');
             }
-            console.log('[LocalFS] Library file routed:', cleanKey, '->', libraryRelPath);
             return { fullPath: libraryFullPath, relPath: libraryRelPath, basePath: base };
         }
 
         // All other files use flat structure
-        console.log('[LocalFS] ✓ Using flat storage, cleanKey:', cleanKey);
     }
 
     const relPath = path.posix.normalize(cleanKey);
@@ -68,10 +68,9 @@ export const resolveLocalPath = (fileKey: string, useTemp = false) => {
         throw new Error('Invalid file path');
     }
     const fullPath = path.join(base, relPath);
-    if (!fullPath.startsWith(base)) {
+    if (!isInsideBase(fullPath, base)) {
         throw new Error('Invalid file path');
     }
-    console.log('[LocalFS] ✓ Final paths - Full:', fullPath, ', Relative:', relPath);
     return { fullPath, relPath, basePath: base };
 };
 
@@ -85,7 +84,6 @@ export const readFileBuffer = async (fullPath: string) => {
         const stats = await fs.stat(fullPath);
         const fileSizeMB = stats.size / (1024 * 1024);
 
-        console.log(`[readFileBuffer] Reading file: ${fullPath}, size: ${fileSizeMB.toFixed(2)} MB`);
 
         // 警告：文件超过 100MB
         if (stats.size > 100 * 1024 * 1024) {
@@ -98,7 +96,6 @@ export const readFileBuffer = async (fullPath: string) => {
         }
 
         const buffer = Buffer.from(await fs.readFile(fullPath));
-        console.log(`[readFileBuffer] ✓ Successfully read ${fileSizeMB.toFixed(2)} MB`);
         return buffer;
     } catch (error: any) {
         console.error(`[readFileBuffer] ✗ Error reading file ${fullPath}:`, error.message);
@@ -151,5 +148,22 @@ export const walkFiles = async (root: string, prefix = ''): Promise<LocalFileInf
         }
     }
 
+    return files;
+};
+
+// 2026-10-12 性能优化：目录树快照缓存——list/stats 高频全树遍历改为 15 秒快照，写操作主动失效
+let walkSnapshot: { root: string; files: LocalFileInfo[]; ts: number } | null = null;
+const WALK_SNAPSHOT_TTL_MS = 15_000;
+
+export const invalidateWalkFiles = () => {
+    walkSnapshot = null;
+};
+
+export const walkFilesCached = async (root: string): Promise<LocalFileInfo[]> => {
+    if (walkSnapshot && walkSnapshot.root === root && Date.now() - walkSnapshot.ts < WALK_SNAPSHOT_TTL_MS) {
+        return walkSnapshot.files;
+    }
+    const files = await walkFiles(root);
+    walkSnapshot = { root, files, ts: Date.now() };
     return files;
 };

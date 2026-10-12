@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { EdgeSpeechTTS, EdgeTTSPayload } from '@/libs/edgeTTS';
 import { validateUserAndToken } from '@/utils/access';
+import { createHash } from 'node:crypto';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { STORAGE_ROOT } from '../../storage/_lib/localFs';
 
 const getLangFromVoice = (voiceId: string): string => {
   const match = voiceId.match(/^([a-z]{2}-[A-Z]{2})/);
@@ -10,6 +14,45 @@ const getLangFromVoice = (voiceId: string): string => {
 const isValidVoice = (voiceId: string): boolean => {
   return EdgeSpeechTTS.voices.some((v) => v.id === voiceId);
 };
+
+// 2026-10-12 TTS 结果缓存：音色+语速+文本 命中即免外呼微软（P2 优化）
+const TTS_CACHE_MAX_ITEM_BYTES = 2 * 1024 * 1024;
+const TTS_CACHE_MAX_TOTAL_BYTES = 200 * 1024 * 1024;
+
+async function saveTtsCache(cachePath: string, buffer: Buffer): Promise<void> {
+  try {
+    if (buffer.byteLength === 0 || buffer.byteLength > TTS_CACHE_MAX_ITEM_BYTES) return;
+    const dir = path.dirname(cachePath);
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(cachePath, buffer);
+    const entries = await fs.readdir(dir);
+    const stats = await Promise.all(
+      entries.map(async (name) => {
+        try {
+          const st = await fs.stat(path.join(dir, name));
+          return { p: path.join(dir, name), size: st.size, mtime: st.mtimeMs };
+        } catch {
+          return null;
+        }
+      }),
+    );
+    const valid = (stats.filter(Boolean) as Array<{ p: string; size: number; mtime: number }>).sort(
+      (a, b) => a.mtime - b.mtime,
+    );
+    let excess = valid.reduce((sum, e) => sum + e.size, 0) - TTS_CACHE_MAX_TOTAL_BYTES;
+    for (const e of valid) {
+      if (excess <= 0) break;
+      try {
+        await fs.unlink(e.p);
+        excess -= e.size;
+      } catch {
+        // ignore prune errors
+      }
+    }
+  } catch {
+    // 缓存写入失败不影响响应
+  }
+}
 
 export async function POST(request: NextRequest) {
   const { user, token } = await validateUserAndToken(request.headers.get('authorization'));
@@ -68,15 +111,34 @@ export async function POST(request: NextRequest) {
       pitch: 1.0,
     };
 
+    const cacheKey = createHash('sha256').update(`${voice}|${rate}|${text}`).digest('hex');
+    const cachePath = path.join(STORAGE_ROOT, '.readest', 'Cache', 'tts', `${cacheKey}.mp3`);
+    try {
+      const cached = await fs.readFile(cachePath);
+      return new NextResponse(cached, {
+        status: 200,
+        headers: {
+          'Content-Type': 'audio/mpeg',
+          'Content-Length': cached.byteLength.toString(),
+          'Cache-Control': 'public, max-age=86400, immutable',
+        },
+      });
+    } catch {
+      // cache miss — synthesize below
+    }
+
     const tts = new EdgeSpeechTTS();
     const response = await tts.create(payload);
     const arrayBuffer = await response.arrayBuffer();
+
+    await saveTtsCache(cachePath, Buffer.from(arrayBuffer));
 
     return new NextResponse(arrayBuffer, {
       status: 200,
       headers: {
         'Content-Type': 'audio/mpeg',
         'Content-Length': arrayBuffer.byteLength.toString(),
+        'Cache-Control': 'public, max-age=86400, immutable',
       },
     });
   } catch (error) {

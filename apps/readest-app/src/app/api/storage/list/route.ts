@@ -1,5 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { STORAGE_ROOT, ensureRoots, isLocalStorageEnabled, walkFiles } from '../_lib/localFs';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import { STORAGE_ROOT, ensureRoots, isLocalStorageEnabled, walkFilesCached } from '../_lib/localFs';
+
+// 2026-10-12 修复：旧 Readest/Books/ 正则在扁平结构下永远不命中，book_hash 恒为 null
+// 改为从 library.json 建立 路径→hash 映射，恢复 StorageManager 分组/按书删除能力
+async function buildBookIndex(): Promise<Map<string, { hash: string; title: string }>> {
+    const index = new Map<string, { hash: string; title: string }>();
+    try {
+        const libPath = path.join(STORAGE_ROOT, '.readest', 'library.json');
+        const library = JSON.parse(await fs.readFile(libPath, 'utf-8')) as Array<{
+            hash?: string; title?: string; relativePath?: string; deletedAt?: number | null;
+        }>;
+        for (const book of library) {
+            if (!book.hash || book.deletedAt || !book.relativePath) continue;
+            const folder = book.relativePath.replace(/\.[^.]+$/, '');
+            const entry = { hash: book.hash, title: book.title || '' };
+            index.set(book.relativePath, entry);
+            index.set(folder, entry);
+        }
+    } catch {
+        // library.json 不可读时退化为旧行为（book_hash 为 null）
+    }
+    return index;
+}
 
 const parseNumber = (value: string | null, fallback: number) => {
     const num = Number(value);
@@ -25,12 +49,16 @@ export async function GET(req: NextRequest) {
     const bookHashFilter = searchParams.get('bookHash');
     const search = searchParams.get('search');
 
-    const allFiles = await walkFiles(STORAGE_ROOT);
+    const bookIndex = await buildBookIndex();
+    const allFiles = await walkFilesCached(STORAGE_ROOT);
 
     const mapped = allFiles
         .map((file) => {
-            const bookHashMatch = file.fileKey.match(/Readest\/Books\/([^/]+)/);
-            const bookHash = bookHashMatch ? bookHashMatch[1] : null;
+            const direct = bookIndex.get(file.fileKey);
+            const slashIdx = file.fileKey.lastIndexOf('/');
+            const parent = slashIdx > 0 ? file.fileKey.slice(0, slashIdx) : '';
+            const parentHit = direct ? undefined : bookIndex.get(parent);
+            const bookHash = direct?.hash ?? parentHit?.hash ?? null;
             return {
                 file_key: file.fileKey,
                 file_size: file.size,

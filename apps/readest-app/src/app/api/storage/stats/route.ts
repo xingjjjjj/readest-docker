@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { STORAGE_ROOT, ensureRoots, isLocalStorageEnabled, walkFiles } from '../_lib/localFs';
+import { STORAGE_ROOT, ensureRoots, isLocalStorageEnabled, walkFilesCached } from '../_lib/localFs';
 
 export async function GET() {
     if (!isLocalStorageEnabled()) {
@@ -8,7 +8,7 @@ export async function GET() {
 
     await ensureRoots();
 
-    const files = await walkFiles(STORAGE_ROOT);
+    const files = await walkFilesCached(STORAGE_ROOT);
     const totalSize = files.reduce((sum, file) => sum + file.size, 0);
     const quotaEnv = process.env['LOCAL_STORAGE_QUOTA_BYTES'] || process.env['NEXT_PUBLIC_STORAGE_FIXED_QUOTA'];
     const quota = quotaEnv ? Number(quotaEnv) : totalSize || 1;

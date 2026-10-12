@@ -75,7 +75,8 @@ const BookDetailEdit: React.FC<BookDetailEditProps> = ({
     });
   };
 
-  const renderField = (f: typeof allFields[0]) => {
+  const renderField = (f?: (typeof allFields)[number]) => {
+    if (!f) return null;
     const isLocked = lockedFields[f.field] || false;
     const error = fieldErrors[f.field];
     const source = fieldSources[f.field];

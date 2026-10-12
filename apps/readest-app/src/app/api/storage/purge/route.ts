@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { deleteIfExists, ensureRoots, isLocalStorageEnabled, resolveLocalPath } from '../_lib/localFs';
+import { deleteIfExists, ensureRoots, isLocalStorageEnabled, resolveLocalPath, invalidateWalkFiles } from '../_lib/localFs';
 
 export async function DELETE(req: NextRequest) {
     if (!isLocalStorageEnabled()) {
@@ -34,5 +34,6 @@ export async function DELETE(req: NextRequest) {
         }
     }
 
+    invalidateWalkFiles();
     return NextResponse.json(result);
 }

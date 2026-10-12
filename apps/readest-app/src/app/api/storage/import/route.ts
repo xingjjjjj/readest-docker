@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { STORAGE_ROOT, ensureRoots, isLocalStorageEnabled } from '../_lib/localFs';
+import { STORAGE_ROOT, ensureRoots, isLocalStorageEnabled, invalidateWalkFiles } from '../_lib/localFs';
 
 export async function POST(req: NextRequest) {
     if (!isLocalStorageEnabled()) {
@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Book file not found' }, { status: 404 });
         }
 
+        invalidateWalkFiles();
         return NextResponse.json({
             success: true,
             bookPath: relativePath,

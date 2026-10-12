@@ -400,11 +400,6 @@ export class BaseAppService implements AppService {
 
     settings.localBooksDir = await this.fs.getPrefix('Books');
 
-    if (!settings.kosync.deviceId) {
-      settings.kosync.deviceId = uuidv4();
-      await this.saveSettings(settings);
-    }
-
     this.localBooksDir = settings.localBooksDir;
     return settings;
   }
@@ -1254,6 +1249,10 @@ export class BaseAppService implements AppService {
 
   private _libraryCache: Book[] | null = null;
 
+  // 2026-10-12 写放大优化：.bak 每小时最多写一次（原先每次保存全量双写）
+  private _lastBakAt: Record<string, number> = {};
+  private readonly BAK_WRITE_INTERVAL_MS = 60 * 60 * 1000;
+
   private async _loadLibraryBooksInternal(): Promise<Book[]> {
     const libraryFilename = getLibraryFilename();
 
@@ -1505,11 +1504,15 @@ export class BaseAppService implements AppService {
     const backupFilename = `${filename}.bak`;
     const jsonData = JSON.stringify(data, null, 2);
 
-    // Strategy: Always write to backup first, then to main file
-    // This ensures we always have at least one valid copy
+    // Strategy: main file always written; backup throttled to once per hour
+    // (2026-10-12 写放大优化：原先每次保存都全量双写 .bak + 主文件)
     try {
-      // Step 1: Write to backup file
-      await this.fs.writeFile(backupFilename, base, jsonData);
+      const now = Date.now();
+      const bakKey = `${base}:${filename}`;
+      if (now - (this._lastBakAt[bakKey] ?? 0) >= this.BAK_WRITE_INTERVAL_MS) {
+        await this.fs.writeFile(backupFilename, base, jsonData);
+        this._lastBakAt[bakKey] = now;
+      }
 
       // Step 2: Write to main file
       await this.fs.writeFile(filename, base, jsonData);

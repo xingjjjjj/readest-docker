@@ -6,13 +6,6 @@ import { LOCAL_BOOKS_SUBDIR, LOCAL_FONTS_SUBDIR, LOCAL_IMAGES_SUBDIR, DATA_SUBDI
 const basePrefix = async () => '';
 
 const resolvePath = (path: string, base: BaseDir): ResolvedPath => {
-    // Check if we're in local storage mode
-    const isLocalMode = (typeof process !== 'undefined' && process.env?.['NEXT_PUBLIC_STORAGE_MODE'] === 'local') ||
-        (typeof window !== 'undefined' && (window as any).__STORAGE_MODE__ === 'local');
-
-    if (typeof window === 'undefined' && typeof process !== 'undefined') {
-        console.log('[ResolvePath] Env Check - NEXT_PUBLIC_STORAGE_MODE:', process.env?.['NEXT_PUBLIC_STORAGE_MODE'], 'isLocalMode:', isLocalMode, 'base:', base, 'path:', path);
-    }
 
     switch (base) {
         case 'Data':
@@ -24,12 +17,9 @@ const resolvePath = (path: string, base: BaseDir): ResolvedPath => {
             // Always use flat storage structure (no Readest/Books/ prefix)
             // Library metadata files now go to .readest directory
             if (path === 'library.json' || path === 'library.json.bak' || path === 'library_backup.json') {
-                console.log('[ResolvePath] Books/Library detected, routing to .readest');
-                return { baseDir: 0, basePrefix, fp: `.readest/${path}`, base };
+                    return { baseDir: 0, basePrefix, fp: `.readest/${path}`, base };
             }
             // All book files and metadata use flat structure (no Readest/Books/ prefix)
-            console.log('[ResolvePath] ✓ Books base, flat path (no prefix):', path);
-            console.log('[ResolvePath] ✓ Returning fp:', path);
             return { baseDir: 0, basePrefix, fp: path, base };
         case 'Fonts':
             return { baseDir: 0, basePrefix, fp: `${LOCAL_FONTS_SUBDIR}/${path}`, base };
@@ -61,29 +51,24 @@ export const apiFileSystem: FileSystem = {
             return '';
         }
         const result = `/api/storage/file?filePath=${encodeURIComponent(path)}`;
-        console.debug('[APIFileSystem.getURL] ✓ Generated URL for path:', path, '-> Result:', result);
         return result;
     },
     async getBlobURL(path: string, base: BaseDir) {
         try {
-            console.log('[APIFileSystem.getBlobURL] Getting blob URL for path:', path, 'base:', base);
-            const content = await this.readFile(path, base, 'binary');
+                  const content = await this.readFile(path, base, 'binary');
             const result = URL.createObjectURL(new Blob([content]));
-            console.log('[APIFileSystem.getBlobURL] ✓ Created blob URL:', result);
-            return result;
+                  return result;
         } catch (error) {
             console.error('[APIFileSystem.getBlobURL] ✗ Error creating blob URL:', error);
             return path;
         }
     },
     async getImageURL(path: string) {
-        console.log('[APIFileSystem.getImageURL] Getting image URL for path:', path);
         if (!path || path.trim() === '') {
             console.warn('[APIFileSystem.getImageURL] ⚠️ WARNING: Empty path provided');
             return '';
         }
         const result = this.getURL(path);
-        console.log('[APIFileSystem.getImageURL] ✓ Result:', result);
         return result;
     },
     async openFile(path: string, base: BaseDir, filename?: string) {

@@ -11,7 +11,7 @@ import { eventDispatcher } from '@/utils/event';
 import SettingsMenu from './SettingsMenu';
 import { MdViewModule, MdViewList, MdCheckCircle } from 'react-icons/md';
 import { useState as useSt } from 'react';
-import { IoMdCloseCircle } from 'react-icons/io5';
+import { IoCloseCircle } from 'react-icons/io5';
 
 import { useTranslation } from '@/hooks/useTranslation';
 import { useLibraryStore } from '@/store/libraryStore';
@@ -73,7 +73,7 @@ const MorganOverviewBar: React.FC<MorganOverviewBarProps> = ({
 
   const [searchQuery, setSearchQuery] = useState(searchParams?.get('q') ?? '');
   const rawFilter = (searchParams?.get('filter') || 'all') as FilterKey;
-  const filter = (rawFilter === 'want' ? 'finished' : rawFilter) as FilterKey;
+  const filter = ((rawFilter as string) === 'want' ? 'finished' : rawFilter) as FilterKey;
   const sortBy = searchParams?.get('sort') || settings.librarySortBy || 'updated';
   const sortOrder = searchParams?.get('order') || (settings.librarySortAscending ? 'asc' : 'desc');
   const groupId = searchParams?.get('group') || '';
@@ -130,15 +130,15 @@ const MorganOverviewBar: React.FC<MorganOverviewBarProps> = ({
   const hasFilters = filter !== 'all' || !!searchQuery || !!groupId;
   const visibleBooks = useMemo(() => libraryBooks.filter((b) => !b.deletedAt), [libraryBooks]);
   const counts = useMemo(() => {
-    let reading = 0, unread = 0, finished = 0, favorites = 0;
+    let reading = 0, unread = 0, finished = 0, favorite = 0;
     for (const b of visibleBooks) {
       const s = getBookReadStatus(b);
       if (s === 'reading') reading++;
       else if (s === 'finished') finished++;
       else unread++;
-      if (b.isFavorite) favorites++;
+      if (b.isFavorite) favorite++;
     }
-    return { all: visibleBooks.length, reading, unread, finished, favorites };
+    return { all: visibleBooks.length, reading, unread, finished, favorite };
   }, [visibleBooks]);
 
   const filterLabels: Record<FilterKey, string> = {

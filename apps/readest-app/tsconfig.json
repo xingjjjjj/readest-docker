@@ -47,6 +47,7 @@
   ],
   "exclude": [
     "node_modules",
-    "src/__examples__/**"
+    "src/__examples__/**",
+    "src/__tests__/**"
   ]
 }

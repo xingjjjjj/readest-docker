@@ -10,7 +10,8 @@ try {
 const isDev = process.env['NODE_ENV'] === 'development';
 const appPlatform = process.env['NEXT_PUBLIC_APP_PLATFORM'];
 
-if (isDev) {
+// 2026-10-12 性能优化：OpenNext workerd 仅在显式开启时启动（省一个 workerd 进程+上百MB内存）
+if (isDev && process.env['ENABLE_OPENNEXT_DEV'] === '1') {
   const { initOpenNextCloudflareForDev } = await import('@opennextjs/cloudflare');
   initOpenNextCloudflareForDev();
 }

@@ -6,11 +6,64 @@ import {
     readFileBuffer,
     writeFileBuffer,
     ensureParentDir,
+    invalidateWalkFiles,
 } from '../_lib/localFs';
 import { createReadStream, createWriteStream } from 'fs';
 import { stat } from 'fs/promises';
 import { Readable, Transform } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
+
+import path from 'node:path';
+
+// 2026-10-12 MIME 修正：原先一律 octet-stream + attachment，浏览器无法内联渲染封面/字体
+const MIME_MAP: Record<string, string> = {
+    '.epub': 'application/epub+zip',
+    '.mobi': 'application/x-mobipocket-ebook',
+    '.azw': 'application/vnd.amazon.ebook',
+    '.azw3': 'application/vnd.amazon.ebook',
+    '.fb2': 'application/x-fictionbook+xml',
+    '.cbz': 'application/vnd.comicbook+zip',
+    '.pdf': 'application/pdf',
+    '.txt': 'text/plain; charset=utf-8',
+    '.json': 'application/json; charset=utf-8',
+    '.js': 'text/javascript; charset=utf-8',
+    '.css': 'text/css; charset=utf-8',
+    '.html': 'text/html; charset=utf-8',
+    '.xml': 'application/xml; charset=utf-8',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+    '.svg': 'image/svg+xml',
+    '.avif': 'image/avif',
+    '.ico': 'image/x-icon',
+    '.woff': 'font/woff',
+    '.woff2': 'font/woff2',
+    '.ttf': 'font/ttf',
+    '.otf': 'font/otf',
+    '.mp3': 'audio/mpeg',
+    '.m4a': 'audio/mp4',
+    '.ogg': 'audio/ogg',
+    '.mp4': 'video/mp4',
+    '.webm': 'video/webm',
+    '.wasm': 'application/wasm',
+};
+const BOOK_FILE_EXTS = new Set(['.epub', '.mobi', '.azw', '.azw3', '.fb2', '.cbz', '.pdf']);
+
+const getContentTypeFor = (relPath: string): string => {
+    const dot = relPath.lastIndexOf('.');
+    const ext = dot >= 0 ? relPath.slice(dot).toLowerCase() : '';
+    return MIME_MAP[ext] || 'application/octet-stream';
+};
+
+const getContentDispositionFor = (relPath: string, encodedFilename: string): string => {
+    const dot = relPath.lastIndexOf('.');
+    const ext = dot >= 0 ? relPath.slice(dot).toLowerCase() : '';
+    return BOOK_FILE_EXTS.has(ext)
+        ? `attachment; filename*=UTF-8''${encodedFilename}`
+        : 'inline';
+};
 
 // Force Node.js runtime to allow streaming writes and larger payloads
 export const runtime = 'nodejs';
@@ -155,8 +208,8 @@ export async function GET(req: NextRequest) {
             return new NextResponse(webStream, {
                 status: 206,
                 headers: {
-                    'Content-Type': 'application/octet-stream',
-                    'Content-Disposition': `attachment; filename*=UTF-8''${encodedFilename}`,
+                    'Content-Type': getContentTypeFor(relPath),
+                    'Content-Disposition': getContentDispositionFor(relPath, encodedFilename),
                     'Content-Length': contentLength.toString(),
                     'Content-Range': `bytes ${start}-${end}/${stats.size}`,
                     'Accept-Ranges': 'bytes',
@@ -178,8 +231,8 @@ export async function GET(req: NextRequest) {
             return new NextResponse(webStream, {
                 status: 200,
                 headers: {
-                    'Content-Type': 'application/octet-stream',
-                    'Content-Disposition': `attachment; filename*=UTF-8''${encodedFilename}`,
+                    'Content-Type': getContentTypeFor(relPath),
+                    'Content-Disposition': getContentDispositionFor(relPath, encodedFilename),
                     'Content-Length': stats.size.toString(),
                     'Accept-Ranges': 'bytes',
                     'ETag': etag,
@@ -194,8 +247,8 @@ export async function GET(req: NextRequest) {
             return new NextResponse(buffer, {
                 status: 200,
                 headers: {
-                    'Content-Type': 'application/octet-stream',
-                    'Content-Disposition': `attachment; filename*=UTF-8''${encodedFilename}`,
+                    'Content-Type': getContentTypeFor(relPath),
+                    'Content-Disposition': getContentDispositionFor(relPath, encodedFilename),
                     'Content-Length': buffer.length.toString(),
                     'Accept-Ranges': 'bytes',
                     'ETag': etag,
@@ -260,6 +313,7 @@ export async function PUT(req: NextRequest) {
 
         // P13：任何写入（含后续校验失败的截断）都使内存缓存失效，避免读到陈旧内容
         cacheInvalidate(fullPath);
+        invalidateWalkFiles();
 
         if (contentLength !== undefined && writtenBytes !== contentLength) {
             console.error('[Storage File PUT] Size mismatch! expected:', contentLength, 'written:', writtenBytes);

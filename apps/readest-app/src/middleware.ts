@@ -90,6 +90,21 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
+  // 2026-10-12 安全加固：/api/storage/* 原先完全无鉴权（同网段任意设备可读写全部书籍与笔记）
+  // 现要求 auth_token cookie（浏览器同源资源请求）或 Authorization Bearer（fetchWithAuth）二选一
+  if (pathname.startsWith('/api/storage')) {
+    const authHeader = request.headers.get('authorization') || '';
+    const bearerToken = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+    const valid = await verifyToken(request.cookies.get('auth_token')?.value || bearerToken);
+    if (!valid) {
+      const response = NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      if (isAllowedOrigin) {
+        response.headers.set('Access-Control-Allow-Origin', origin);
+      }
+      return response;
+    }
+  }
+
   // 页面保护（非 public 路径且非 API）
   if (!pathname.startsWith('/api') && !isPublicPath(pathname)) {
     const token = request.cookies.get('auth_token')?.value;

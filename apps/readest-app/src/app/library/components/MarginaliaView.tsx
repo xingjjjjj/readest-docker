@@ -95,7 +95,7 @@ const MarginaliaView: React.FC<MarginaliaViewProps> = ({ libraryBooks }) => {
     const byBook: Record<string, { book: Book; notes: BookNote[] }> = {};
     for (const it of items) {
       if (!byBook[it.book.hash]) byBook[it.book.hash] = { book: it.book, notes: [] };
-      byBook[it.book.hash].notes.push(it.note);
+      byBook[it.book.hash]!.notes.push(it.note);
     }
     const groups = Object.values(byBook);
     groups.sort((a, b) => b.notes.length - a.notes.length || a.book.title.localeCompare(b.book.title, 'zh'));
@@ -154,8 +154,8 @@ const MarginaliaView: React.FC<MarginaliaViewProps> = ({ libraryBooks }) => {
       {dim === 'time' && items.length > 0 && (
         <div className='marg-timeline'>
           {timeGroups.order.map((key) => {
-            const [y, m] = key.split('-');
-            const group = timeGroups.groups[key];
+            const [y, m] = key.split('-') as [string, string];
+            const group = timeGroups.groups[key] ?? [];
             return (
               <div key={key}>
                 <div className='marg-tl-month'>

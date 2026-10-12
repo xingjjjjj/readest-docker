@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { STORAGE_ROOT, ensureRoots, isLocalStorageEnabled } from '../_lib/localFs';
+import { STORAGE_ROOT, ensureRoots, isLocalStorageEnabled, invalidateWalkFiles } from '../_lib/localFs';
 import { extractCover } from '../_lib/coverExtractor';
 import { extractBookMetadata, saveBookMetadataInfo } from '../_lib/bookMetadataExtractor';
 
@@ -473,6 +473,7 @@ export async function POST(_req: NextRequest) {
         });
 
         // Step 8: 返回增量数据（减少数据传输）
+        invalidateWalkFiles();
         return NextResponse.json({
             success: true,
             summary: {
