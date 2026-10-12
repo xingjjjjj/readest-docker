@@ -7,8 +7,9 @@ import { genSSML } from '@/utils/ssml';
 import { fetchWithAuth } from '@/utils/fetch';
 import { getNodeAPIBaseUrl, isTauriAppPlatform } from '@/services/environment';
 
-const EDGE_SPEECH_URL =
-  'wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1';
+// 2026-10-12 修复：微软自 2026 年 10 月起对旧域名合成端点全面收紧（403/404），
+// Edge 155 已改走 api.msedgeservices.com，token 以 Ocp-Apim-Subscription-Key 传递（参考 edge-tts#491）
+const EDGE_SPEECH_URL = 'wss://api.msedgeservices.com/tts/cognitiveservices/websocket/v1';
 const EDGE_API_TOKEN = '6A5AA1D4EAFF4E9FB37E23D68491D6F4';
 const CHROMIUM_FULL_VERSION = '143.0.3650.75';
 const CHROMIUM_MAJOR_VERSION = CHROMIUM_FULL_VERSION.split('.')[0];
@@ -297,7 +298,7 @@ export class EdgeSpeechTTS {
     const connectId = randomMd5();
     const params = new URLSearchParams({
       ConnectionId: connectId,
-      TrustedClientToken: EDGE_API_TOKEN,
+      'Ocp-Apim-Subscription-Key': EDGE_API_TOKEN,
       'Sec-MS-GEC': generateSecMsGec(),
       'Sec-MS-GEC-Version': `1-${CHROMIUM_FULL_VERSION}`,
     });

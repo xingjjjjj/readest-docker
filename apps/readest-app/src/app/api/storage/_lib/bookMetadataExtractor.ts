@@ -5,7 +5,10 @@
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
+import { exec as execCb } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execAsync = promisify(execCb);
 
 export interface BookMetadataInfo {
     hash: string;
@@ -28,19 +31,34 @@ export interface BookMetadataInfo {
  * 从 EPUB 文件提取元数据
  */
 async function extractEpubMetadata(filePath: string, hash: string): Promise<Partial<BookMetadataInfo>> {
+    const tempDir = path.join('/tmp', `epub_meta_${hash}_${Date.now()}`);
     try {
-        // 使用 unzip 提取 content.opf 文件来获取元数据
-        const tempDir = path.join('/tmp', `epub_meta_${hash}_${Date.now()}`);
         await fs.mkdir(tempDir, { recursive: true });
 
+        // 2026-10-12 P0 修复：定向解压（container.xml → 权威 OPF 路径 → 仅解 OPF 单文件）替代整书解压；
+        // execSync→execAsync 避免阻塞事件循环；旧实现硬编码 content.opf 导致多数书元数据静默失败。
+        // 兼容：返回字段与旧实现完全一致。
         try {
-            execSync(`unzip -q "${filePath}" -d "${tempDir}"`, { stdio: 'pipe' });
+            await execAsync(`unzip -q -j "${filePath}" "META-INF/container.xml" -d "${tempDir}"`);
         } catch {
-            // unzip 可能失败，继续处理
+            return { hash, format: 'EPUB' };
         }
-
-        const opfPath = path.join(tempDir, 'content.opf');
-        const opfContent = await fs.readFile(opfPath, 'utf-8').catch(() => '');
+        const containerXml = await fs
+            .readFile(path.join(tempDir, 'container.xml'), 'utf-8')
+            .catch(() => '');
+        const opfMatch = containerXml.match(/full-path="([^"]+)"/);
+        if (!opfMatch || !opfMatch[1]) {
+            return { hash, format: 'EPUB' };
+        }
+        const opfEntry = opfMatch[1];
+        try {
+            await execAsync(`unzip -q -j "${filePath}" "${opfEntry}" -d "${tempDir}"`);
+        } catch {
+            return { hash, format: 'EPUB' };
+        }
+        const opfContent = await fs
+            .readFile(path.join(tempDir, path.basename(opfEntry)), 'utf-8')
+            .catch(() => '');
 
         // 解析 OPF 获取基本信息
         const titleMatch = opfContent.match(/<dc:title[^>]*>([^<]+)<\/dc:title>/);
@@ -59,13 +77,6 @@ async function extractEpubMetadata(filePath: string, hash: string): Promise<Part
             ? (tocMatch[1].match(/<a/g) || []).length
             : undefined;
 
-        // 清理临时文件
-        try {
-            execSync(`rm -rf "${tempDir}"`, { stdio: 'pipe' });
-        } catch {
-            // 忽略清理错误
-        }
-
         return {
             hash,
             title: titleMatch ? titleMatch[1] : 'Unknown',
@@ -82,6 +93,13 @@ async function extractEpubMetadata(filePath: string, hash: string): Promise<Part
     } catch (error) {
         console.warn(`[BookMetadataExtractor] Failed to extract EPUB metadata for ${hash}:`, error);
         return { hash, format: 'EPUB' };
+    } finally {
+        // 2026-10-12：清理移入 finally，任何退出路径都不再残留临时目录
+        try {
+            await fs.rm(tempDir, { recursive: true, force: true });
+        } catch {
+            // 忽略清理错误
+        }
     }
 }
 
