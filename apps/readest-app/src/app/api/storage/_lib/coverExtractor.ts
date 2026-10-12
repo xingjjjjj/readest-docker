@@ -15,7 +15,8 @@ const execAsync = promisify(exec);
  * 从 EPUB 文件中提取封面（使用系统 unzip 命令）
  */
 async function extractEpubCover(filePath: string): Promise<Buffer | null> {
-    const tempDir = path.join(path.dirname(filePath), '.temp_' + Date.now());
+    // 2026-10-12：临时目录移到 /tmp，避免崩溃残留被 walk/scan 捡进书库
+    const tempDir = path.join('/tmp', 'readest_cover_' + Date.now());
 
     try {
         // 创建临时目录

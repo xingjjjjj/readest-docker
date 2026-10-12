@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { STORAGE_ROOT, ensureRoots, isLocalStorageEnabled, invalidateWalkFiles } from '../_lib/localFs';
+import { STORAGE_ROOT, TEMP_ROOT, ensureRoots, isLocalStorageEnabled, invalidateWalkFiles } from '../_lib/localFs';
 import { extractCover } from '../_lib/coverExtractor';
 import { extractBookMetadata, saveBookMetadataInfo } from '../_lib/bookMetadataExtractor';
+import { generateCoverThumbWebp } from '../_lib/imageThumb';
 
 const SUPPORTED_EXTS = ['.epub', '.mobi', '.azw', '.azw3', '.fb2', '.cbz', '.pdf', '.txt'];
 const METADATA_DIR = '.readest';
@@ -12,6 +13,63 @@ const LIBRARY_FILE = path.join(STORAGE_ROOT, METADATA_DIR, 'library.json');
 
 // 哈希缓存：使用文件路径+mtime作为key，避免重复计算
 const hashCache = new Map<string, { hash: string; mtime: number }>();
+
+// 2026-10-12 P1：哈希缓存持久化——服务重启后不再全库重读（每本可省 2MB IO）。
+// 兼容：缓存文件不存在时静默降级为旧行为（首次运行为空）。
+const HASH_CACHE_FILE = path.join(STORAGE_ROOT, METADATA_DIR, 'scan-cache.json');
+let hashCacheLoaded = false;
+async function loadHashCache(): Promise<void> {
+    if (hashCacheLoaded) return;
+    hashCacheLoaded = true;
+    try {
+        const raw = JSON.parse(await fs.readFile(HASH_CACHE_FILE, 'utf-8')) as Record<string, { hash: string; mtime: number }>;
+        for (const [p, v] of Object.entries(raw)) hashCache.set(p, v);
+    } catch {
+        // 无缓存文件或损坏时静默降级
+    }
+}
+async function saveHashCache(entries: Record<string, { hash: string; mtime: number }>): Promise<void> {
+    try {
+        await fs.mkdir(path.dirname(HASH_CACHE_FILE), { recursive: true });
+        const tmp = HASH_CACHE_FILE + '.tmp';
+        await fs.writeFile(tmp, JSON.stringify(entries, null, 2), 'utf-8');
+        await fs.rename(tmp, HASH_CACHE_FILE);
+    } catch {
+        // 缓存写失败不影响扫描结果
+    }
+}
+
+// 2026-10-12 P1：清理超过 7 天的临时上传残件与崩溃残留目录（只删 .part/.temp_*，不动任何正式数据）
+async function cleanupTempFiles(): Promise<void> {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    try {
+        const uploadsDir = path.join(TEMP_ROOT, 'uploads');
+        const names = await fs.readdir(uploadsDir).catch(() => []);
+        for (const name of names) {
+            if (!name.endsWith('.part')) continue;
+            const p = path.join(uploadsDir, name);
+            try {
+                const st = await fs.stat(p);
+                if (st.mtimeMs < cutoff) await fs.rm(p, { force: true });
+            } catch { /* 忽略单个文件错误 */ }
+        }
+    } catch { /* 忽略 */ }
+    try {
+        const groups = await fs.readdir(STORAGE_ROOT, { withFileTypes: true }).catch(() => []);
+        for (const g of groups) {
+            if (!g.isDirectory()) continue;
+            const entries = await fs.readdir(path.join(STORAGE_ROOT, g.name), { withFileTypes: true }).catch(() => []);
+            for (const e of entries) {
+                if (!e.isDirectory() || !e.name.startsWith('.temp_')) continue;
+                const p = path.join(STORAGE_ROOT, g.name, e.name);
+                try {
+                    const st = await fs.stat(p);
+                    if (st.mtimeMs < cutoff) await fs.rm(p, { recursive: true, force: true });
+                } catch { /* 忽略 */ }
+            }
+        }
+    } catch { /* 忽略 */ }
+}
 
 interface ScannedBook {
     filePath: string;
@@ -220,6 +278,8 @@ export async function POST(_req: NextRequest) {
 
     try {
         console.log('[ScanAndImport] Starting scan and import process');
+        await loadHashCache();
+        await cleanupTempFiles();
 
         // Step 1: 扫描文件系统
         const scannedBooks = await scanDirectory(STORAGE_ROOT, STORAGE_ROOT);
@@ -233,6 +293,11 @@ export async function POST(_req: NextRequest) {
             await Promise.all(batch.map(async (book) => {
                 book.hash = await computeQuickHash(book.filePath, book.mtime);
             }));
+        }
+        // 2026-10-12 P1：收集本轮哈希结果用于持久化（顺带自动清理已删书籍的陈旧缓存项）
+        const persistedHashEntries: Record<string, { hash: string; mtime: number }> = {};
+        for (const b of scannedBooks) {
+            if (b.hash) persistedHashEntries[b.filePath] = { hash: b.hash, mtime: b.mtime };
         }
 
         // Step 3: 读取现有库
@@ -334,6 +399,8 @@ export async function POST(_req: NextRequest) {
                 if (coverBuffer.status === 'fulfilled' && coverBuffer.value) {
                     const coverPath = path.join(metadataFolderPath, 'cover.png');
                     await fs.writeFile(coverPath, coverBuffer.value);
+                    // 2026-10-12 P1：同步生成 600px WebP 缩略图（cover.png 保留不动，完全兼容）
+                    await generateCoverThumbWebp(coverPath, path.join(metadataFolderPath, 'cover.webp'));
                     coversExtracted++;
                 } else {
                     coversFailed++;
@@ -460,9 +527,32 @@ export async function POST(_req: NextRequest) {
             });
         }
 
+        // 2026-10-12 P1 封面缩略图迁移：为已有 cover.png 但缺 cover.webp 的存量书补生成
+        // （幂等：每次扫描只处理缺失的，首次迁移后零开销；只新增文件，永不修改旧数据）
+        console.log('[ScanAndImport] Generating missing cover.webp thumbnails...');
+        const thumbBook = async (book: LibraryBook) => {
+            if (!book.relativePath) return;
+            const metadataFolderPath = path.join(
+                STORAGE_ROOT,
+                book.relativePath.replace(/\.[^.]+$/, '')
+            );
+            const pngPath = path.join(metadataFolderPath, 'cover.png');
+            const webpPath = path.join(metadataFolderPath, 'cover.webp');
+            const hasWebp = await fs.stat(webpPath).then(() => true).catch(() => false);
+            if (hasWebp) return;
+            const hasPng = await fs.stat(pngPath).then(() => true).catch(() => false);
+            if (!hasPng) return;
+            await generateCoverThumbWebp(pngPath, webpPath);
+        };
+        for (let i = 0; i < updatedLibrary.length; i += 3) {
+            const batch = updatedLibrary.slice(i, i + 3);
+            await Promise.all(batch.map(thumbBook));
+        }
+
         // Step 7: 直接保存更新的库到 library.json
         // 这是关键优化：后端直接更新，前端无需额外处理
         await saveLibraryJSON(updatedLibrary);
+        await saveHashCache(persistedHashEntries);
 
         console.log('[ScanAndImport] ✓ Scan completed');
         console.log('[ScanAndImport] Summary:', {

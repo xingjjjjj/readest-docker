@@ -162,6 +162,24 @@ export async function GET(req: NextRequest) {
     try {
         const { fullPath, relPath } = resolveLocalPath(filePath, searchParams.get('temp') === '1');
 
+        // 2026-10-12 P1 封面缩略图：存在同级 cover.webp 时 302 重定向（600px WebP）。
+        // 客户端零改动；旧数据无 webp 时自动走原 cover.png —— 完全向后兼容。
+        if (relPath.endsWith('/cover.png') || relPath === 'cover.png') {
+            const webpFull = path.join(path.dirname(fullPath), 'cover.webp');
+            const webpExists = await stat(webpFull).then(() => true).catch(() => false);
+            if (webpExists) {
+                const webpRel = relPath.slice(0, relPath.length - 'cover.png'.length) + 'cover.webp';
+                const tempParam = searchParams.get('temp') === '1' ? '&temp=1' : '';
+                return new NextResponse(null, {
+                    status: 302,
+                    headers: {
+                        Location: `/api/storage/file?filePath=${encodeURIComponent(webpRel)}${tempParam}`,
+                        'Cache-Control': 'public, max-age=86400',
+                    },
+                });
+            }
+        }
+
         // 获取文件信息
         const stats = await stat(fullPath);
 
