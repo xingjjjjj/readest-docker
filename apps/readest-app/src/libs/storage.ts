@@ -24,6 +24,7 @@ const API_ENDPOINTS = {
   scan: getAPIBaseUrl() + '/storage/scan',
   scanAndImport: getAPIBaseUrl() + '/storage/scan-and-import',
   import: getAPIBaseUrl() + '/storage/import',
+  libraryBook: getAPIBaseUrl() + '/storage/library-book',
 };
 
 export const createProgressHandler = (
@@ -269,6 +270,18 @@ interface ListFilesResponse {
   pageSize: number;
   totalPages: number;
 }
+
+// 2026-10-12 P2：单书记录合并端点——进度保存只上行变化的 book（失败由调用方回退全量 PUT）
+export const mergeLibraryBook = async (book: unknown): Promise<void> => {
+  const response = await request(API_ENDPOINTS.libraryBook, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ book }),
+  });
+  if (!response.ok) {
+    throw new Error('Merge library book failed');
+  }
+};
 
 export const listFiles = async (params?: ListFilesParams): Promise<ListFilesResponse> => {
   try {

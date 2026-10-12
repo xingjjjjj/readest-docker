@@ -163,6 +163,21 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
   // 2026-10-12 摘除云同步空壳后，下拉刷新直接从服务端重拉库
   usePullToRefresh(containerRef, handleRefreshLibrary);
 
+  // 2026-10-12 多设备体验：窗口重新聚焦时从服务端拉最新库（60 秒节流，静默失败）
+  useEffect(() => {
+    let lastRefresh = 0;
+    const onFocus = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastRefresh < 60_000) return;
+      lastRefresh = now;
+      handleRefreshLibrary().catch(() => {});
+    };
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [handleRefreshLibrary]);
+
   useEffect(() => {
     if (appService?.hasWindow) {
       const currentWebview = getCurrentWebview();

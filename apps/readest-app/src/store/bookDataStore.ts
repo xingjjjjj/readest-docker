@@ -136,7 +136,14 @@ export const useBookDataStore = create<BookDataState>((set, get) => ({
     // Avoid persisting booknotes into per-book config; notes are stored in centralized notes file
     const { booknotes: _booknotes, ...cleanConfig } = config;
     await appService.saveBookConfig(book, cleanConfig as BookConfig, settings);
-    await appService.saveLibraryBooks(library);
+    // 2026-10-12 P2：优先走服务端合并端点（只上行单书记录，省全量 library.json 上行）；
+    // 失败自动回退旧全量 PUT —— 行为与旧版完全一致
+    try {
+      const { mergeLibraryBook } = await import('@/libs/storage');
+      await mergeLibraryBook(book);
+    } catch {
+      await appService.saveLibraryBooks(library);
+    }
   },
   updateBooknotes: (key: string, booknotes: BookNote[]) => {
     let updatedConfig: BookConfig | undefined;

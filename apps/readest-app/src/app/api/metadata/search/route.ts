@@ -75,6 +75,13 @@ function createResponse<T>(
 
 let metadataService: MetadataService;
 
+// 2026-10-12 P2：刮削结果服务端缓存——同书 24 小时内不重复外呼 Google/OpenLibrary
+const searchResultCache = new Map<string, { ts: number; data: unknown }>();
+const SEARCH_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const SEARCH_CACHE_MAX_ENTRIES = 200;
+const searchCacheKeyFor = (b: SearchRequest): string =>
+  [b.title || '', b.isbn || '', b.author || '', b.language || ''].join('|').toLowerCase().trim();
+
 function getMetadataService(): MetadataService {
   if (!metadataService) {
     metadataService = new MetadataService({
@@ -103,7 +110,19 @@ export async function POST(request: NextRequest) {
     }
 
     const service = getMetadataService();
+    const cacheKey = searchCacheKeyFor(validation.data!);
+    const cachedHit = searchResultCache.get(cacheKey);
+    if (cachedHit && Date.now() - cachedHit.ts < SEARCH_CACHE_TTL_MS) {
+      return NextResponse.json(createResponse(true, cachedHit.data as never, null, Date.now() - startTime));
+    }
     const result = await service.search(validation.data!);
+    if (result) {
+      searchResultCache.set(cacheKey, { ts: Date.now(), data: result });
+      if (searchResultCache.size > SEARCH_CACHE_MAX_ENTRIES) {
+        const oldestKey = searchResultCache.keys().next().value as string;
+        searchResultCache.delete(oldestKey);
+      }
+    }
     const responseTime = Date.now() - startTime;
 
     if (!result) {
