@@ -45,7 +45,12 @@ const isPublicPath = (pathname: string) => {
     pathname.startsWith('/public') ||
     pathname === '/favicon.ico' ||
     pathname === '/robots.txt' ||
-    pathname === '/sitemap.xml'
+    pathname === '/sitemap.xml' ||
+    // 2026-10-13 修复：无 Cookie 静态资源曾被 307 到登录页（manifest 白等 3.7s + 报错）
+    // PWA 清单/图标/翻译文本不含私有数据，放行为公开路径
+    pathname === '/manifest.json' ||
+    pathname === '/icon.png' ||
+    pathname.startsWith('/locales/')
   );
 };
 
