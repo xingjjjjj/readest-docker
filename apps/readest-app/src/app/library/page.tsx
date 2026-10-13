@@ -50,7 +50,6 @@ import { useTransferQueue } from '@/hooks/useTransferQueue';
 import { Toast } from '@/components/Toast';
 import Spinner from '@/components/Spinner';
 import DropIndicator from '@/components/DropIndicator';
-import LandingHero from './components/LandingHero';
 import SettingsDialog from '@/components/settings/SettingsDialog';
 import ModalPortal from '@/components/ModalPortal';
 import GroupSidebar from './components/GroupSidebar';
@@ -565,7 +564,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
                 {/* 馆藏目录视图 / 标注拾遗视图——条件渲染：未打开的视图不渲染不计算，避免两套 DOM 与 useMemo 常驻 */}
                 {view === 'catalogue' ? (
                   <div className='view-catalogue'>
-                    {visibleBooks.length > 0 && searchParams?.get('landing') !== '1' && (
+                    {visibleBooks.length > 0 && (
                       <>
                         <ChronicleBand libraryBooks={visibleBooks} />
                         <Bookshelf
@@ -581,11 +580,7 @@ const LibraryPageContent = ({ searchParams }: { searchParams: ReadonlyURLSearchP
                           currentGroupPath={currentGroupPath}
                         />
                       </>
-                    )}
-                    {(visibleBooks.length === 0 || searchParams?.get('landing') === '1') && (
-                      <LandingHero onImport={handleImportBooksFromFiles} />
-                    )}
-                  </div>
+                    )}                  </div>
                 ) : (
                   <div className='view-marginalia'>
                     {/* 返回按钮——流式排在拾遗标题上方（回滚 D9） */}
