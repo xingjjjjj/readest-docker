@@ -9,7 +9,9 @@ export async function POST(_request: NextRequest) {
         // 清除 auth_token Cookie
         response.cookies.set('auth_token', '', {
             httpOnly: true,
-            secure: process.env['NODE_ENV'] === 'production',
+            // 2026-10-12 修复：NODE_ENV=production 时一律 Secure，HTTP 部署浏览器拒收 cookie 导致无法登录
+            // 对齐 v0205 行为：按请求协议判断（HTTPS 才 Secure）
+            secure: false, // logout 清 cookie 场景：Secure 无意义，恒 false
             sameSite: 'lax',
             path: '/',
             maxAge: 0,

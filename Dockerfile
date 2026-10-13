@@ -9,7 +9,7 @@ COPY packages/foliate-js/package.json ./packages/foliate-js/
 COPY packages/simplecc-wasm/package.json ./packages/simplecc-wasm/
 
 # 安装 pnpm 并安装依赖
-RUN npm install -g pnpm && pnpm install --frozen-lockfile
+RUN npm install -g pnpm@10.28.1 && pnpm install --frozen-lockfile
 
 # 复制源代码
 COPY . .
@@ -28,7 +28,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # 安装 pnpm 和必需工具
-RUN npm install -g pnpm && apk add --no-cache openssl bash
+RUN npm install -g pnpm@10.28.1 && apk add --no-cache openssl bash unzip
 
 # 仅复制必要的文件
 COPY --from=builder /app/pnpm-lock.yaml /app/pnpm-workspace.yaml /app/package.json ./

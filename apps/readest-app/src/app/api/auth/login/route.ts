@@ -38,7 +38,9 @@ export async function POST(request: NextRequest) {
 
         response.cookies.set('auth_token', token, {
             httpOnly: true,
-            secure: process.env['NODE_ENV'] === 'production',
+            // 2026-10-12 修复：NODE_ENV=production 时一律 Secure，HTTP 部署浏览器拒收 cookie 导致无法登录
+            // 对齐 v0205 行为：按请求协议判断（HTTPS 才 Secure）
+            secure: (request.headers.get('x-forwarded-proto') || request.nextUrl.protocol) === 'https:',
             sameSite: 'lax',
             path: '/',
             maxAge: 30 * 24 * 60 * 60,
