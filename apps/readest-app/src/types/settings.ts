@@ -15,9 +15,6 @@ export type LibrarySortByType =
   | 'published';
 export type LibraryCoverFitType = 'crop' | 'fit';
 
-export type KOSyncChecksumMethod = 'binary' | 'filename';
-export type KOSyncStrategy = 'prompt' | 'silent' | 'send' | 'receive';
-
 export interface ReadSettings {
   sideBarWidth: string;
   isSideBarPinned: boolean;
@@ -32,17 +29,6 @@ export interface ReadSettings {
   customHighlightColors: Record<HighlightColor, string>;
   customTtsHighlightColors: string[];
   customThemes: CustomTheme[];
-}
-
-export interface KOSyncSettings {
-  enabled: boolean;
-  serverUrl: string;
-  username: string;
-  userkey: string;
-  deviceId: string;
-  deviceName: string;
-  checksumMethod: KOSyncChecksumMethod;
-  strategy: KOSyncStrategy;
 }
 
 export interface SystemSettings {
@@ -77,8 +63,6 @@ export interface SystemSettings {
   libraryColumns: number;
   customFonts: CustomFont[];
   customTextures: CustomTexture[];
-
-  kosync: KOSyncSettings;
 
   lastSyncedAtBooks: number;
   lastSyncedAtConfigs: number;

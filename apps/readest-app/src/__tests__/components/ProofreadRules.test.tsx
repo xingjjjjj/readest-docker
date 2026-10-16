@@ -85,9 +85,6 @@ describe('ProofreadRulesManager', () => {
     (useSettingsStore.setState as unknown as (state: unknown) => void)({
       settings: {
         globalViewSettings: { proofreadRules: [] },
-        kosync: {
-          enabled: false,
-        },
       },
     });
     (useReaderStore.setState as unknown as (state: unknown) => void)({ viewStates: {} });
@@ -129,7 +126,6 @@ describe('ProofreadRulesManager', () => {
             },
           ],
         },
-        kosync: { enabled: false },
       },
     });
 
@@ -167,7 +163,6 @@ describe('ProofreadRulesManager', () => {
     (useSettingsStore.setState as unknown as (state: unknown) => void)({
       settings: {
         globalViewSettings: { proofreadRules: [] },
-        kosync: { enabled: false },
       },
     });
 
@@ -289,7 +284,6 @@ describe('ProofreadRulesManager', () => {
         globalViewSettings: {
           proofreadRules: [libraryRule],
         },
-        kosync: { enabled: false },
       },
     });
 
@@ -367,7 +361,6 @@ describe('ProofreadRulesManager', () => {
     (useSettingsStore.setState as unknown as (state: unknown) => void)({
       settings: {
         globalViewSettings: { proofreadRules: [] },
-        kosync: { enabled: false },
       },
     });
 
@@ -421,7 +414,6 @@ describe('ProofreadRulesManager', () => {
     (useSettingsStore.setState as unknown as (state: unknown) => void)({
       settings: {
         globalViewSettings: { proofreadRules: [] },
-        kosync: { enabled: false },
       },
     });
     (useReaderStore.setState as unknown as (state: unknown) => void)({
@@ -456,7 +448,6 @@ describe('ProofreadRulesManager', () => {
     (useSettingsStore.setState as unknown as (state: unknown) => void)({
       settings: {
         globalViewSettings: { proofreadRules: [] },
-        kosync: { enabled: false },
       },
     });
 
@@ -514,7 +505,6 @@ describe('ProofreadRulesManager', () => {
         globalViewSettings: {
           proofreadRules: [libraryRule],
         },
-        kosync: { enabled: false },
       },
     });
 

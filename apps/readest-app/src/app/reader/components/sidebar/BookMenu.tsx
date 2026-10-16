@@ -20,7 +20,6 @@ import { FIXED_LAYOUT_FORMATS } from '@/types/book';
 import { DOWNLOAD_READEST_URL } from '@/services/constants';
 import { navigateToLogin } from '@/utils/nav';
 import { saveSysSettings } from '@/helpers/settings';
-import { setKOSyncSettingsWindowVisible } from '@/app/reader/components/KOSyncSettings';
 import { setProofreadRulesVisibility } from '@/app/reader/components/ProofreadRules';
 import { setAboutDialogVisible } from '@/components/AboutWindow';
 import useBooksManager from '../../hooks/useBooksManager';
@@ -85,20 +84,8 @@ const BookMenu: React.FC<BookMenuProps> = ({ menuClassName, setIsDropdownOpen })
     unsetParallel(bookKeys);
     setIsDropdownOpen?.(false);
   };
-  const showKoSyncSettingsWindow = () => {
-    setKOSyncSettingsWindowVisible(true);
-    setIsDropdownOpen?.(false);
-  };
   const showProofreadRulesWindow = () => {
     setProofreadRulesVisibility(true);
-    setIsDropdownOpen?.(false);
-  };
-  const handlePullKOSync = () => {
-    eventDispatcher.dispatch('pull-kosync', { bookKey: sideBarBookKey });
-    setIsDropdownOpen?.(false);
-  };
-  const handlePushKOSync = () => {
-    eventDispatcher.dispatch('push-kosync', { bookKey: sideBarBookKey });
     setIsDropdownOpen?.(false);
   };
   const toggleDiscordPresence = () => {
@@ -162,13 +149,6 @@ const BookMenu: React.FC<BookMenuProps> = ({ menuClassName, setIsDropdownOpen })
           <MenuItem label={_('Enter Parallel Read')} onClick={handleSetParallel} />
         ))}
       <hr className='border-base-200 my-1' />
-      <MenuItem label={_('KOReader Sync')} onClick={showKoSyncSettingsWindow} />
-      {settings.kosync.enabled && (
-        <>
-          <MenuItem label={_('Push Progress')} onClick={handlePushKOSync} />
-          <MenuItem label={_('Pull Progress')} onClick={handlePullKOSync} />
-        </>
-      )}
       {appService?.isDesktopApp && (
         <>
           <hr className='border-base-200 my-1' />
