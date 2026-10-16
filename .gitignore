@@ -67,3 +67,10 @@ result*
 apps/readest-app/.next/
 config/
 apps/readest-app/node_modules/.mf/
+
+# 2026-10-16 收尾: 本地残留与一次性产物
+/root/
+/tmp/
+apps/readest-app/node_modules/
+apps/readest-app/public/sw.js
+apps/readest-app/public/swe-worker-*.js

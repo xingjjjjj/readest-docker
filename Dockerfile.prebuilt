@@ -1,0 +1,40 @@
+# ============================================================
+# Readest 预构建打包镜像（v1012 方案 B）
+# 跳过容器内 next build（该阶段在本机反复触发内核崩溃），
+# 直接采用宿主机已验证的生产构建产物 apps/readest-app/.next。
+# 镜像内容与 Dockerfile 全容器构建完全一致（同源码、同构建参数）。
+# 构建命令：docker build -f Dockerfile.prebuilt -t readest:v1012 .
+# ============================================================
+FROM node:20-alpine
+
+WORKDIR /app
+
+# 国内镜像源加速依赖下载（integrity 仍按 lockfile 校验）
+ENV npm_config_registry=https://registry.npmmirror.com
+
+RUN npm install -g pnpm@10.28.1 && apk add --no-cache openssl bash unzip
+
+# 复制 workspace 配置
+COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
+
+# 复制应用（含宿主机已构建的 .next 生产产物）
+COPY apps/readest-app ./apps/readest-app
+COPY packages ./packages
+
+# 环境变量模板
+COPY .env.example /app/.env.example
+
+# 安装生产依赖并清理缓存
+RUN cd apps/readest-app && \
+    pnpm install --prod --frozen-lockfile && \
+    pnpm store prune
+
+# 入口脚本
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
+WORKDIR /app
+
+EXPOSE 3000
+
+ENTRYPOINT ["/app/entrypoint.sh"]

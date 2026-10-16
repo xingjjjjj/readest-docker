@@ -1,0 +1,55 @@
+# Dockerfile.prebuilt 专用忽略文件（BuildKit 按同名约定自动匹配）
+# 与 .dockerignore 的区别：放行 apps/readest-app/.next（预构建产物），
+# 排除 .next/cache 与 .next/dev（运行时不需要，且体积大）
+
+/node_modules
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+/coverage
+
+# 根级 .next（不存在，防御性保留）
+/.next/
+
+# 关键：放行 apps/readest-app/.next（预构建产物），但排除其中不需要的部分
+apps/readest-app/.next/cache/
+apps/readest-app/.next/dev/
+apps/readest-app/out/
+
+/build
+
+.DS_Store
+*.pem
+/certs
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+.env
+.env.*
+!.env.example
+.env*.local
+
+.vercel
+
+*.tsbuildinfo
+next-env.d.ts
+
+target
+
+fastlane/report.xml
+
+*.koplugin.zip
+
+.vscode/
+.idea/
+
+# 构建上下文重型数据
+/books/
+/backups/
+
+result*
+apps/readest-app/node_modules/.mf/
+config/

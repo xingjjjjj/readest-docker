@@ -34,7 +34,6 @@ const nextConfig = {
   assetPrefix: '',
   reactStrictMode: true,
   serverExternalPackages: ['isows'],
-  turbopack: {},
   transpilePackages: !isDev
     ? [
         'i18next-browser-languagedetector',

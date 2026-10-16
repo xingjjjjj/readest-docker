@@ -1,0 +1,16 @@
+diff --git a/fixed-layout.js b/fixed-layout.js
+index 48519fe..0e8e80d 100644
+--- a/fixed-layout.js
++++ b/fixed-layout.js
+@@ -225,6 +225,11 @@ export class FixedLayout extends HTMLElement {
+         } else {
+             const leftDimensions = transform({frame: left, styles: { marginInlineStart: 'auto' }})
+             const rightDimensions = transform({frame: right, styles: { marginInlineEnd: 'auto' }})
++            if (!leftDimensions || !rightDimensions) {
++                this.#isOverflowX = false
++                this.#isOverflowY = false
++                return
++            }
+             const {width: leftWidth, height: leftHeight, containerWidth, containerHeight} = leftDimensions
+             const {width: rightWidth, height: rightHeight} = rightDimensions
+             this.#isOverflowX = leftWidth + rightWidth > containerWidth
