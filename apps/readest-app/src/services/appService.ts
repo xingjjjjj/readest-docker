@@ -1258,7 +1258,7 @@ export class BaseAppService implements AppService {
   // Each task catches on its own; the chain itself never rejects.
   private _saveLibraryChain: Promise<void> = Promise.resolve();
 
-    private _libraryCache: Book[] | null = null;
+  private _libraryCache: Book[] | null = null;
 
   // 2026-10-12 写放大优化：.bak 每小时最多写一次（原先每次保存全量双写）
   private _lastBakAt: Record<string, number> = {};
@@ -1297,13 +1297,26 @@ export class BaseAppService implements AppService {
     const libraryBooks = books.map(({ coverImageUrl, ...rest }) => rest);
     // 2026-10-15 serialize: enqueue snapshot, lands after previous write.
     // Caller semantics unchanged: still awaits this snapshot persistence.
+    const saveOnce = () =>
+      this.safeSaveJSON(getLibraryFilename(), 'Books', libraryBooks);
+    // 2026-10-16 review fix (b): one retry for transient failures (network/5xx).
+    // Full-snapshot PUT is idempotent so a double write is safe. Page-unload
+    // aborts are NOT covered here (context destroyed) — that class moves to
+    // keepalive/onPause flush in Phase 2 mobile lifecycle work.
     const task = this._saveLibraryChain.then(() =>
-      this.safeSaveJSON(getLibraryFilename(), 'Books', libraryBooks)
+      saveOnce().catch(() => saveOnce())
     );
     this._saveLibraryChain = task.catch(() => {}); // keep chain alive, never rejects
-    // Fix: invalidate cache so loadLibraryBooks won't return stale data after a delete
-    this._libraryCache = null;
-    this.libraryLoadTime = 0;
+    // 2026-10-16 review fix (c): optimistic cache write-through at enqueue time.
+    // Closes the window where a concurrent loadLibraryBooks would fetch the
+    // server's stale copy (this write not yet flushed) and re-cache it for the
+    // 5s TTL, causing read-modify-write consumers to lose updates.
+    // Cache holds the ORIGINAL books (store-shaped, coverImageUrl intact) to
+    // match loadLibraryBooks consumers. Invariant: queued snapshots are
+    // shallow copies — nested fields (progress/readDates) must not be mutated
+    // in place after enqueue.
+    this._libraryCache = books;
+    this.libraryLoadTime = Date.now();
     await task;
   }
 

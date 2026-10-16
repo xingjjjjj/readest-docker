@@ -216,7 +216,7 @@ const Bookshelf: React.FC<BookshelfProps> = ({
   const searchParams = useSearchParams();
   const { appService, envConfig } = useEnv();
   const { settings } = useSettingsStore();
-  const { updateBook, toggleSelectedBook, setSelectedBooks } = useLibraryStore();
+  const { updateBook, updateBooks, toggleSelectedBook, setSelectedBooks } = useLibraryStore();
   const selectedBooksSet = useLibraryStore((s) => s.selectedBooks);
   // 仅用于 SelectModeActions / GroupingModal 等需要数组的下游；书脊选中判定一律用 Set.has（P4）
   const selectedBooks = Array.from(selectedBooksSet);
@@ -571,11 +571,15 @@ const groupId = searchParams?.get('group') || '';
     if (ids.length === 0) return;
     const books = libraryBooks.filter((b) => ids.includes(b.hash));
     const now = Date.now();
-    for (const book of books) {
-      updateBook(envConfig, { ...book, lastReadAt: now, updatedAt: now }).catch((writeErr) =>
-        console.error('[handleOpenSelected] library PUT failed:', writeErr)
-      );
-    }
+    // 2026-10-16 review fix (b-1): merge into ONE updateBooks snapshot so a
+    // single serial PUT covers every selected book (no N-task queue depth,
+    // no stale-snapshot stacking, single retry covers the whole batch).
+    updateBooks(
+      envConfig,
+      books.map((b) => ({ ...b, lastReadAt: now, updatedAt: now }))
+    ).catch((writeErr) =>
+      console.error('[handleOpenSelected] library PUT failed:', writeErr)
+    );
     navigateToReader(router, ids);
   };
 
