@@ -1,4 +1,4 @@
-﻿/* ============================================================
+/* ============================================================
    摩根书房样式 · Morgan Library Aesthetic
    作用域: .morgan-library 及其子元素
    灵感: The Morgan Library & Museum, NY
@@ -254,7 +254,7 @@
 .morgan-library .morgan-main {
   position: relative; z-index: 2;
   max-width: 1440px; margin: 0 auto;
-  display: grid; grid-template-columns: 224px 1fr;
+  display: grid; grid-template-columns: 264px 1fr;
   gap: 0; min-height: calc(100vh - 130px);
 }
 
@@ -334,13 +334,20 @@
 }
 /* 分组树折叠箭头：静态样式收敛到 CSS（组件仅保留动态 transform 内联） */
 .morgan-library .morgan-sidebar .nav-cat .group-chevron {
-  display: inline-block; width: 12px; font-size: var(--fs-label-lg);
-  color: var(--gilt-dim); margin-right: 4px;
-  font-family: 'IBM Plex Mono', monospace;
+  /* 2026-10-13 箭头压缩版：视觉净占位约4px；position化后用::before放大点击热区(→ 18x16px)，修复点击落空 */
+  position: relative; display: inline-block; width: 10px; font-size: 8px; line-height: 1;
+  color: var(--gilt-dim); margin-left: -3px; margin-right: -2px;
+  font-family: 'IBM Plex Mono', monospace; vertical-align: 1px;
   transition: transform .2s ease; cursor: pointer;
 }
+.morgan-library .morgan-sidebar .nav-cat .group-chevron::before {
+  content: ''; position: absolute;
+  left: -7px; right: -3px; top: -8px; bottom: -4px;
+}
 .morgan-library .morgan-sidebar .nav-cat .group-chevron-spacer {
-  display: inline-block; width: 16px;
+  /* 与压缩版箭头同盒模型，保证有/无箭头条目零偏差对齐 */
+  display: inline-block; width: 10px; font-size: 8px; line-height: 1;
+  margin-left: -3px; margin-right: -2px;
 }
 .morgan-library .morgan-sidebar .nav-cat a:hover .group-chevron {
   color: var(--gilt) !important;
@@ -1839,3 +1846,11 @@
 }
 .morgan-library .marg-cover-lg { width: 44px; height: 62px; }
 .morgan-library .marg-cover-sm { width: 34px; height: 48px; }
+
+/* 2026-10-13 侧栏分组可读性：组名单行呈现，超宽省略（五字组名不再换行） */
+.morgan-library .morgan-sidebar .nav-cat a {
+  white-space: nowrap;
+}
+.morgan-library .morgan-sidebar .nav-cat a .cnt {
+  flex-shrink: 0;
+}

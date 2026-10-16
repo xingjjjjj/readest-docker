@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { Book } from '@/types/book';
 import { useLibraryStore } from '@/store/libraryStore';
@@ -45,16 +45,20 @@ const MorganSidebar: React.FC<MorganSidebarProps> = ({
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  // 当 currentGroupPath 变化时，自动展开所有祖先节点
+  // 仅首次挂载时展开当前路径的祖先节点
+  // 2026-10-13 修复：原先依赖 [currentGroupPath] 会在导航回到某组时把用户手动折叠的祖先强制展开
+  // ——表现为"点箭头没反应/自动弹开"。现在只在挂载时同步一次，之后的展开折叠完全由用户掌控。
+  const initialPathRef = useRef(currentGroupPath);
   useEffect(() => {
+    const p = initialPathRef.current;
+    if (!p) return;
     setExpanded((prev) => {
       const next = new Set(prev);
-      for (const ancestor of getAncestorPaths(currentGroupPath)) {
-        next.add(ancestor);
-      }
+      for (const ancestor of getAncestorPaths(p)) next.add(ancestor);
       return next;
     });
-  }, [currentGroupPath]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 流通状态计数
   const statusCounts = useMemo(() => {
@@ -151,7 +155,7 @@ const MorganSidebar: React.FC<MorganSidebarProps> = ({
             <li key={group.id}>
               <a
                 className={isActive ? 'active' : ''}
-                style={{ paddingLeft: `${14 + depth * 16}px` }}
+                style={{ paddingLeft: `${14 + depth * 20}px` }}
                 onClick={() => {
                   expandGroup(path);
                   navigateGroup(path);
@@ -224,6 +228,7 @@ const MorganSidebar: React.FC<MorganSidebarProps> = ({
             className={!currentGroup ? 'active' : ''}
             onClick={() => navigateGroup(undefined)}
           >
+            <span className='group-chevron-spacer' />
             <span className='roman'>{ROMAN[0]}</span>
             全部书架
             <span className='cnt'>{libraryBooks.length}</span>
