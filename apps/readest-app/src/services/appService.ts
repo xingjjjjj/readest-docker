@@ -1254,7 +1254,11 @@ export class BaseAppService implements AppService {
     }
   }
 
-  private _libraryCache: Book[] | null = null;
+  // 2026-10-15 write queue: serialize all library.json PUTs (chained).
+  // Each task catches on its own; the chain itself never rejects.
+  private _saveLibraryChain: Promise<void> = Promise.resolve();
+
+    private _libraryCache: Book[] | null = null;
 
   // 2026-10-12 写放大优化：.bak 每小时最多写一次（原先每次保存全量双写）
   private _lastBakAt: Record<string, number> = {};
@@ -1291,10 +1295,16 @@ export class BaseAppService implements AppService {
   async saveLibraryBooks(books: Book[]): Promise<void> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const libraryBooks = books.map(({ coverImageUrl, ...rest }) => rest);
-    await this.safeSaveJSON(getLibraryFilename(), 'Books', libraryBooks);
+    // 2026-10-15 serialize: enqueue snapshot, lands after previous write.
+    // Caller semantics unchanged: still awaits this snapshot persistence.
+    const task = this._saveLibraryChain.then(() =>
+      this.safeSaveJSON(getLibraryFilename(), 'Books', libraryBooks)
+    );
+    this._saveLibraryChain = task.catch(() => {}); // keep chain alive, never rejects
     // Fix: invalidate cache so loadLibraryBooks won't return stale data after a delete
     this._libraryCache = null;
     this.libraryLoadTime = 0;
+    await task;
   }
 
   /**

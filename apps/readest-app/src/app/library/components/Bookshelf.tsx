@@ -425,7 +425,11 @@ const groupId = searchParams?.get('group') || '';
           if (!available) return;
         }
         const now = Date.now();
-        await updateBook(envConfig, { ...book, lastReadAt: now, updatedAt: now });
+        // 2026-10-15 write-behind: store (incl. lastReadAt) updates instantly,
+        // library.json persists via the serial queue without blocking nav.
+        updateBook(envConfig, { ...book, lastReadAt: now, updatedAt: now }).catch(
+          (writeErr) => console.error('[handleBookClick] library PUT failed (nav unaffected):', writeErr)
+        );
         if (appService?.hasWindow && settings.openBookInNewWindow) {
           showReaderWindow(appService, [book.hash]);
         } else {
@@ -568,7 +572,9 @@ const groupId = searchParams?.get('group') || '';
     const books = libraryBooks.filter((b) => ids.includes(b.hash));
     const now = Date.now();
     for (const book of books) {
-      await updateBook(envConfig, { ...book, lastReadAt: now, updatedAt: now });
+      updateBook(envConfig, { ...book, lastReadAt: now, updatedAt: now }).catch((writeErr) =>
+        console.error('[handleOpenSelected] library PUT failed:', writeErr)
+      );
     }
     navigateToReader(router, ids);
   };

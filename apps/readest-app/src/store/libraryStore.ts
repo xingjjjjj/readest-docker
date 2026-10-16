@@ -36,8 +36,8 @@ interface LibraryState {
   setCheckOpenWithBooks: (check: boolean) => void;
   setCheckLastOpenBooks: (check: boolean) => void;
   setLibrary: (books: Book[]) => void;
-  updateBook: (envConfig: EnvConfigType, book: Book) => void;
-  updateBooks: (envConfig: EnvConfigType, books: Book[]) => void;
+  updateBook: (envConfig: EnvConfigType, book: Book) => Promise<void>;
+  updateBooks: (envConfig: EnvConfigType, books: Book[]) => Promise<void>;
   setCurrentBookshelf: (bookshelf: (Book | BooksGroup)[]) => void;
   refreshGroups: () => void;
   addGroup: (name: string) => BookGroupType;
