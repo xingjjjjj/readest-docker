@@ -417,8 +417,13 @@ const groupId = searchParams?.get('group') || '';
       if (isSelectMode) {
         toggleSelectedBook(book.hash);
       } else {
-        const available = await appService?.isBookAvailable(book);
-        if (!available) return;
+        // 2026-10-15 还原 v0205 守卫:本地已在库的书(downloadedAt 已置位)直接放行;
+        // 仅"云端有、本地未落盘"的书才现场校验。旧逻辑每次点击都 isBookAvailable
+        // → exists+stats 全量拉书,111MB PDF 点击即卡 10s+(详见 apiFileSystem 轻量化注释)
+        if (book.uploadedAt && !book.downloadedAt) {
+          const available = await appService?.isBookAvailable(book);
+          if (!available) return;
+        }
         const now = Date.now();
         await updateBook(envConfig, { ...book, lastReadAt: now, updatedAt: now });
         if (appService?.hasWindow && settings.openBookInNewWindow) {

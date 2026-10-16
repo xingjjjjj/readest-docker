@@ -1023,16 +1023,23 @@ export class BaseAppService implements AppService {
 
   async getBookFileSize(book: Book): Promise<number | null> {
     const fp = getLocalBookFilename(book);
-    if (await this.fs.exists(fp, 'Books')) {
-      const file = await this.fs.openFile(fp, 'Books');
-      const size = file.size;
-      const f = file as ClosableFile;
-      if (f && f.close) {
-        await f.close();
+    // 2026-10-15 轻量化:改走元数据 stats;旧实现 openFile 会把整本书下载到浏览器只为读 size
+    try {
+      const stats = await this.fs.stats(fp, 'Books');
+      return stats.size;
+    } catch {
+      // stats 不可用时保留旧 openFile 兜底
+      if (await this.fs.exists(fp, 'Books')) {
+        const file = await this.fs.openFile(fp, 'Books');
+        const size = file.size;
+        const f = file as ClosableFile;
+        if (f && f.close) {
+          await f.close();
+        }
+        return size;
       }
-      return size;
+      return null;
     }
-    return null;
   }
 
   async loadBookContent(book: Book): Promise<BookContent> {
@@ -1488,7 +1495,7 @@ export class BaseAppService implements AppService {
       return backupResult.data as T;
     }
 
-    console.error(`Both ${filename} and ${backupFilename} failed to load`);
+    console.warn(`[Init] ${filename} unavailable (likely unauthenticated pre-login or missing) — using default`);
     return defaultValue;
   }
 

@@ -198,6 +198,8 @@ export const apiFileSystem: FileSystem = {
         });
         if (!res.ok) {
             const msg = await res.text().catch(() => res.statusText);
+            // 2026-10-13 未登录阶段初始化写属预期失败(中间件401)：静默返回，登录后 init 会重跑
+            if (res.status === 401) return;
             throw new Error(`Failed to write file: ${res.status} ${msg}`);
         }
         console.log('[APIFileSystem.writeFile] ✅ Single write completed:', buffer.length, 'bytes');
@@ -233,18 +235,43 @@ export const apiFileSystem: FileSystem = {
             // Treat empty path as existing to prevent spurious 400s against /api/storage/file
             return true;
         }
-        const res = await fetch(`/api/storage/file?filePath=${encodeURIComponent(fp)}`);
+        // 2026-10-15 轻量化:改走 /file/info 元数据端点判断存在性。
+        // 旧实现 GET /api/storage/file 会把整个文件拉下来只为读 HTTP 状态码
+        // (点书卡触发 exists+stats,111MB 的书一次点击即 220MB+ 流量并阻塞导航约 10s)
+        const res = await fetch(`/api/storage/file/info?filePath=${encodeURIComponent(fp)}`);
+        if (res.status === 501) {
+            // 端点不可用(非本地存储部署):退回旧 GET 行为保持兼容
+            const legacy = await fetch(`/api/storage/file?filePath=${encodeURIComponent(fp)}`);
+            return legacy.ok;
+        }
         return res.ok;
     },
     async stats(path: string, base: BaseDir) {
         const { fp } = this.resolvePath(path, base);
-        const res = await fetch(`/api/storage/file?filePath=${encodeURIComponent(fp)}`);
+        // 2026-10-15 轻量化:stats 走 /file/info(服务端 node:fs stat),
+        // 不再把整个文件 arrayBuffer 进内存只为量大小
+        const res = await fetch(`/api/storage/file/info?filePath=${encodeURIComponent(fp)}`);
         if (!res.ok) throw new Error('File not found');
-        const buffer = await res.arrayBuffer();
+        const json = await res.json().catch(() => null);
+        if (json && typeof json.size === 'number') {
+            return {
+                isFile: true,
+                isDirectory: false,
+                size: json.size,
+                mtime: typeof json.mtime === 'number' ? new Date(json.mtime) : null,
+                atime: null,
+                birthtime: null,
+            };
+        }
+        // 兜底:info 返回异常时用 HEAD 取 Content-Length
+        const head = await fetch(`/api/storage/file?filePath=${encodeURIComponent(fp)}`, {
+            method: 'HEAD',
+        });
+        if (!head.ok) throw new Error('File not found');
         return {
             isFile: true,
             isDirectory: false,
-            size: buffer.byteLength,
+            size: parseInt(head.headers.get('content-length') || '0', 10) || 0,
             mtime: null,
             atime: null,
             birthtime: null,
